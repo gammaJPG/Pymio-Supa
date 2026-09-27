@@ -1,0 +1,114 @@
+<section class="tab-panel" id="tab-ecosistema" aria-label="Ecosistema Pyme">
+  <header class="ecosystem-hero"><div><p class="eyebrow">El valor de estar conectados</p><h2>Tu próxima oportunidad<br>está más cerca.</h2><p>Una comunidad de pymes. Más caminos para crecer.</p></div><div class="ecosystem-art" aria-hidden="true"><svg width="0" height="0" class="bee-filter"><defs><filter id="bee-olive" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 .698 0 0 0 0 .675 0 0 0 0 .455 -.2126 -.7152 -.0722 1 0"/></filter></defs></svg><img src="assets/pymio-community-bees.png" alt="" width="1343" height="1171"></div></header>
+  <p class="ecosistema-demo">Ecosistema Pyme · Demostración. Las conexiones, reservas e inscripciones no se envían.</p>
+  <p class="ecosistema-feedback" role="status" hidden></p>
+<div class="subnav" id="subnav" role="group" aria-label="Secciones de Ecosistema Pyme"></div>
+
+        <!-- MI RED & COMUNIDADES -->
+        <section class="subpanel" id="sub-red">
+          <div class="section-intro">
+            <h2>Mi Red &amp; Comunidades</h2>
+            <p>Los grupos a los que perteneces y el espacio de consultas rápidas de la comunidad.</p>
+          </div>
+          <div class="grid-3" id="community-grid" style="margin-bottom:26px;"></div>
+          <div class="card">
+            <div class="card-head">
+              <h3>Mente Factura — consultas rápidas</h3>
+              <span class="sub">Foro Q&amp;A de la comunidad</span>
+            </div>
+            <div id="qa-list"></div>
+          </div>
+        </section>
+
+        <!-- EXPLORAR & MATCHMAKING -->
+        <section class="subpanel" id="sub-explorar">
+          <div class="section-intro">
+            <h2>Explorar &amp; Matchmaking</h2>
+            <p>Sugerencias activas basadas en tus datos, más el buscador avanzado de proveedores y clientes.</p>
+          </div>
+          <div class="search-toolbar">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
+              <input type="text" id="match-search" aria-label="Buscar empresas" placeholder="Buscar por nombre, rubro o ubicación">
+            </div>
+            <button class="filter-chip">Rubro</button>
+            <button class="filter-chip">Ubicación</button>
+            <button class="filter-chip">Certificaciones</button>
+            <button class="filter-chip">Volumen de operación</button>
+          </div>
+          <div class="grid-3" id="match-grid"></div>
+        </section>
+
+        <!-- MERCADO B2B -->
+        <section class="subpanel" id="sub-mercado">
+          <div class="section-intro">
+            <h2>Mercado B2B</h2>
+            <p>Muro de oportunidades, compras agrupadas y licitaciones privadas entre pymes.</p>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-head">
+                <h3>Muro de ofertas y demandas</h3>
+                <span class="sub">Actualizado hoy</span>
+              </div>
+              <div id="wall-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <h3>Compras conjuntas activas</h3>
+                <span class="sub">Economías de escala</span>
+              </div>
+              <div id="groupbuy-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PYMIO EXPRESS -->
+        <section class="subpanel" id="sub-express">
+          <div class="section-intro">
+            <h2>Pymio Express</h2>
+            <p>Mercado relámpago para liberar inventario ocioso y conexiones B2B en micro-sesiones de segundos.</p>
+          </div>
+          <div class="express-layout">
+            <div>
+              <h3 style="font-size:14px;margin-bottom:12px;">Ofertas relámpago</h3>
+              <div class="flash-scroll" id="flash-list"></div>
+            </div>
+            <div>
+              <h3 style="font-size:14px;margin-bottom:12px;">Caza-Proveedores Express</h3>
+              <div class="card">
+                <div class="swipe-stack" id="swipe-stack"></div>
+                <div class="swipe-actions">
+                  <button class="swipe-btn skip" id="btn-skip" aria-label="Omitir" title="Omitir">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+                  </button>
+                  <button class="swipe-btn quote" id="btn-quote" aria-label="Cotización Express" title="Cotización Express">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button class="swipe-btn connect" id="btn-connect" aria-label="Conectar" title="Conectar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5l4.5 4.5L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- EVENTOS & BENEFICIOS -->
+        <section class="subpanel" id="sub-eventos">
+          <div class="section-intro">
+            <h2>Eventos &amp; Beneficios</h2>
+            <p>Talleres, capacitaciones gremiales y alianzas exclusivas para la comunidad Pymio.</p>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-head"><h3>Próximos eventos</h3></div>
+              <div id="event-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Beneficios y alianzas</h3></div>
+              <div id="benefit-list"></div>
+            </div>
+          </div>
+        </section>
+</section>

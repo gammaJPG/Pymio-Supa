@@ -1,0 +1,19 @@
+{
+  "id": "./piloto.html",
+  "name": "Pymio — Gestión Inteligente para Pymes",
+  "short_name": "Pymio",
+  "lang": "es",
+  "start_url": "./piloto.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F7F7F5",
+  "theme_color": "#101214",
+  "icons": [
+    {
+      "src": "assets/pymio-icon.jpeg",
+      "sizes": "1254x1254",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
