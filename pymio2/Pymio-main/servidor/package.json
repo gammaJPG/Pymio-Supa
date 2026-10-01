@@ -2,6 +2,6 @@
   "name": "inventario-api-local",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node --use-system-ca --env-file=.env dev.mjs", "start:api": "node --use-system-ca --env-file=.env server.mjs", "test": "node --test" },
+  "scripts": { "start": "node --env-file=.env dev.mjs", "start:api": "node --env-file=.env server.mjs", "test": "node --test" },
   "engines": { "node": ">=20.10" }
 }
