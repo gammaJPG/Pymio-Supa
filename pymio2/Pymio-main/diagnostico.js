@@ -5,11 +5,7 @@
      extra:'Recomendación: renegociar precio con el proveedor Distribuidora Andes o ajustar el precio de venta en los 6 SKUs más afectados. Se puede revisar el detalle producto por producto en la pestaña Inventario.'},
   ];
 
-  export function renderAlerts({demo=true}={}){
-    if(!demo){
-      document.getElementById('alert-list').innerHTML='<div class="alert-card"><div class="alert-title">Aún no hay datos suficientes para crear un diagnóstico.</div><div class="alert-desc">Agrega productos y registra movimientos. Pymio mostrará aquí señales cuando pueda comparar tu operación.</div></div>';
-      return;
-    }
+  export function renderAlerts(){
     document.getElementById('alert-list').innerHTML = alerts.map((a, i) => `
       <div class="alert-card ${a.sev}" id="alert-${i}">
         <div class="alert-top">

@@ -2,16 +2,11 @@ import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
 import { iniciarEcosistema } from './ecosistema.js';
-import { apiBase, setupOfflineUI, startOffline, stopOffline } from './offline.js';
+import { setupOfflineUI, startOffline, stopOffline } from './offline.js';
 setupOfflineUI();
-import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=44';
+import { renderDashboard, renderInicio } from './dashboard.js?v=43';
 import { renderAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js';
-
-const apiUrl=apiBase;
-const browserFetch=window.fetch.bind(window);
-window.fetch=(input,options={})=>browserFetch(input,{...options,credentials:'include'});
-let currentSession=null;
 
 // Inserta las vistas antes de iniciar sus controladores. Conserva el DOM al volver a entrar.
 let seccionesCargadas = false;
@@ -48,71 +43,65 @@ async function cargarSecciones() {
     {sev:'warn', title:'Stock bajo', desc:'"Organizador modular x6" quedó con solo 4 unidades.', time:'Hace 5 horas'},
   ];
 
-  // ---------- ACCESO Y CUENTAS ----------
+  // ---------- LOGIN ----------
   const loginForm = document.getElementById('login-form');
   const loginError = document.getElementById('login-error');
-  loginForm.reset();
-  ['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');
-  let authMode='login';
-  document.querySelectorAll('[data-auth-mode]').forEach(button=>button.addEventListener('click',()=>{
-    if(authMode!==button.dataset.authMode){loginForm.reset();['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');}
-    authMode=button.dataset.authMode;
-    document.querySelectorAll('[data-auth-mode]').forEach(option=>{const active=option===button;option.classList.toggle('active',active);option.setAttribute('aria-selected',String(active));});
-    document.querySelectorAll('.signup-field').forEach(field=>field.hidden=authMode!=='register');
-    document.getElementById('business-name').required=authMode==='register';
-    document.getElementById('username-label').textContent=authMode==='register'?'Correo electrónico':'Correo o usuario';
-    document.getElementById('username').placeholder=authMode==='register'?'tu@empresa.cl':'correo@empresa.cl o pilotodepruebas';
-    document.getElementById('username').autocomplete=authMode==='register'?'email':'username';
-    document.getElementById('password').autocomplete=authMode==='register'?'new-password':'current-password';
-    document.querySelector('[data-auth-submit]').textContent=authMode==='register'?'Crear mi espacio':'Entrar a Pymio';
-    document.getElementById('auth-title').innerHTML=authMode==='register'?'Tu negocio,<br>en un espacio propio.':'Todo comienza<br>con una buena mirada.';
-    document.getElementById('auth-description').textContent=authMode==='register'?'Crea una cuenta y empieza con un espacio limpio para tu pyme.':'Entra a Pymio y encuentra lo importante de tu negocio.';
-    loginError.style.display='none';
-  }));
-
-  async function enterApp(session){
-    currentSession=session;
-    await cargarSecciones();
-    await configureDashboard({companyId:session.companyId,demo:session.demo,apiUrl});
-    const business=session.businessName||'Mi negocio', role=session.demo?'Cuenta piloto':'Cuenta personal';
-    const initials=business.split(/\s+/).filter(Boolean).slice(0,2).map(word=>word[0]).join('').toUpperCase()||'PY';
-    document.getElementById('sidebar-account-type').textContent=role;
-    document.getElementById('sidebar-business-name').textContent=business;
-    document.getElementById('workspace-mode').textContent=session.demo?'Vista piloto':'Espacio de trabajo';
-    document.getElementById('account-avatar').textContent=initials;
-    document.getElementById('account-name').textContent=business;
-    document.getElementById('account-role').textContent=role;
-    document.querySelector('[data-first-steps]').hidden=session.demo;
-    document.getElementById('preview-mode-label').textContent=session.demo?'Vista previa · Datos de demostración':'Tus datos · Actualizados desde tu espacio';
-    document.querySelector('.period-note small').textContent=session.demo?'Datos de demostración':'Datos de tu empresa';
-    document.querySelector('.dash-filters .sub').textContent=session.demo?'Datos de demostración':'Información de tu espacio';
-    if(!session.demo){
-      const insight=document.querySelector('.insight-card');insight.querySelector('h3').innerHTML='Tus próximas señales<br>aparecerán aquí.';insight.querySelector('p').textContent='Registra ventas, compras y costos para que Pymio encuentre oportunidades en tu operación.';insight.querySelector('.insight-foot').textContent='Análisis pendiente · Aún no hay datos suficientes';
-      document.querySelector('.diagnostic-summary [data-alert-count]').textContent='0';document.querySelector('.diagnostic-summary p').textContent='Tus datos · Análisis pendiente';document.querySelector('.diagnostic-summary .diagnostic-label').textContent='Sin alertas';
-      const diagnosisLink=[...document.querySelectorAll('.home-feature-list small')].find(element=>element.textContent.includes('diagnóstico'));if(diagnosisLink)diagnosisLink.textContent='Encuentra señales cuando tu operación tenga datos suficientes.';
-    }
-    startOffline(session.companyId);
-    iniciarMovimientos({companyId:session.companyId});
-    document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
-    document.querySelector('.skip-link').href='#main-content';initApp();navigateTo('inicio');revealView(document.querySelector('.tab-panel.active'),{first:true});
-    import('./inventario.js').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
-      console.error('No se pudo iniciar el inventario:',error);const tabla=document.getElementById('inv-table');tabla.replaceChildren();const celda=tabla.insertRow().insertCell();celda.colSpan=10;celda.textContent='No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
-    });
-  }
-
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const submit=loginForm.querySelector('[type="submit"]');submit.disabled=true;submit.setAttribute('aria-busy','true');loginError.style.display='none';
-    const identifier=document.getElementById('username').value.trim(),password=document.getElementById('password').value;
-    const body=authMode==='register'?{email:identifier,password,businessName:document.getElementById('business-name').value.trim(),ownerName:document.getElementById('owner-name').value.trim()}:{identifier,password};
-    try { const response=await fetch(apiUrl+'/api/auth/'+authMode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo completar el acceso.');await enterApp(result.session); }
-    catch(error){loginError.textContent=error.message;loginError.style.display='block';}
-    finally{submit.disabled=false;submit.removeAttribute('aria-busy');}
+    const u = document.getElementById('username').value.trim();
+    const p = document.getElementById('password').value;
+    if(u === 'pilotodepruebas' && p === 'consultoriaswc'){
+      const submit = loginForm.querySelector('[type="submit"]');
+      submit.disabled = true;
+      submit.setAttribute('aria-busy', 'true');
+      loginError.style.display = 'none';
+      try {
+        await cargarSecciones();
+      } catch (error) {
+        console.error('No se pudieron cargar las secciones:', error);
+        loginError.textContent = 'No se pudieron cargar las secciones. Comprueba la conexión e inténtalo nuevamente.';
+        loginError.style.display = 'block';
+        return;
+      } finally {
+        submit.disabled = false;
+        submit.removeAttribute('aria-busy');
+      }
+      const Id = 1;
+      startOffline(Id);
+      iniciarMovimientos({ companyId: Id });
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'block';
+      document.querySelector('.skip-link').href = '#main-content';
+      initApp();
+      navigateTo('inicio');
+      revealView(document.querySelector('.tab-panel.active'), {first:true});
+
+      import('./inventario.js').then(({ iniciarInventario }) => {
+        return iniciarInventario({ companyId: Id });
+      }).catch(error => {
+        console.error('No se pudo iniciar el inventario:', error);
+        const tabla = document.getElementById('inv-table');
+        tabla.replaceChildren();
+        const celda = tabla.insertRow().insertCell();
+        celda.colSpan = 10;
+        celda.textContent = 'No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
+      });
+    } else {
+      loginError.textContent = 'Usuario o contraseña incorrectos. Inténtalo de nuevo.';
+      loginError.style.display = 'block';
+    }
   });
 
 
 
-  document.getElementById('logout-btn').addEventListener('click', async () => {stopOffline();await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    stopOffline();
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    loginForm.reset();
+    document.querySelector('.skip-link').href = '#login-form';
+    loginError.style.display = 'none';
+  });
 
   // ---------- NAV TABS ----------
   const tabTitles = {inicio:'Inicio', dashboard:'Dashboard', diagnostico:'Diagnóstico', movimientos:'Movimientos', inventario:'Inventario', ecosistema:'RED Pymio'};
@@ -166,8 +155,7 @@ async function cargarSecciones() {
 
   function renderNotifications(){
     const list = document.getElementById('notif-list');
-    const visible=currentSession?.demo?notifData:[];
-    list.innerHTML = visible.length?visible.map((n, i) => `
+    list.innerHTML = notifData.map((n, i) => `
       <div class="notif-item ${i >= unread ? 'read' : ''}">
         <div class="dot ${n.sev}"></div>
         <div>
@@ -176,8 +164,8 @@ async function cargarSecciones() {
           <div class="n-time">${n.time}</div>
         </div>
       </div>
-    `).join(''):'<div class="notif-empty">Aún no tienes notificaciones.</div>';
-    notifBadge.style.display = unread > 0 && visible.length ? 'flex' : 'none';
+    `).join('');
+    notifBadge.style.display = unread > 0 ? 'flex' : 'none';
     notifBadge.textContent = unread;
   }
 
@@ -210,10 +198,7 @@ async function cargarSecciones() {
     iniciarEcosistema();
     renderDashboard();
     renderInicio();
-    renderAlerts({demo:currentSession?.demo});
+    renderAlerts();
 
-    unread=currentSession?.demo?notifData.length:0;
     renderNotifications();
   }
-
-  fetch(apiUrl+'/api/auth/session').then(async response=>{if(response.ok){const result=await response.json();await enterApp(result.session);}}).catch(()=>{});

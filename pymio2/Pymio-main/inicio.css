@@ -49,6 +49,3 @@
 /* Keep descriptive text readable over the decorative background. */
 .home-feature-list>button{background:rgba(255,255,255,.86);}
 .home-feature-list>button:hover{background:#eceee4;}
-.home-first-steps{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:24px 28px;margin:0 0 28px;border:1px solid #e5d99d;border-radius:18px;background:#fff8dccc;}
-.home-first-steps[hidden]{display:none}.home-first-steps h2{font-size:24px;margin:4px 0 6px}.home-first-steps p{margin:0;color:var(--muted);max-width:650px;line-height:1.5}.home-first-steps .eyebrow{font-size:10px;font-weight:700;letter-spacing:.13em;color:#80630b;text-transform:uppercase}.home-first-steps .home-action{flex:0 0 auto}
-@media(max-width:700px){.home-first-steps{display:block;padding:22px}.home-first-steps .home-action{margin-top:18px;width:100%}}
