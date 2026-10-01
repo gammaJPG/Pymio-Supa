@@ -67,6 +67,24 @@ export function renderInicio() {
       transactions.push({id:'VT-'+String(transactions.length+1).padStart(4,'0'),date,sku:p.sku,cat:p.cat,name:p.name,qty,amount:qty*p.price,status:(day*14+i)%89===0?'pending':'paid'});
     });
   }
+  const demoInventory=inventory.map(product=>({...product}));
+  const demoTransactions=transactions.map(transaction=>({...transaction}));
+  let dashboardDemo=true;
+  export async function configureDashboard({companyId,demo,apiUrl='http://127.0.0.1:3001'}){
+    dashboardDemo=Boolean(demo);
+    if(dashboardDemo){inventory.splice(0,inventory.length,...demoInventory.map(product=>({...product})));transactions.splice(0,transactions.length,...demoTransactions.map(transaction=>({...transaction})));return;}
+    const endpoint=path=>{const url=new URL(path,apiUrl);url.searchParams.set('company_id',companyId);return url;};
+    const [productsResponse,movementsResponse]=await Promise.all([fetch(endpoint('/api/products'),{cache:'no-store'}),fetch(endpoint('/api/movements'),{cache:'no-store'})]);
+    if(!productsResponse.ok||!movementsResponse.ok)throw new Error('No se pudieron cargar los datos de tu espacio.');
+    const products=await productsResponse.json(),movements=await movementsResponse.json();
+    const productById=new Map(products.map(product=>[String(product.id),product]));
+    inventory.splice(0,inventory.length,...products.map(product=>{const qty=Number(product.qty)||0,critical=Number(product.crit_qty)||0,low=Number(product.low_qty)||0;return {...product,cat:product.category,qty,price:Number(product.price)||0,cost:Number(product.cost)||0,status:qty<=0?'out':qty<=critical?'out':qty<=low?'low':'ok'};}));
+    const sales=[];
+    movements.filter(movement=>movement.operation_detail==='Venta'||movement.operation==='Egreso').forEach(movement=>{
+      (movement.products||[]).forEach((line,index)=>{const product=productById.get(String(line.product_id));sales.push({id:movement.code+'-'+index,date:new Date(movement.occurred_at),sku:line.sku||product?.sku||'',cat:product?.category||'Otros',name:line.name||product?.name||'Producto',qty:Math.abs(Number(line.units)||0),amount:Number(line.net_total??line.total)||0,status:String(movement.Estado||'').toLowerCase()==='pagado'?'paid':'pending'});});
+    });
+    transactions.splice(0,transactions.length,...sales);
+  }
   function clp(v){return '$'+Math.round(v).toLocaleString('es-CL');}
   function number(v){return v.toLocaleString('es-CL');}
   function getDashFilters(){return {period:document.getElementById('dash-period').value,category:document.getElementById('dash-category').value};}
@@ -245,11 +263,11 @@ function openAttention(kind){
   const link=document.getElementById('dash-attention-link');link.hidden=false;link.dataset.goTab=low?'inventario':'movimientos';link.textContent=low?'Abrir inventario real ↗':'Abrir movimientos reales ↗';link.onclick=()=>document.getElementById('category-dialog').close();
   const rows=low?inventory.filter(p=>p.status==='low'&&(!category||p.cat===category)):transactions.filter(t=>t.status==='pending');
   document.getElementById('category-dialog-title').textContent=low?'Productos con stock bajo':'Ventas por cobrar';
-  document.getElementById('category-dialog-period').textContent='Datos de demostración · '+(low?(category||'Todas las categorías'):'Todos los períodos y categorías');
+  document.getElementById('category-dialog-period').textContent=(dashboardDemo?'Datos de demostración':'Datos de tu espacio')+' · '+(low?(category||'Todas las categorías'):'Todos los períodos y categorías');
   document.getElementById('category-dialog-share').textContent=number(rows.length);
   document.getElementById('category-dialog-income').textContent=low?'Productos que necesitan atención':'Transacciones por revisar';
   document.querySelector('#category-dialog h3').textContent=low?'Stock disponible':'Detalle de pendientes';
-  document.querySelector('#category-dialog .dialog-note').textContent='Ejemplo del archivo de referencia. Los registros reales están en '+(low?'Inventario.':'Movimientos.');
+  document.querySelector('#category-dialog .dialog-note').textContent=dashboardDemo?'Ejemplo de la cuenta piloto. Los registros reales están en '+(low?'Inventario.':'Movimientos.'):'Información calculada desde tus '+(low?'productos.':'movimientos.');
   const list=document.getElementById('category-dialog-products');list.replaceChildren();
   rows.forEach(p=>{const li=document.createElement('li');li.textContent=low?p.name+' · '+p.qty+' unidades':p.id+' · '+p.name+' · '+clp(p.amount);list.append(li);});
   document.getElementById('category-dialog-note').textContent=rows.length?'':'No hay registros para esta selección.';
