@@ -1,5 +1,5 @@
 import { offlineFetch as fetch, apiBase } from './offline.js';
-import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario } from './movimientos-vista.js';
+import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario, ordenarMovimientos } from './movimientos-vista.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
   if (panel.dataset.initialized) return;
@@ -88,6 +88,31 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   }
   filterPeriod.onchange = () => { applyPeriod(); status.textContent = ''; refresh(); };
   for (const input of [filterFrom, filterTo]) input.onchange = () => { filterPeriod.value = 'custom'; status.textContent = ''; refresh(); };
+  const sortHeaders = [...panel.querySelectorAll('[data-movement-sort]')];
+  let displayedMovements = [], movementOrder = null;
+  function renderMovementList() {
+    const ordered=ordenarMovimientos(displayedMovements,movementOrder);
+    renderMovimientos($('#movimientos-table'),ordered);
+    if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent='No hay movimientos para el período seleccionado.';
+  }
+  sortHeaders.forEach(header => {
+    const sort=()=>{
+      const same=movementOrder?.field===header.dataset.movementSort;
+      movementOrder={field:header.dataset.movementSort,type:header.dataset.type,direction:same?-movementOrder.direction:(header.dataset.type==='texto'?1:-1)};
+      sortHeaders.forEach(item=>{
+        const active=item===header;
+        item.setAttribute('aria-sort',active?(movementOrder.direction===1?'ascending':'descending'):'none');
+        item.querySelector('span').textContent=active?(movementOrder.direction===1?'↑':'↓'):'↕';
+      });
+      renderMovementList();
+    };
+    header.onclick=sort;
+    header.onkeydown=event=>{
+      if(event.key!=='Enter' && event.key!==' ')return;
+      event.preventDefault();
+      sort();
+    };
+  });
   let refreshVersion = 0;
   async function refresh(targetCode = null) {
     const current = ++refreshVersion;
@@ -116,9 +141,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         data.unshift(detail);
       }
       if (current !== refreshVersion) return;
-      const filtered = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value));
-      renderMovimientos($('#movimientos-table'), filtered);
-      if (!filtered.length) $('#movimientos-table').rows[0].cells[0].textContent = 'No hay movimientos para el período seleccionado.';
+      displayedMovements = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value));
+      renderMovementList();
       if (targetCode) {
         const row = [...panel.querySelectorAll('[data-movement-code]')].find(r => r.dataset.movementCode === targetCode);
         const toggle = row.querySelector('.movimiento-toggle');
@@ -345,7 +369,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       }
       pending = null;
       dialog.close();
-      status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}. Inventario actualizado.`;
+      status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : mode === 'add' ? '' : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}. Inventario actualizado.`;
       document.dispatchEvent(new CustomEvent('inventario-actualizado'));
       await refresh();
     } catch (err) {

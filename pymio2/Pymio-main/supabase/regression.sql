@@ -7,7 +7,7 @@ DECLARE cat jsonb; customer jsonb; product jsonb; product2 jsonb; body jsonb; re
 BEGIN
  IF jsonb_array_length(public.pymio_api('product.list',1))=0 THEN RAISE EXCEPTION 'Missing imported products'; END IF;
  cat:=public.pymio_api('category.post',1,'{"name":"QAS SUPABASE"}');
- body:=jsonb_build_object('name','QA product','category','QAS SUPABASE','qty',10,'cost',100,'price',200,'crit_qty',1,'low_qty',2,'created_at',now(),'updated_at',now(),'image_path','1/10000000-0000-4000-8000-000000000099.webp');
+ body:=jsonb_build_object('name','QA product','category','QAS SUPABASE','qty',10,'cost',100,'price',200,'crit_qty',1,'created_at',now(),'updated_at',now(),'image_path','1/10000000-0000-4000-8000-000000000099.webp');
  product:=public.pymio_api('product.create',1,body); pid:=(product->>'id')::bigint;
  IF (SELECT image_path FROM public.products WHERE id=pid)<>body->>'image_path' THEN RAISE EXCEPTION 'Product image path failed'; END IF;
  IF product->>'sku'<>'QASA001' THEN RAISE EXCEPTION 'SKU sequence failed'; END IF;

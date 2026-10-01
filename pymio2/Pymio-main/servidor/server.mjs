@@ -95,13 +95,13 @@ export function createInventoryServer(pool, origins) {
         try { producto = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400, { error: 'JSON inválido.' }); }
         if (!producto || typeof producto !== 'object' || Array.isArray(producto)) return send(400, { error: 'Producto inválido.' });
         if (req.method === 'POST') producto.updated_at = producto.created_at;
-        const { name, sku, category, qty, cost, price, crit_qty, low_qty, created_at, updated_at, image_path } = producto;
+        const { name, sku, category, qty, cost, price, crit_qty, created_at, updated_at, image_path } = producto;
         if (typeof name !== 'string' || !name.trim() || typeof category !== 'string' || !category.trim() ||
             (req.method === 'PUT' && (typeof sku !== 'string' || !sku.trim() || sku.length > 32))) {
           return send(400, { error: 'Completa producto, categoría y un SKU válido (mayúsculas, números y guiones).' });
         }
-        if (![qty, cost, price, crit_qty, low_qty].every(n => Number.isInteger(n) && n >= 0 && n <= 2147483647) || low_qty <= crit_qty) {
-          return send(400, { error: 'Usa números enteros no negativos; el stock bajo debe superar al crítico.' });
+        if (![qty, cost, price, crit_qty].every(n => Number.isInteger(n) && n >= 0 && n <= 2147483647)) {
+          return send(400, { error: 'Usa números enteros no negativos.' });
         }
         if (image_path != null && (typeof image_path !== 'string' || !new RegExp(`^${companyId}/[0-9a-f-]{36}\\.webp$`).test(image_path))) return send(400,{error:'La ruta de imagen no es válida para esta empresa.'});
         const fechaValida = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));

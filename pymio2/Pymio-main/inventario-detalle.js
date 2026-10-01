@@ -17,7 +17,7 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl })
   const stock = document.createElement('section'); stock.className = 'inventario-detalle-card';
   const stockTitle = document.createElement('h3'); stockTitle.textContent = 'Información de stock';
   const limites = document.createElement('dl'); limites.className = 'inventario-umbrales';
-  for (const [nombre, valor] of [['Stock se considera bajo si hay menos de :',producto.low_qty],['Stock se considera crítico si hay menos de :',producto.crit_qty]]) {
+  for (const [nombre, valor] of [['Stock se considera crítico si hay menos de:',producto.crit_qty]]) {
     const item = document.createElement('div');
     const label = document.createElement('dt'); label.textContent = nombre;
     const number = document.createElement('dd'); number.textContent = valor == null ? '—' : Number(valor).toLocaleString('es-CL');

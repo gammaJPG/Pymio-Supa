@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta', async () => {
   const source = await readFile(new URL('../producto-form.js', import.meta.url), 'utf8');
-  const campos = ['name', 'sku', 'category', 'qty', 'cost', 'price', 'crit_qty', 'low_qty', 'created_at', 'updated_at']
+  const campos = ['name', 'sku', 'category', 'qty', 'cost', 'price', 'crit_qty', 'created_at', 'updated_at']
     .map(name => ({ name, value: '', disabled: false }));
   const category=campos.find(c=>c.name==='category');
   category.options=[];category.replaceChildren=function(...options){this.options=options;this.value='';};category.add=function(option){this.options.push(option);};
@@ -27,7 +27,7 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   const dialogo = { open: false, querySelector: s => ({ form, '.producto-error': error, h2: titulo }[s]), showModal() { this.open = true; }, close() { this.open = false; } };
   const agregar = {}, modificar = {}, borrar = {}, menu = {}, boton = { setAttribute() {} };
   const panel = { querySelector: s => ({ '#producto-dialogo': dialogo, '[data-accion="agregar"]': agregar, '[data-accion="modificar"]': modificar, '[data-accion="borrar"]': borrar, '#opciones-inventario': menu, '[data-add-modify-inventory]': boton }[s]) };
-  const producto = { id: '81', company_id: '2', name: 'Producto original', sku: 'SKU-81', category: 'Categoría', qty: 5, cost: 100, price: 200, crit_qty: 2, low_qty: 6, created_at: '2026-09-09T12:00:35.123Z', updated_at: '2026-09-09T13:00:45.456Z' };
+  const producto = { id: '81', company_id: '2', name: 'Producto original', sku: 'SKU-81', category: 'Categoría', qty: 5, cost: 100, price: 200, crit_qty: 2, created_at: '2026-09-09T12:00:35.123Z', updated_at: '2026-09-09T13:00:45.456Z' };
   const llamadas = [];
   let recargas = 0;
   let confirmar = false;
@@ -52,7 +52,6 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   selector.value = '81';
   selector.onchange();
   assert.equal(form.elements.name.value, producto.name);
-  assert.equal(form.elements.low_qty.value, 6);
   assert.ok(campos.every(c => !c.disabled));
   form.elements.name.value = 'Nombre editado';
   form.elements.qty.value = '8';
