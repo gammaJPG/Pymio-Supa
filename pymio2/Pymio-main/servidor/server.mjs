@@ -6,10 +6,33 @@ import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createSupabase } from './supabase.mjs';
 import { atenderMovimientos } from './movimientos.mjs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHmac, timingSafeEqual } from 'node:crypto';
 
-// API para pruebas locales. No implementa sesiones ni permisos por empresa.
-export function createInventoryServer(pool, origins) {
+const SESSION_SECONDS = 60 * 60 * 24 * 7;
+const jsonBody = async (req, max = 16_384) => {
+  const chunks=[]; let bytes=0;
+  for await (const chunk of req) { bytes+=chunk.length; if(bytes>max) throw Object.assign(new Error('La solicitud excede el tamaño permitido.'),{status:413}); chunks.push(chunk); }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch { throw Object.assign(new Error('JSON inválido.'),{status:400}); }
+};
+const encodeSession = (value, secret) => {
+  const payload=Buffer.from(JSON.stringify(value)).toString('base64url');
+  return payload+'.'+createHmac('sha256',secret).update(payload).digest('base64url');
+};
+const decodeSession = (token, secret) => {
+  try {
+    const [payload,signature]=token.split('.');
+    const expected=createHmac('sha256',secret).update(payload).digest();
+    const received=Buffer.from(signature,'base64url');
+    if(received.length!==expected.length || !timingSafeEqual(received,expected))return null;
+    const session=JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
+    return session.exp>Date.now()?session:null;
+  } catch { return null; }
+};
+const cookieValue = req => (req.headers.cookie || '').split(';').map(v=>v.trim()).find(v=>v.startsWith('pymio_session='))?.slice(14);
+
+export function createInventoryServer(pool, origins, options = {}) {
+  const {sessionSecret, pilotUsername='pilotodepruebas', pilotPassword='consultoriaswc', secureCookie=false}=options;
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Vary', 'Origin');
@@ -22,6 +45,7 @@ export function createInventoryServer(pool, origins) {
       return send(403, { error: 'Origen no permitido. Revisa FRONTEND_ORIGINS en .env.' });
     }
     if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+    if (origin) res.setHeader('Access-Control-Allow-Credentials', 'true');
     if (req.method === 'OPTIONS') {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -33,6 +57,50 @@ export function createInventoryServer(pool, origins) {
       return send(405, { error: 'Método no permitido.' });
     }
     const url = new URL(req.url, 'http://127.0.0.1');
+    const authRoute=url.pathname.startsWith('/api/auth/');
+    const setSession = session => {
+      const token=encodeSession({...session,exp:Date.now()+SESSION_SECONDS*1000},sessionSecret);
+      res.setHeader('Set-Cookie',`pymio_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_SECONDS}${secureCookie?'; Secure':''}`);
+    };
+    if (authRoute) {
+      try {
+        if (!sessionSecret) return send(503,{error:'Las sesiones no están configuradas.'});
+        if (url.pathname==='/api/auth/session' && req.method==='GET') {
+          const session=decodeSession(cookieValue(req),sessionSecret);
+          return session?send(200,{session}):send(401,{error:'No hay una sesión activa.'});
+        }
+        if (url.pathname==='/api/auth/logout' && req.method==='POST') {
+          res.setHeader('Set-Cookie',`pymio_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureCookie?'; Secure':''}`);
+          return send(200,{ok:true});
+        }
+        if (!['/api/auth/login','/api/auth/register'].includes(url.pathname) || req.method!=='POST') return send(404,{error:'Ruta no encontrada.'});
+        if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') return send(415,{error:'Envía los datos en formato JSON.'});
+        const data=await jsonBody(req);
+        if (url.pathname==='/api/auth/login') {
+          const identifier=String(data.identifier||'').trim().toLowerCase(), password=String(data.password||'');
+          if(!identifier || !password)return send(400,{error:'Ingresa tu correo o usuario y contraseña.'});
+          if(identifier===pilotUsername.toLowerCase() && password===pilotPassword){
+            const session={userId:'pilot',email:null,companyId:'1',businessName:'Distribuidora Andes Ltda.',ownerName:'',demo:true};setSession(session);return send(200,{session});
+          }
+          let auth;
+          try { auth=await pool.signIn(identifier,password); }
+          catch { return send(401,{error:'Correo o contraseña incorrectos.'}); }
+          const account=await pool.accountForUser(auth.user.id);
+          const session={userId:auth.user.id,email:auth.user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};setSession(session);return send(200,{session});
+        }
+        const email=String(data.email||'').trim().toLowerCase(),password=String(data.password||''),businessName=String(data.businessName||'').trim(),ownerName=String(data.ownerName||'').trim();
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return send(400,{error:'Ingresa un correo electrónico válido.'});
+        if(password.length<8)return send(400,{error:'La contraseña debe tener al menos 8 caracteres.'});
+        if(!businessName || businessName.length>120 || ownerName.length>120)return send(400,{error:'Ingresa un nombre de negocio válido.'});
+        let user;
+        try { user=await pool.createAuthUser(email,password,{business_name:businessName,owner_name:ownerName}); }
+        catch(error){return send(error.status===422||error.status===400?409:error.status||502,{error:error.status===422||error.status===400?'Ya existe una cuenta con ese correo.':error.message});}
+        try {
+          const account=await pool.registerAccount(user.id,email,businessName,ownerName);
+          const session={userId:user.id,email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};setSession(session);return send(201,{session});
+        } catch(error) { await pool.deleteAuthUser(user.id).catch(()=>{}); throw error; }
+      } catch(error) { return send(error.status||500,{error:error.message||'No se pudo completar el acceso.'}); }
+    }
     const categoryId = /^\/api\/categories\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
     const categoryRoute = url.pathname === '/api/categories' || Boolean(categoryId);
     const movementCode = /^\/api\/movements\/([a-f0-9]{12})$/.exec(url.pathname)?.[1];
@@ -41,7 +109,9 @@ export function createInventoryServer(pool, origins) {
     const imageId = /^\/api\/product-images\/([0-9a-f-]{36})$/.exec(url.pathname)?.[1];
     const imageRoute = url.pathname === '/api/product-images' || Boolean(imageId);
     if (!categoryRoute && !imageRoute && url.pathname !== '/api/customers' && !historyProductId && !movementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
-    const companyId = url.searchParams.get('company_id');
+    const session=sessionSecret?decodeSession(cookieValue(req),sessionSecret):null;
+    if(sessionSecret && !session)return send(401,{error:'Tu sesión venció. Vuelve a ingresar.'});
+    const companyId = session?String(session.companyId):url.searchParams.get('company_id');
     if (!companyId || !/^[1-9]\d*$/.test(companyId) || companyId.length > 18) {
       return send(400, { error: 'company_id debe ser un entero positivo.' });
     }
@@ -130,7 +200,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const pool = createSupabase();
   const origins = (process.env.FRONTEND_ORIGINS ?? 'http://127.0.0.1:5500,http://localhost:5500')
     .split(',').map(value => value.trim());
-  const server = createInventoryServer(pool, origins);
+  if (!process.env.SESSION_SECRET) throw new Error('Configura SESSION_SECRET en servidor/.env.');
+  const server = createInventoryServer(pool, origins, {sessionSecret:process.env.SESSION_SECRET,pilotPassword:process.env.PILOT_PASSWORD,secureCookie:process.env.COOKIE_SECURE==='true'});
   const port = Number(process.env.PORT ?? 3001);
   server.on('error', error => {
     console.error('No se pudo iniciar la API:', error.code);

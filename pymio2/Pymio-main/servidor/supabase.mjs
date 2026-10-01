@@ -3,8 +3,51 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
   if (!url || !key) throw new Error('Configura SUPABASE_URL y SUPABASE_SECRET_KEY en servidor/.env.');
   const base = new URL(url);
   if (base.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(base.hostname)) throw new Error('SUPABASE_URL debe usar HTTPS.');
-  const headers = { apikey: key, ...(key.startsWith('eyJ') ? { Authorization: `Bearer ${key}` } : {}) };
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+  const requestJson = async (path, options, fallback) => {
+    let response;
+    try {
+      response = await fetchImpl(new URL(path, base), { ...options, signal: AbortSignal.timeout(15000) });
+    } catch {
+      throw Object.assign(new Error('No se pudo conectar con Supabase. Reintenta cuando vuelva la conexión.'), { status: 503 });
+    }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = result.msg || result.message || result.error_description || fallback;
+      throw Object.assign(new Error(message), { status: response.status, code: result.code });
+    }
+    return result;
+  };
   return {
+    async signIn(email, password) {
+      return requestJson('/auth/v1/token?grant_type=password', {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      }, 'No se pudo iniciar sesión.');
+    },
+    async createAuthUser(email, password, metadata = {}) {
+      return requestJson('/auth/v1/admin/users', {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: metadata }),
+      }, 'No se pudo crear la cuenta.');
+    },
+    async deleteAuthUser(id) {
+      return requestJson('/auth/v1/admin/users/' + encodeURIComponent(id), {
+        method: 'DELETE', headers,
+      }, 'No se pudo revertir la cuenta incompleta.');
+    },
+    async registerAccount(userId, email, businessName, ownerName) {
+      return requestJson('/rest/v1/rpc/pymio_register_account', {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth_user: userId, account_email: email, business_name: businessName, owner_name: ownerName || null }),
+      }, 'No se pudo preparar el espacio de trabajo.');
+    },
+    async accountForUser(userId) {
+      return requestJson('/rest/v1/rpc/pymio_account_for_user', {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth_user: userId }),
+      }, 'No se encontró un espacio de trabajo para esta cuenta.');
+    },
     async rpc(operation, companyId, data = {}) {
       let response;
       try {
