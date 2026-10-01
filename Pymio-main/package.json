@@ -1,9 +1,0 @@
-{
-  "name": "pymio",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "start": "npm --prefix servidor start",
-    "test": "npm --prefix servidor test"
-  }
-}
