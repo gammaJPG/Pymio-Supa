@@ -21,27 +21,6 @@ test('Supabase: HTTPS RPC, secret stays server-side, error mapping and timeout',
   await assert.rejects(offline.rpc('product.list',1),{status:503});
 });
 
-test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del servidor', async()=>{
-  const calls=[];
-  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});if(url.pathname.includes('/admin/users'))return Response.json({id:'user-1',email:'pyme@example.com'});if(url.pathname.endsWith('/pymio_register_account'))return Response.json({company_id:9,business_name:'Mi Pyme',owner_name:'Ana'});return Response.json({user:{id:'user-1',email:'pyme@example.com'}});}});
-  const user=await client.createAuthUser('pyme@example.com','segura123',{business_name:'Mi Pyme'});
-  const account=await client.registerAccount(user.id,user.email,'Mi Pyme','Ana');
-  assert.equal(account.company_id,9);assert.equal(calls[0].options.headers.Authorization,'Bearer sb_secret_test');
-  assert.equal(calls[0].url.pathname,'/auth/v1/admin/users');assert.equal(calls[1].url.pathname,'/rest/v1/rpc/pymio_register_account');
-});
-
-test('HTTP Auth: mantiene el piloto en empresa 1 y fuerza esa empresa desde la sesión',async()=>{
-  const calls=[];const pool={rpc:async(operation,company)=>{calls.push({operation,company});return [];}};
-  const server=createInventoryServer(pool,[],{sessionSecret:'test-secret',pilotPassword:'pilot-pass'}),base=await listen(server);
-  try{
-    assert.equal((await fetch(base+'/api/products?company_id=999')).status,401);
-    const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:'pilotodepruebas',password:'pilot-pass'})});
-    assert.equal(login.status,200);const cookie=login.headers.get('set-cookie').split(';')[0];
-    const products=await fetch(base+'/api/products?company_id=999',{headers:{Cookie:cookie}});assert.equal(products.status,200);assert.equal(calls.at(-1).company,'1');
-    const session=await fetch(base+'/api/auth/session',{headers:{Cookie:cookie}});assert.equal((await session.json()).session.demo,true);
-  } finally {await close(server);}
-});
-
 test('Supabase Storage: sube únicamente WebP y permite eliminarlo', async () => {
   const calls=[];
   const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});return Response.json({Key:'ok'});}});

@@ -30,11 +30,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     supabase = { async rpc() { throw Object.assign(new Error('Configura el proyecto de Supabase en servidor/.env para cargar los datos.'), {status:503}); } };
   }
   const origins = (process.env.FRONTEND_ORIGINS || 'http://127.0.0.1:5500,http://localhost:5500').split(',').map(s=>s.trim());
-  if (!process.env.SESSION_SECRET) throw new Error('Configura SESSION_SECRET en servidor/.env.');
-  const api = createInventoryServer(supabase, origins, {sessionSecret:process.env.SESSION_SECRET,pilotPassword:process.env.PILOT_PASSWORD,secureCookie:process.env.COOKIE_SECURE==='true'});
+  const api = createInventoryServer(supabase, origins);
   const web = createWebServer();
   for (const server of [api, web]) server.on('error', error => { console.error(error.message); api.close(); web.close(); process.exitCode=1; });
   api.listen(Number(process.env.PORT || 3001), '127.0.0.1');
-  const webPort=Number(process.env.WEB_PORT || 5500);
-  web.listen(webPort, '127.0.0.1', () => console.log(`Pymio: http://127.0.0.1:${webPort}/piloto.html`));
+  web.listen(5500, '127.0.0.1', () => console.log('Pymio: http://127.0.0.1:5500/piloto.html'));
 }

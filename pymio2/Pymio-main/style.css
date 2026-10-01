@@ -91,11 +91,6 @@
   }
   .login-form h2{font-size:26px;font-weight:600;margin-bottom:6px;}
   .login-form>p{color:var(--muted);font-size:14px;margin:0 0 32px;}
-  .auth-switch{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#f2eedf;padding:4px;border-radius:12px;margin:0 0 20px;}
-  .auth-switch button{min-height:38px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;}
-  .auth-switch button.active{background:#fff;color:var(--ink);box-shadow:0 1px 5px #10121412;}
-  .signup-field[hidden]{display:none;}
-  .field label span{color:var(--muted-2);font-weight:400;}
   .field{margin-bottom:18px;}
   .field label{
     display:block;
@@ -188,7 +183,6 @@
     border-radius:var(--radius-sm);
   }
   .login-hint .num{color:var(--ink-soft);}
-  .notif-empty{padding:24px 18px;color:var(--muted);font-size:13px;text-align:center;}
 
   /* ---------- APP SHELL ---------- */
   #app-screen{display:none;height:100vh;}
