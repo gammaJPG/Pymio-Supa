@@ -1,0 +1,57 @@
+.pymium-sidebar{margin-top:auto;padding:24px 8px 0;}
+.pymium-trigger{display:flex;align-items:center;gap:8px;width:100%;padding:6px 0;border:0;border-radius:9px;background:transparent;color:#e8cf71;text-align:left;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+.pymium-trigger .sidebar-note-mark.bee-outline{width:54px;height:54px;margin:0;flex:none;}
+.pymium-trigger:hover{background:#353d2d;}
+.sidebar-note{margin-top:0;padding-top:13px;}
+.home-pymium{display:inline-flex;align-items:center;gap:14px;width:fit-content;max-width:100%;background:#eee8cc;border:1px solid #ded2a1;border-radius:12px;color:var(--ink);font:inherit;text-align:left;cursor:pointer;padding:16px 20px;margin-top:12px;}
+.home-pymium .bee-outline{width:44px;height:44px;color:#947515;flex:none;}
+.home-pymium strong{display:block;font-size:17px;font-weight:600;}
+.home-pymium small{display:block;font-size:12px;line-height:1.5;color:#605736;margin-top:4px;}
+.home-pymium>svg{width:22px;height:22px;margin-left:4px;flex:none;}
+.home-pymium:hover{background:#e9dfb7;}
+.pymium-verified{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;flex:none;position:relative;cursor:help;}
+.pymium-verified-tooltip{position:absolute;bottom:calc(100% + 7px);right:0;z-index:5;padding:8px 11px;border-radius:6px;background:#20231e;color:#fff;font-family:inherit;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 150ms var(--ease-out),visibility 150ms;}
+.pymium-verified:hover .pymium-verified-tooltip,.pymium-verified:focus .pymium-verified-tooltip{opacity:1;visibility:visible;}
+.pymium-verified .bee-outline{width:27px;height:27px;color:#947515;}
+#tab-ecosistema .match-name{display:flex;align-items:center;gap:7px;}
+.pymium-dialog{position:fixed;margin:0;left:50%;top:50%;transform:translate(-50%,calc(-50% + 10px)) scale(.98);opacity:0;width:480px;max-width:calc(100vw - 48px);max-height:calc(100dvh - 48px);padding:0;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--ink);overflow-y:auto;overflow-x:hidden;transition:width 280ms var(--ease-in-out),transform 240ms var(--ease-out),opacity 240ms var(--ease-out),display 240ms allow-discrete,overlay 240ms allow-discrete;}
+.pymium-dialog[open]{opacity:1;transform:translate(-50%,-50%) scale(1);}
+.pymium-dialog::backdrop{background:#151a1600;transition:background-color 240ms var(--ease-out),display 240ms allow-discrete,overlay 240ms allow-discrete;}
+.pymium-dialog[open]::backdrop{background:#151a16a6;}
+@starting-style{.pymium-dialog[open]{opacity:0;transform:translate(-50%,calc(-50% + 10px)) scale(.98);}.pymium-dialog[open]::backdrop{background:#151a1600;}}
+.pymium-dialog.is-expanded{width:880px;}
+.pymium-close{position:absolute;top:15px;right:15px;display:grid;place-items:center;width:32px;height:32px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--paper);color:var(--ink);cursor:pointer;z-index:1;}
+.pymium-close svg{width:18px;height:18px;}
+.pymium-layout{display:flex;align-items:stretch;}
+.pymium-dialog.is-expanded .pymium-layout{width:min(878px,calc(100vw - 50px));}
+.pymium-benefits{padding:32px;flex:1;min-width:0;}
+.pymium-heading{display:flex;align-items:center;justify-content:center;gap:2px;padding:0;width:fit-content;max-width:100%;margin-inline:auto;}
+.pymium-heading .pymium-mark{width:72px;height:72px;}
+.pymium-mark{width:48px;height:48px;color:#947515;flex:none;}
+.pymium-heading h2{font-size:26px;font-weight:500;margin:0 0 5px;letter-spacing:-.025em;}
+.pymium-heading p,.pymium-description{font-size:12px;line-height:1.6;color:var(--muted);margin:0;}
+.pymium-description{margin:20px 0 4px;}
+.pymium-benefits ul{list-style:none;padding:0;margin:0;}
+.pymium-benefits li{padding:13px 0;border-bottom:1px solid var(--line);}
+.pymium-benefits li strong{font-size:13px;font-weight:600;}
+.pymium-benefits li p{font-size:12px;line-height:1.6;color:var(--muted);margin:5px 0 0;}
+.pymium-demo-note{font-size:10px;color:var(--muted);line-height:1.5;margin:16px 0;}
+.pymium-subscribe{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:44px;padding:12px;border:0;border-radius:8px;background:var(--accent);color:var(--ink);font:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+.pymium-subscribe svg{width:17px;height:17px;}
+.pymium-subscribe:disabled{opacity:.6;cursor:default;}
+.pymium-checkout{width:360px;flex:none;padding:50px 28px 30px;background:var(--surface);border-left:1px solid var(--line);}
+.pymium-checkout h3{font-size:22px;font-weight:500;letter-spacing:-.025em;margin:0 0 10px;}
+.pymium-checkout>p,.pymium-success p{font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 20px;}
+.pymium-test-card{font-size:11px;line-height:1.7;padding:12px;background:var(--accent-soft);border-radius:8px;margin-bottom:20px;}
+.pymium-payment label{display:block;font-size:12px;color:var(--muted);font-weight:500;margin-bottom:15px;}
+.pymium-payment input{display:block;width:100%;min-width:0;margin-top:6px;font-size:13px;}
+.pymium-payment-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.pymium-payment>p{font-size:11px;line-height:1.6;color:var(--muted);margin:0 0 16px;}
+.pymium-payment .pymium-payment-error{color:#a32c27;}
+.pymium-back,.pymium-finish{min-height:42px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:12px;cursor:pointer;width:100%;margin-top:10px;}
+.pymium-success .pymium-mark{margin:16px 0;}
+.pymium-success:focus{outline:none;}
+@media(max-width:960px){.pymium-sidebar{padding:20px 0 0;}.pymium-trigger{justify-content:center;}.pymium-trigger>span:last-child{display:none;}.pymium-trigger .sidebar-note-mark.bee-outline{width:44px;height:44px;}}
+@media(max-width:700px){.pymium-dialog,.pymium-dialog.is-expanded{left:50%;width:calc(100vw - 32px);max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);}.pymium-layout,.pymium-dialog.is-expanded .pymium-layout{display:block;width:auto;}.pymium-benefits{padding:28px 24px;}.pymium-checkout{width:auto;border-left:0;border-top:1px solid var(--line);padding:25px 24px;}.pymium-payment input{font-size:16px;}}
+@media(max-width:600px){.pymium-sidebar{display:none;}}
+@media(prefers-reduced-motion:reduce){.pymium-dialog,.pymium-dialog::backdrop{transition:none;}}
