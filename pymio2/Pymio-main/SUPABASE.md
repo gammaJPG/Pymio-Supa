@@ -12,6 +12,8 @@ La aplicación usa la Data API HTTPS de Supabase. Se eliminó el cliente `pg` y 
    - `supabase/migrations/004_movements.sql`
    - `supabase/migrations/005_customers.sql`
    - `supabase/migrations/006_product_images.sql`
+   - `supabase/migrations/007_accounts.sql`
+   - `supabase/migrations/008_company_sku.sql`
 3. La primera migración importa el adjunto `inventario_app`: 4 empresas, 39 categorías, 82 productos, 5 movimientos y 7 líneas. Conserva IDs, secuencias, restricciones, índices y el disparador de actualización. No requiere cargar CSV ni ejecutar el dump original.
 
 No ejecutes la importación sobre tablas existentes. Está preparada para un proyecto vacío y no elimina datos. El archivo contiene los datos del adjunto; consérvalo como respaldo privado.
@@ -19,6 +21,10 @@ No ejecutes la importación sobre tablas existentes. Está preparada para un pro
 Si ya ejecutaste las migraciones 001–004, aplica solamente `005_customers.sql`. Crea la tabla de clientes y permite asociarlos a las ventas sin borrar movimientos existentes.
 
 La migración `006_product_images.sql` agrega la ruta de la foto a productos y crea el bucket público `product-images`. Si tu proyecto ya tiene las migraciones anteriores, ejecútala por separado después de `005_customers.sql`.
+
+La migración `007_accounts.sql` vincula cada usuario de Supabase Auth con una empresa propia. Las cuentas nuevas reciben una empresa vacía; la cuenta piloto continúa usando la empresa 1.
+
+La migración `008_company_sku.sql` permite repetir un SKU entre empresas distintas y mantiene su unicidad dentro de cada empresa. Es necesaria para que dos cuentas nuevas puedan usar la misma categoría y comenzar su numeración en `A001`.
 
 ## 2. Configurar la conexión
 
@@ -29,7 +35,10 @@ Completa `servidor/.env` (ya creado localmente, ignorado por Git):
 ```dotenv
 SUPABASE_URL=https://TU-PROYECTO.supabase.co
 SUPABASE_SECRET_KEY=TU_CLAVE_SECRETA
+SESSION_SECRET=UNA_CADENA_ALEATORIA_LARGA
+PILOT_PASSWORD=CONTRASENA_DE_LA_CUENTA_PILOTO
 PORT=3001
+WEB_PORT=5500
 FRONTEND_ORIGINS=http://127.0.0.1:5500,http://localhost:5500
 ```
 
@@ -43,11 +52,11 @@ Con Node.js 20.10 o posterior, desde la carpeta `Pymio-main`:
 npm start
 ```
 
-Abre http://127.0.0.1:5500/piloto.html. El mismo comando inicia la interfaz en 5500 y la API en 3001. No hay dependencias npm externas. Reinicia el proceso después de cambiar `.env`.
+Abre http://127.0.0.1:5500/piloto.html. El mismo comando inicia la interfaz en `WEB_PORT` y la API en `PORT`. No hay dependencias npm externas. Reinicia el proceso después de cambiar `.env`.
 
 Sin configurar Supabase, la interfaz abre y la API devuelve un aviso de configuración pendiente (503). No se simulan productos ni se envían datos a una base local. El acceso piloto sigue usando la empresa 1 y las credenciales que ya tenía la aplicación.
 
-Usa el servidor incluido: solo entrega archivos públicos y bloquea `.env`, código de servidor y migraciones. Las tablas tienen RLS y no conceden acceso a `anon`/`authenticated`; las funciones solo permiten `service_role`. El acceso piloto existente no es Supabase Auth ni autorización de usuarios para un despliegue público; esta integración mantiene su alcance local.
+Usa el servidor incluido: solo entrega archivos públicos y bloquea `.env`, código de servidor y migraciones. Las tablas tienen RLS y no conceden acceso a `anon`/`authenticated`; las funciones solo permiten `service_role`. Las sesiones se guardan en una cookie firmada y el servidor obtiene la empresa desde esa sesión, sin confiar en el identificador enviado por el navegador.
 
 ## Verificación
 

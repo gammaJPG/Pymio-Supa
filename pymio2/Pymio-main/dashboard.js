@@ -5,7 +5,7 @@ let dashboardData = normalizeDashboardData();
 let dataRequest = null;
 let dashboardInitialized = false;
 let inicioInitialized = false;
-const companyId = '1';
+let companyId = '1';
 const today = () => new Date();
 
 const categoryPalette=['#D9B743','#4F7CAC','#D17854','#6B8E6B','#8A6FB0','#C75C78','#3F8F8B','#A66A3F','#6F7DB8','#B779A1','#557A46','#CC8B3C','#4D8FAD','#9B6B43','#7E70A8','#B05D4E','#4B8578','#99627A','#728C40','#5E78A5','#BD7548','#69735A','#8D5E9E','#3C8C9E'];
@@ -46,6 +46,14 @@ async function refreshViews(force=false){
     console.error('Dashboard Supabase:',error);
     setDataStatus('No se pudieron actualizar los datos reales.',true);
   }
+}
+
+export async function configureDashboard({companyId: nextCompanyId}={}){
+  companyId=String(nextCompanyId||'1');
+  dataRequest=null;
+  await loadDashboardData(true);
+  syncCategoryColors();
+  if(document.getElementById('dash-category'))populateDashboardFilters();
 }
 
 function setupInicio(){
@@ -155,7 +163,7 @@ function renderPie(sales){
 }
 
 export function renderDashboard(){
-  if(!dashboardInitialized){dashboardInitialized=true;document.getElementById('dash-date').textContent=today().toLocaleDateString('es-CL',{month:'long',year:'numeric'});populateMonthFilter();syncPeriodFilters();document.querySelectorAll('#dash-period,#dash-month,#dash-category').forEach(element=>element.addEventListener('change',()=>{syncPeriodFilters();updateDashboard();}));const dialog=document.getElementById('category-dialog');document.getElementById('category-dialog-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===event.currentTarget)dialog.close();});document.getElementById('dash-low-stock').addEventListener('click',()=>openAttention('low'));document.getElementById('dash-pending').addEventListener('click',()=>openAttention('pending'));document.addEventListener('inventario-actualizado',()=>refreshViews(true));document.addEventListener('movimientos-sincronizados',()=>refreshViews(true));}
+  if(!dashboardInitialized){dashboardInitialized=true;document.getElementById('dash-date').textContent=today().toLocaleDateString('es-CL',{month:'long',year:'numeric'});populateMonthFilter();syncPeriodFilters();document.querySelectorAll('#dash-period,#dash-month,#dash-category').forEach(element=>element.addEventListener('change',()=>{syncPeriodFilters();updateDashboard();}));const dialog=document.getElementById('category-dialog');document.getElementById('category-dialog-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===event.currentTarget)dialog.close();});document.getElementById('dash-low-stock').addEventListener('click',()=>openAttention('low'));document.getElementById('dash-pending').addEventListener('click',()=>openAttention('pending'));}
   refreshViews();
 }
 function openAttention(kind){

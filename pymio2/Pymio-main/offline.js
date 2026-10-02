@@ -25,6 +25,26 @@ const receipts = new Map();
 export const apiBase = document.querySelector('meta[name="swc-api"]')?.content || (['localhost','127.0.0.1'].includes(location.hostname) ? 'http://127.0.0.1:3001' : location.origin);
 const belongs = row => active && new URL(row.url).origin === active.origin && new URL(row.url).searchParams.get('company_id') === active.company;
 export async function pendingMovements() { return (await storage('outbox','getAll')).filter(belongs).sort((a,b)=>a.created-b.created); }
+export async function getSyncIssues() {
+  const rows = await pendingMovements();
+  return rows.filter(row=>row.state==='conflict').map(row=>{
+    let data={};
+    try { data=JSON.parse(row.body); } catch {}
+    const detail=data.operation_detail || data.operation || 'Movimiento';
+    const explanation=row.error && !/^Error \d+$/.test(row.error)
+      ? row.error
+      : 'El movimiento fue rechazado. Revisa el stock y los datos ingresados.';
+    return {id:row.id,severity:'critical',title:`${detail} requiere revisión`,description:explanation,time:new Date(row.created).toLocaleString('es-CL')};
+  });
+}
+export async function discardSyncIssue(id) {
+  const row=await storage('outbox','get',id);
+  if(!row || row.state!=='conflict' || !belongs(row))return false;
+  await storage('outbox','delete',id);
+  await synchronize();
+  changed();
+  return true;
+}
 async function network(url, options = {}) {
   if (!navigator.onLine) throw new Error('Sin conexión');
   return fetch(url, {...options, signal: AbortSignal.timeout(8000)});
@@ -116,10 +136,10 @@ export function setupOfflineUI() {
   const tooltip=document.createElement('div'); tooltip.className='data-sync-tooltip'; tooltip.id='data-sync-tooltip';
   const label=document.createElement('p'); label.setAttribute('role','status'); label.setAttribute('aria-live','polite');
   const retry=document.createElement('button'); retry.textContent='Actualizar Datos'; retry.type='button'; retry.className='data-sync-refresh';
-  const list=document.createElement('div'), ready=document.createElement('p');
-  list.className='data-sync-pending'; ready.className='data-sync-ready';
+  const ready=document.createElement('p');
+  ready.className='data-sync-ready';
   ready.textContent='Preparando la aplicación para abrir sin conexión…';
-  tooltip.append(label,ready,list); box.append(indicator,retry,tooltip); document.querySelector('.topbar-right').prepend(box);
+  tooltip.append(label,ready); box.append(indicator,retry,tooltip); document.querySelector('.topbar-right').prepend(box);
   indicator.onclick=()=>{const open=box.classList.toggle('is-open');indicator.setAttribute('aria-expanded',String(open));};
   document.addEventListener('click',event=>{if(!box.contains(event.target)){box.classList.remove('is-open');indicator.setAttribute('aria-expanded','false');}});
   box.addEventListener('keydown',event=>{if(event.key==='Escape'){box.classList.remove('is-open');box.classList.add('tooltip-dismissed');indicator.setAttribute('aria-expanded','false');indicator.focus();}});
@@ -128,25 +148,13 @@ export function setupOfflineUI() {
   let storageError=false, refreshing=false;
   async function render() {
     try {
-      const rows=await pendingMovements();
-      const updated=navigator.onLine && reachable && !rows.length && !staleReads.size && !storageError && !refreshing;
+      const updated=navigator.onLine && reachable && !staleReads.size && !storageError && !refreshing;
       box.dataset.state=updated?'updated':'outdated';
-      const message=updated?'Datos actualizados.':refreshing?'Actualizando datos…':'Datos sin actualizar. Puedes seguir trabajando sin internet; los cambios se sincronizarán al recuperar la conexión.';
-      indicator.setAttribute('aria-label',updated?'Datos actualizados':'Datos sin actualizar');
-      label.textContent=message + (rows.length ? ` ${rows.length} movimiento${rows.length===1?'':'s'} pendiente${rows.length===1?'':'s'}; el stock aún no incluye estos cambios.` : '') + (rows.some(row=>row.state==='conflict')?' Hay movimientos que requieren revisión.':'') + (storageError ? ' No se pudo guardar la copia local. Revisa el espacio disponible.' : '');
-      list.replaceChildren();
-      for (const row of rows) {
-        const item=document.createElement('details'), title=document.createElement('summary'), data=JSON.parse(row.body);
-        title.textContent=`${row.state==='conflict'?'Requiere revisión':'Pendiente'} · ${data.operation || row.method} · ${new Date(row.created).toLocaleString('es-CL')}`;
-        const info=document.createElement('pre'); info.textContent=(row.error || 'Guardado en este dispositivo. Se enviará al recuperar conexión.')+'\n'+JSON.stringify(data,null,2);
-        item.append(title,info);
-        if(row.state==='conflict') {
-          const remove=document.createElement('button'); remove.textContent='Descartar solicitud rechazada';
-          remove.onclick=async()=>{if(confirm('Esta solicitud fue rechazada por el servidor. ¿Descartarla del dispositivo? Puedes copiar sus datos antes y registrar un movimiento corregido.')){await storage('outbox','delete',row.id);await synchronize();changed();}};
-          item.append(remove);
-        }
-        list.append(item);
-      }
+      let status='Datos sin actualizar', message='Los datos no están actualizados. Puedes seguir trabajando sin internet; los cambios se sincronizarán al recuperar la conexión.';
+      if(updated){status='Con conexión';message='La plataforma está conectada y los datos disponibles están actualizados.';}
+      else if(refreshing){status='Actualizando datos';message='Actualizando datos…';}
+      indicator.setAttribute('aria-label',status);
+      label.textContent=message + (storageError ? ' No se pudo guardar la copia local. Revisa el espacio disponible.' : '');
     } catch { box.dataset.state='outdated';indicator.setAttribute('aria-label','Datos sin actualizar');label.textContent='No está disponible el almacenamiento local. No cierres formularios sin confirmar su guardado.'; }
   }
   let checking=false;

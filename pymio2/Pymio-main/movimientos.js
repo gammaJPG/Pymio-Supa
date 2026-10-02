@@ -1,5 +1,6 @@
-import { offlineFetch as fetch, apiBase } from './offline.js';
+import { offlineFetch as fetch, apiBase, pendingMovements } from './offline.js';
 import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario } from './movimientos-vista.js';
+import { stockDisponibleParaEgreso } from './movimientos-stock.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
   if (panel.dataset.initialized) return;
@@ -315,13 +316,28 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       } else {
       if (!form.reportValidity()) return;
       const items = [], seen = new Set();
+      const outgoing = form.elements.operation.value === 'Egreso';
+      const queuedRows = outgoing ? await pendingMovements().catch(()=>[]) : [];
       for (const row of lines.children) {
         const input = row.querySelector('[data-product]');
+        const unitsInput = row.querySelector('[data-units]');
+        unitsInput.setCustomValidity('');
         const product = products.find(p => label(p) === input.value);
         if (!product) { input.setCustomValidity('Selecciona un producto de la lista.'); input.reportValidity(); return; }
         if (seen.has(String(product.id))) return showError('Incluye cada producto una sola vez; ajusta sus unidades en la misma fila.');
         seen.add(String(product.id));
-        items.push({ product_id: String(product.id), units: Number(row.querySelector('[data-units]').value),
+        const units = Number(unitsInput.value);
+        if (outgoing) {
+          const original = mode === 'edit' && selected?.operation === 'Egreso' ? selected.products.find(item=>String(item.product_id)===String(product.id)) : null;
+          const available = stockDisponibleParaEgreso(product.id, product.qty, queuedRows, Math.abs(Number(original?.units ?? 0)));
+          if (units > available) {
+            const requestedLabel = `${units} ${units === 1 ? 'unidad' : 'unidades'}`;
+            const availableLabel = `${available} ${available === 1 ? 'unidad disponible' : 'unidades disponibles'}`;
+            const message = `${form.elements.operation_detail.value === 'Venta' ? 'No puedes vender' : 'No puedes retirar'} ${requestedLabel} de ${product.name}. Hay ${availableLabel}.`;
+            unitsInput.setCustomValidity(message); unitsInput.reportValidity(); showError(message); return;
+          }
+        }
+        items.push({ product_id: String(product.id), units,
           discount: !discount.hidden && form.elements.discount_scope.value === 'product'
             ? {type: row.querySelector('[data-line-discount-type]').value, value: Number(row.querySelector('[data-line-discount-value]').value)} : null });
       }
