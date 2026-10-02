@@ -4,7 +4,7 @@ setupPymium();
 import { iniciarEcosistema } from './ecosistema.js';
 import { setupOfflineUI, startOffline, stopOffline } from './offline.js';
 setupOfflineUI();
-import { renderDashboard, renderInicio } from './dashboard.js?v=43';
+import { renderDashboard, renderInicio } from './dashboard.js?v=45';
 import { renderAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js';
 
