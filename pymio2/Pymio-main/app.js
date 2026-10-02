@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema } from './ecosistema.js';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=93';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=45';
@@ -126,7 +126,7 @@ async function cargarSecciones() {
     if(authMode==='google-setup')return;
     googleStatus.hidden=enabled;
     googleStatus.textContent=enabled?'':'El acceso con Google todavía no está disponible. Puedes volver a intentarlo desde este botón.';
-  }).catch(()=>{if(authMode==='google-setup')return;googleStatus.hidden=false;googleStatus.textContent='No se pudo comprobar el acceso con Google. Puedes volver a intentarlo desde este botón.';});
+  }).catch(()=>{if(authMode==='google-setup')return;googleStatus.hidden=true;});
   function setAuthMode(mode,setup={}){
     authMode=mode;const isRegister=mode==='register',isGoogleSetup=mode==='google-setup';
     document.querySelectorAll('[data-auth-mode]').forEach(option=>{const active=option.dataset.authMode===mode;option.classList.toggle('active',active);option.setAttribute('aria-selected',String(active));});
@@ -223,8 +223,23 @@ async function cargarSecciones() {
     button.setAttribute('aria-label', button.textContent.trim());
     button.title = button.textContent.trim();
     if (button.classList.contains('active')) button.setAttribute('aria-current', 'page');
-    button.addEventListener('click', event => navigateTo(button.dataset.tab, event.detail === 0));
+    button.addEventListener('click', event => {
+      navigateTo(button.dataset.tab, event.detail === 0);
+      if(button.dataset.tab==='ecosistema'){
+        const menu=document.querySelector('.network-nav-menu'),open=menu.hidden;
+        menu.hidden=!open;button.setAttribute('aria-expanded',String(open));
+        if(open)requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          const nav=menu.closest('.nav');
+          if(nav)nav.scrollTo({top:nav.scrollHeight,behavior:'smooth'});
+        }));
+        mostrarVistaEcosistema('overview',{keyboard:event.detail===0});
+      }
+    });
   });
+  document.querySelectorAll('.network-nav-menu [data-network-view]').forEach(button=>button.addEventListener('click',event=>{
+    navigateTo('ecosistema',event.detail===0);
+    mostrarVistaEcosistema(button.dataset.networkView,{keyboard:event.detail===0});
+  }));
   document.querySelector('.sidebar-home').addEventListener('click', event => navigateTo('inicio', event.detail === 0, true));
   document.querySelector('.content').addEventListener('click', event => {
     const movement = event.target.closest('[data-start-movement]');
@@ -301,7 +316,7 @@ async function cargarSecciones() {
 
   // ---------- INIT ----------
   function initApp(){
-    iniciarEcosistema();
+    iniciarEcosistema({session:currentSession,apiUrl});
     renderDashboard();
     renderInicio();
     renderAlerts({demo:currentSession?.demo});

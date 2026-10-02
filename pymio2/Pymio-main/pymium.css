@@ -1,4 +1,4 @@
-.pymium-sidebar{margin-top:auto;padding:24px 8px 0;}
+.pymium-sidebar{margin-top:0;padding:18px 8px 0;}
 .pymium-trigger{display:flex;align-items:center;gap:8px;width:100%;padding:6px 0;border:0;border-radius:9px;background:transparent;color:#e8cf71;text-align:left;font:inherit;font-size:13px;font-weight:600;cursor:pointer;}
 .pymium-trigger .sidebar-note-mark.bee-outline{width:54px;height:54px;margin:0;flex:none;}
 .pymium-trigger:hover{background:#353d2d;}

@@ -1,59 +1,60 @@
 <section class="tab-panel" id="tab-ecosistema" aria-label="RED Pymio">
-  <header class="ecosystem-hero"><div><p class="eyebrow">El valor de estar conectados</p><h2>Tu próxima oportunidad<br>está más cerca.</h2><p>Una comunidad de pymes. Más caminos para crecer.</p></div><div class="ecosystem-art" aria-hidden="true"><svg width="0" height="0" class="bee-filter"><defs><filter id="bee-olive" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 .698 0 0 0 0 .675 0 0 0 0 .455 -.2126 -.7152 -.0722 1 0"/></filter></defs></svg><img src="assets/pymio-community-bees.png" alt="" width="1343" height="1171"></div></header>
-  <p class="ecosistema-demo">RED Pymio · Demostración. Las conexiones, reservas e inscripciones no se envían.</p>
-  <p class="ecosistema-feedback" role="status" hidden></p>
-<div class="subnav" id="subnav" role="group" aria-label="Secciones de RED Pymio"></div>
+  <p class="ecosistema-feedback" role="status" aria-live="polite" hidden></p>
 
-        <!-- MI RED & COMUNIDADES -->
-        <section class="subpanel" id="sub-red">
-          <div class="section-intro">
-            <h2>Mi Red &amp; Comunidades</h2>
-            <p>Los grupos a los que perteneces y el espacio de consultas rápidas de la comunidad.</p>
-          </div>
-          <div class="grid-3" id="community-grid" style="margin-bottom:26px;"></div>
-          <div class="card">
-            <div class="card-head">
-              <h3>Mente Factura — consultas rápidas</h3>
-              <span class="sub">Foro Q&amp;A de la comunidad</span>
-            </div>
-            <div id="qa-list"></div>
-          </div>
-        </section>
+  <section class="subpanel active" id="sub-overview" role="tabpanel">
+    <div class="docs-intro"><div><p class="section-kicker">Biblioteca para pymes</p><h2>Respuestas claras para las decisiones de cada día.</h2><p>Una selección de recursos breves para ordenar tu negocio, vender mejor y crecer con menos incertidumbre.</p></div><span class="docs-stamp">Guías Pymio<br><strong>2026</strong></span></div>
+    <div class="docs-grid">
+      <article class="doc-feature"><span class="doc-number">01</span><div><span class="pill honey">Empieza aquí</span><h3>Formaliza y ordena tu negocio</h3><p>Una ruta práctica para separar las finanzas personales, organizar documentos y mantener tus obligaciones al día.</p><button type="button" class="text-action" data-network-view="pymio">Llevarlo a Mi Pymio <span>→</span></button></div></article>
+      <article class="doc-card"><span class="doc-icon">$</span><h3>Flujo de caja sin enredos</h3><p>Identifica ingresos, costos y fechas críticas antes de que afecten tu operación.</p><button type="button" data-go-tab="dashboard">Revisar mis indicadores →</button></article>
+      <article class="doc-card"><span class="doc-icon">□</span><h3>Inventario que sí ayuda a decidir</h3><p>Define niveles mínimos, registra costos y evita ventas que superen tu stock.</p><button type="button" data-go-tab="inventario">Abrir inventario →</button></article>
+      <article class="doc-card"><span class="doc-icon">↗</span><h3>Cómo mostrar tu negocio</h3><p>Prepara una ficha clara con tu oferta, ubicación y canales de contacto.</p><button type="button" data-network-view="explorar">Explorar perfiles →</button></article>
+      <article class="doc-card"><span class="doc-icon">◎</span><h3>Alianzas entre pymes</h3><p>Encuentra comunidades con objetivos comunes y comparte oportunidades útiles.</p><button type="button" data-network-view="red">Ver comunidades →</button></article>
+    </div>
+    <aside class="docs-note"><span>Una idea para hoy</span><strong>Una pyme que registra lo que ocurre puede decidir con datos, incluso antes de tener un equipo financiero.</strong><button type="button" data-start-movement="sale">Registrar una venta</button></aside>
+  </section>
 
-        <!-- EXPLORAR & MATCHMAKING -->
-        <section class="subpanel" id="sub-explorar">
-          <div class="section-intro">
-            <h2>Explorar &amp; Matchmaking</h2>
-            <p>Sugerencias activas basadas en tus datos, más el buscador avanzado de proveedores y clientes.</p>
-          </div>
-          <div class="search-toolbar">
-            <div class="search-box">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>
-              <input type="text" id="match-search" aria-label="Buscar empresas" placeholder="Buscar por nombre, rubro o ubicación">
-            </div>
-            <button class="filter-chip">Rubro</button>
-            <button class="filter-chip">Ubicación</button>
-            <button class="filter-chip">Certificaciones</button>
-            <button class="filter-chip">Volumen de operación</button>
-          </div>
-          <div class="grid-3" id="match-grid"></div>
-        </section>
+  <section class="subpanel" id="sub-pymio" role="tabpanel">
+    <div class="storefront" data-storefront>
+      <header class="store-hero"><img class="store-banner-image" data-store-banner-img alt="" hidden><div class="store-avatar"><span data-store-initials>PY</span><img data-store-avatar-img alt="" hidden></div><div class="store-copy"><span class="section-kicker">Mi vitrina en Pymio</span><h2 data-store-name>Tu negocio</h2><p data-store-tagline>Personaliza cómo se presenta tu pyme a la red.</p><div class="social-links" data-store-socials></div></div><button type="button" class="btn-outline" data-profile-edit>Personalizar perfil</button></header>
+      <div class="store-actions"><button type="button" class="btn" data-start-movement="sale">+ Agregar venta</button><button type="button" class="btn-outline" data-go-tab="inventario">Gestionar inventario</button><button type="button" class="btn-outline" data-open-own-profile>Vista pública</button></div>
+      <div class="store-section-head"><div><span class="section-kicker">Catálogo visual</span><h3>Tu inventario, de un vistazo</h3></div><div class="store-catalog-actions"><span data-store-count>0 productos</span><button type="button" class="btn" data-store-add-product>+ Agregar producto</button></div></div>
+      <div class="store-products" id="store-inventory-grid"></div>
+      <p class="store-disclaimer">Esta vitrina es informativa. Pymio no procesa ventas ni pagos dentro de la plataforma.</p>
+    </div>
+  </section>
 
-        <!-- EVENTOS & BENEFICIOS -->
-        <section class="subpanel" id="sub-eventos">
-          <div class="section-intro">
-            <h2>Eventos &amp; Beneficios</h2>
-            <p>Talleres, capacitaciones gremiales y alianzas exclusivas para la comunidad Pymio.</p>
-          </div>
-          <div class="grid-2">
-            <div class="card">
-              <div class="card-head"><h3>Próximos eventos</h3></div>
-              <div id="event-list"></div>
-            </div>
-            <div class="card">
-              <div class="card-head"><h3>Beneficios y alianzas</h3></div>
-              <div id="benefit-list"></div>
-            </div>
-          </div>
-        </section>
+  <section class="subpanel" id="sub-red" role="tabpanel">
+    <div class="section-intro section-intro-action"><div><p class="section-kicker">Comunidades</p><h2>Mi RED</h2><p>Descubre espacios creados por otras pymes, únete a ellos o abre una comunidad propia.</p></div><button type="button" class="btn" data-community-create>Crear comunidad</button></div>
+    <div class="network-summary" data-community-summary hidden></div><div class="grid-3" id="community-grid"></div>
+  </section>
+
+  <section class="subpanel" id="sub-explorar" role="tabpanel">
+    <div class="section-intro"><p class="section-kicker">Directorio empresarial</p><h2>Explorar y Matchmaking</h2><p>Encuentra empresas por rubro, ubicación o los productos y servicios que ofrecen.</p></div>
+    <article class="profile-callout" data-profile-card><div class="profile-callout-mark" aria-hidden="true">PY</div><div class="profile-callout-copy"><span>Tu perfil en la red</span><strong data-profile-name>Completa tu perfil empresarial</strong><p data-profile-summary>Agrega tu rubro, ubicación y oferta para aparecer en búsquedas relevantes.</p></div><button type="button" class="btn-outline" data-profile-edit>Editar perfil</button></article>
+    <div class="search-toolbar"><label class="search-box"><span class="sr-only">Buscar empresas</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg><input type="search" id="match-search" placeholder="Buscar empresa, rubro, producto o ubicación"></label><label class="filter-select"><span class="sr-only">Filtrar por rubro</span><select id="industry-filter"><option value="">Todos los rubros</option></select></label><label class="filter-select"><span class="sr-only">Filtrar por producto</span><select id="product-filter"><option value="">Todos los productos</option></select></label></div>
+    <p class="results-count" id="match-count" role="status"></p><div class="grid-3" id="match-grid"></div>
+  </section>
+
+  <section class="subpanel" id="sub-eventos" role="tabpanel">
+    <div class="section-intro section-intro-action"><div><p class="section-kicker">Agenda compartida</p><h2>Eventos y Beneficios</h2><p>Actividades y oportunidades publicadas por empresas y comunidades de RED Pymio.</p></div><button type="button" class="btn" data-post-create>Publicar</button></div>
+    <div class="grid-2 network-post-columns"><div class="card"><div class="card-head"><div><span class="card-eyebrow">Próximamente</span><h3>Eventos</h3></div><span class="count-badge" data-event-count>0</span></div><div id="event-list"></div></div><div class="card"><div class="card-head"><div><span class="card-eyebrow">Para tu negocio</span><h3>Beneficios</h3></div><span class="count-badge" data-benefit-count>0</span></div><div id="benefit-list"></div></div></div>
+  </section>
+
+  <dialog class="network-dialog" id="profile-view-dialog"><div class="public-profile"><button type="button" class="dialog-close profile-view-close" data-dialog-close aria-label="Cerrar">×</button><div class="public-profile-cover"><img data-public-banner-img alt="" hidden></div><div class="public-profile-avatar"><span data-public-initials>PY</span><img data-public-avatar-img alt="" hidden></div><div class="public-profile-body"><span class="section-kicker">Perfil de negocio</span><h2 data-public-name></h2><p class="public-profile-meta" data-public-meta></p><p class="public-profile-description" data-public-description></p><div class="match-badges" data-public-tags></div><div class="social-links social-links-large" data-public-socials></div></div></div></dialog>
+
+  <dialog class="network-dialog store-product-dialog" id="store-product-dialog"><form method="dialog" data-store-product-form>
+    <div class="dialog-head"><div><span class="dialog-kicker">Mi Pymio</span><h2>Agregar producto</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><p class="dialog-lead">El producto quedará disponible inmediatamente en tu vitrina y en Inventario.</p>
+    <div class="network-form-grid"><label class="field field-wide"><span>Producto</span><input name="name" maxlength="160" required></label><label class="field"><span>Categoría</span><select name="category" required><option value="">Cargando categorías…</option></select></label><label class="field"><span>Inventario inicial</span><input name="qty" type="number" min="0" step="1" value="0" required></label><label class="field"><span>Costo (CLP)</span><input name="cost" type="number" min="0" step="1" required></label><label class="field"><span>Precio (CLP)</span><input name="price" type="number" min="0" step="1" required></label><label class="field"><span>Stock crítico</span><input name="crit_qty" type="number" min="0" step="1" value="0" required></label><label class="field"><span>Stock bajo</span><input name="low_qty" type="number" min="1" step="1" value="1" required></label><label class="field field-wide"><span>Foto del producto (opcional)</span><input name="image" type="file" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WebP · máximo 10 MB. Pymio optimizará la imagen antes de guardarla.</small></label></div>
+    <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Guardar producto</button></div>
+  </form></dialog>
+
+  <dialog class="network-dialog" id="profile-dialog"><form method="dialog" data-profile-form>
+    <div class="dialog-head"><div><span class="dialog-kicker">Perfil empresarial</span><h2>Personaliza tu espacio</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><p class="dialog-lead">Esta información construye tu perfil público y ayuda a otras pymes a encontrarte.</p>
+    <div class="network-form-grid"><section class="field-wide profile-media-editor" aria-labelledby="profile-media-title"><div class="profile-media-heading"><div><strong id="profile-media-title">Identidad visual</strong><p>Las imágenes se optimizan y guardan automáticamente en formato WebP.</p></div></div><div class="profile-media-grid"><div class="profile-media-card"><div class="avatar-editor-preview" data-avatar-preview><span data-avatar-preview-initials>PY</span><img alt="Vista previa de la foto de perfil" hidden></div><div class="profile-media-copy"><strong>Foto de perfil</strong><p>Recomendado: 600 × 600 px, formato cuadrado.</p><label class="media-upload"><input name="avatarImage" type="file" accept="image/jpeg,image/png,image/webp"><span>Elegir foto</span></label><label class="media-remove"><input name="removeAvatar" type="checkbox"> Quitar foto actual</label></div></div><div class="profile-media-card banner-media-card"><div class="banner-editor-preview" data-banner-preview><span>Vista previa del banner</span><img alt="Vista previa del banner" hidden></div><div class="profile-media-copy"><strong>Fondo del banner</strong><p>Recomendado: 1440 × 480 px, proporción 3:1.</p><div class="banner-mode" role="radiogroup" aria-label="Fondo del banner"><label><input name="bannerMode" type="radio" value="color" checked><span>Usar color</span></label><label><input name="bannerMode" type="radio" value="image"><span>Usar imagen</span></label></div><label class="media-upload"><input name="bannerImage" type="file" accept="image/jpeg,image/png,image/webp"><span>Elegir imagen</span></label></div></div></div></section><label class="field field-wide"><span>Nombre público</span><input name="displayName" maxlength="120" required></label><label class="field"><span>Rubro</span><input name="industry" maxlength="80" placeholder="Ej. Alimentos y bebidas"></label><label class="field"><span>Ubicación</span><input name="location" maxlength="120" placeholder="Ej. Providencia, RM"></label><label class="field field-wide"><span>Frase de tu tienda</span><input name="storeTagline" maxlength="140" placeholder="Ej. Productos locales hechos con cuidado"></label><label class="field field-wide"><span>Productos o servicios</span><input name="productTags" maxlength="300" placeholder="Separa cada término con una coma"></label><label class="field field-wide"><span>Descripción</span><textarea name="description" maxlength="500" rows="4" placeholder="Cuenta brevemente qué hace tu negocio"></textarea></label><label class="field"><span>Color del banner</span><input name="accentColor" type="color" value="#f4ce4f"></label><label class="field"><span>Sitio web (opcional)</span><input name="website" type="url" maxlength="240" placeholder="https://tuempresa.cl"></label>
+      <div class="field-wide social-form-title"><span>Redes y contacto opcionales</span><p>Incluye la URL completa de cada perfil.</p></div><label class="field"><span>Instagram</span><input name="instagram" type="url" maxlength="240" placeholder="https://instagram.com/..."></label><label class="field"><span>YouTube</span><input name="youtube" type="url" maxlength="240" placeholder="https://youtube.com/@..."></label><label class="field"><span>TikTok</span><input name="tiktok" type="url" maxlength="240" placeholder="https://tiktok.com/@..."></label><label class="field"><span>Facebook</span><input name="facebook" type="url" maxlength="240" placeholder="https://facebook.com/..."></label><label class="field"><span>LinkedIn</span><input name="linkedin" type="url" maxlength="240" placeholder="https://linkedin.com/company/..."></label><label class="field"><span>Correo electrónico</span><input name="contactEmail" type="email" maxlength="180" placeholder="contacto@empresa.cl"></label>
+    </div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Guardar perfil</button></div>
+  </form></dialog>
+
+  <dialog class="network-dialog" id="community-dialog"><form method="dialog" data-community-form><div class="dialog-head"><div><span class="dialog-kicker">Nueva comunidad</span><h2>Crea un espacio con propósito</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><p class="dialog-lead">Define con claridad quiénes deberían encontrarse aquí y qué podrán compartir.</p><div class="network-form-grid"><label class="field field-wide"><span>Nombre</span><input name="name" maxlength="100" required></label><label class="field field-wide"><span>Rubro o temática</span><input name="industry" maxlength="80"></label><label class="field field-wide"><span>Descripción</span><textarea name="description" maxlength="500" rows="5" required></textarea></label></div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Crear comunidad</button></div></form></dialog>
+  <dialog class="network-dialog" id="post-dialog"><form method="dialog" data-post-form><div class="dialog-head"><div><span class="dialog-kicker">Nueva publicación</span><h2>Comparte una oportunidad</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><div class="post-kind"><label><input type="radio" name="kind" value="event" checked><span>Evento</span></label><label><input type="radio" name="kind" value="benefit"><span>Beneficio</span></label></div><div class="network-form-grid"><label class="field field-wide"><span>Título</span><input name="title" maxlength="140" required></label><label class="field field-wide"><span>Descripción</span><textarea name="description" maxlength="700" rows="4" required></textarea></label><label class="field"><span data-date-label>Fecha y hora</span><input name="eventAt" type="datetime-local"></label><label class="field"><span>Ubicación o modalidad</span><input name="location" maxlength="160"></label><label class="field field-wide"><span>Publicar en</span><select name="communityId"><option value="">Toda RED Pymio</option></select></label></div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Publicar</button></div></form></dialog>
 </section>

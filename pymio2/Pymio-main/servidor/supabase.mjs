@@ -18,6 +18,39 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     }
     return result;
   };
+  const uploadStorageImage = async (bucket, path, body) => {
+    let response;
+    try {
+      response = await fetchImpl(new URL(`/storage/v1/object/${bucket}/${path}`, base), {
+        method: 'POST', headers: {...headers, 'Content-Type':'image/webp', 'x-upsert':'false'}, body,
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw Object.assign(new Error(detail.message || 'No se pudo guardar la imagen en Supabase Storage.'), {status: response.status === 409 ? 409 : 502});
+    }
+    return {path};
+  };
+  const deleteStorageImage = async (bucket, path) => {
+    let response;
+    try {
+      response = await fetchImpl(new URL(`/storage/v1/object/${bucket}/${path}`, base), {
+        method: 'DELETE', headers, signal: AbortSignal.timeout(15000),
+      });
+    } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
+    if (!response.ok && response.status !== 404) throw Object.assign(new Error('No se pudo eliminar la imagen anterior.'), {status:502});
+  };
+  const getStorageImage = async (bucket, path) => {
+    let response;
+    try {
+      response = await fetchImpl(new URL(`/storage/v1/object/public/${bucket}/${path}`, base), {
+        headers, signal: AbortSignal.timeout(15000),
+      });
+    } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
+    if (!response.ok) throw Object.assign(new Error('La imagen no está disponible.'), {status:response.status === 404 ? 404 : 502});
+    return Buffer.from(await response.arrayBuffer());
+  };
   return {
     async authProviders() {
       const settings=await requestJson('/auth/v1/settings', {headers}, 'No se pudo consultar la configuración de acceso.');
@@ -73,6 +106,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         body: JSON.stringify({ auth_user: userId }),
       }, 'No se encontró un espacio de trabajo para esta cuenta.');
     },
+    async network(operation, companyId, data = {}) {
+      return requestJson('/rest/v1/rpc/pymio_network', {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operation, company: String(companyId), payload: data }),
+      }, 'No se pudo consultar RED Pymio. Revisa la configuración de la red.');
+    },
     async rpc(operation, companyId, data = {}) {
       let response;
       try {
@@ -92,37 +131,22 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       return result;
     },
     async uploadProductImage(path, body) {
-      let response;
-      try {
-        response = await fetchImpl(new URL('/storage/v1/object/product-images/' + path, base), {
-          method: 'POST', headers: {...headers, 'Content-Type':'image/webp', 'x-upsert':'false'}, body,
-          signal: AbortSignal.timeout(20000),
-        });
-      } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
-      if (!response.ok) {
-        const detail = await response.json().catch(() => ({}));
-        throw Object.assign(new Error(detail.message || 'No se pudo guardar la imagen en Supabase Storage.'), {status: response.status === 409 ? 409 : 502});
-      }
-      return {path};
+      return uploadStorageImage('product-images',path,body);
     },
     async deleteProductImage(path) {
-      let response;
-      try {
-        response = await fetchImpl(new URL('/storage/v1/object/product-images/' + path, base), {
-          method: 'DELETE', headers, signal: AbortSignal.timeout(15000),
-        });
-      } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
-      if (!response.ok && response.status !== 404) throw Object.assign(new Error('No se pudo eliminar la imagen anterior.'), {status:502});
+      return deleteStorageImage('product-images',path);
     },
     async getProductImage(path) {
-      let response;
-      try {
-        response = await fetchImpl(new URL('/storage/v1/object/public/product-images/' + path, base), {
-          headers, signal: AbortSignal.timeout(15000),
-        });
-      } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
-      if (!response.ok) throw Object.assign(new Error('La imagen no está disponible.'), {status:response.status === 404 ? 404 : 502});
-      return Buffer.from(await response.arrayBuffer());
+      return getStorageImage('product-images',path);
+    },
+    async uploadProfileImage(path, body) {
+      return uploadStorageImage('profile-images',path,body);
+    },
+    async deleteProfileImage(path) {
+      return deleteStorageImage('profile-images',path);
+    },
+    async getProfileImage(path) {
+      return getStorageImage('profile-images',path);
     },
   };
 }

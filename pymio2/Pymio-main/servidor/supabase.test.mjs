@@ -42,6 +42,14 @@ test('Supabase Auth: prepara Google con PKCE e intercambia el código en el serv
   assert.deepEqual(JSON.parse(calls.at(-1).options.body),{auth_code:'code-1',code_verifier:'verifier-1'});
 });
 
+test('Supabase RED Pymio: usa la función protegida y mantiene el alcance empresarial',async()=>{
+  let sent;
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{sent={url,options};return Response.json({profile:{},businesses:[],communities:[],posts:[]});}});
+  const result=await client.network('bootstrap','12');
+  assert.deepEqual(result.communities,[]);assert.equal(sent.url.pathname,'/rest/v1/rpc/pymio_network');
+  assert.deepEqual(JSON.parse(sent.options.body),{operation:'bootstrap',company:'12',payload:{}});
+});
+
 test('HTTP Auth: Google pide los datos del negocio antes de crear el espacio',async()=>{
   const registrations=[];
   const pool={
@@ -94,6 +102,12 @@ test('Supabase Storage: sube únicamente WebP y permite eliminarlo', async () =>
   assert.match(calls[1].url.pathname,/\/storage\/v1\/object\/public\/product-images\//);
   assert.ok(downloaded.length>0);
   assert.equal(calls[2].options.method,'DELETE');
+  await client.uploadProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp',image);
+  await client.getProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp');
+  await client.deleteProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp');
+  assert.equal(calls[3].url.pathname,'/storage/v1/object/profile-images/2/avatar/10000000-0000-4000-8000-000000000002.webp');
+  assert.match(calls[4].url.pathname,/\/storage\/v1\/object\/public\/profile-images\//);
+  assert.equal(calls[5].options.method,'DELETE');
 });
 
 test('HTTP: valida y limita las imágenes antes de enviarlas a Storage', async () => {
@@ -115,6 +129,21 @@ test('HTTP: valida y limita las imágenes antes de enviarlas a Storage', async (
     assert.equal((await fetch(`${base}/api/product-images/${id}?company_id=2`,{method:'DELETE'})).status,200);
     assert.equal(uploads.at(-1).deleted,result.path);
   } finally { await close(server); }
+});
+
+test('HTTP: procesa fotos de perfil y banners WebP por empresa', async () => {
+  const calls=[];
+  const pool={uploadProfileImage:async(path,body)=>calls.push({path,body}),getProfileImage:async path=>{calls.push({read:path});return Buffer.from('RIFFxxxxWEBPdata');},deleteProfileImage:async path=>calls.push({deleted:path}),rpc:async()=>[]};
+  const server=createInventoryServer(pool,[]),base=await listen(server);
+  try{
+    const valid=Buffer.from('RIFFxxxxWEBPdata');
+    const uploaded=await fetch(base+'/api/profile-images/avatar?company_id=2',{method:'POST',headers:{'Content-Type':'image/webp'},body:valid});
+    assert.equal(uploaded.status,201);const result=await uploaded.json();assert.match(result.path,/^2\/avatar\/[0-9a-f-]{36}\.webp$/);
+    const id=result.path.split('/')[2].replace('.webp','');
+    const served=await fetch(`${base}/api/profile-images/2/avatar/${id}?company_id=2`);assert.equal(served.status,200);assert.equal(calls.at(-1).read,result.path);
+    assert.equal((await fetch(base+'/api/profile-images/banner?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:valid})).status,415);
+    assert.equal((await fetch(`${base}/api/profile-images/avatar/${id}?company_id=2`,{method:'DELETE'})).status,200);assert.equal(calls.at(-1).deleted,result.path);
+  }finally{await close(server);}
 });
 
 async function listen(server) {

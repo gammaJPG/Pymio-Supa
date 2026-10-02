@@ -50,7 +50,7 @@ button:disabled{cursor:not-allowed;}
 .sidebar-top .brand-mark{width:37px;height:37px;}
 .sidebar-top span{font-size:27px;font-weight:700;letter-spacing:-1.2px;color:#f7f7ee;}
 .nav-caption{font-size:9px;letter-spacing:.15em;color:#a2a893;margin:0 12px 15px;}
-.nav{flex:0;gap:6px;}
+.nav{flex:1;min-height:0;overflow-y:auto;gap:6px;scrollbar-width:thin;scrollbar-color:#3e4236 transparent;}
 .nav-item{padding:13px 14px;gap:12px;min-height:46px;border-radius:10px;font-size:13px;color:#c0c5b3;}
 .nav-item svg{width:18px;height:18px;}
 .nav-item.active{background:var(--accent);color:#29271c;font-weight:600;}

@@ -1,6 +1,7 @@
 import { crearProducto } from './productos.mjs';
 import { atenderCategorias } from './categorias.mjs';
 import { atenderClientes } from './clientes.mjs';
+import { atenderRedPymio } from './red-pymio.mjs';
 
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -162,6 +163,16 @@ export function createInventoryServer(pool, origins, options = {}) {
         } catch(error) { await pool.deleteAuthUser(user.id).catch(()=>{}); throw error; }
       } catch(error) { return send(error.status||500,{error:error.message||'No se pudo completar el acceso.'}); }
     }
+    const session=sessionSecret?decodeSession(cookieValue(req),sessionSecret):null;
+    if(sessionSecret && !session)return send(401,{error:'Tu sesión venció. Vuelve a ingresar.'});
+    const companyId = session?String(session.companyId):url.searchParams.get('company_id');
+    if (!companyId || !/^[1-9]\d*$/.test(companyId) || companyId.length > 18) {
+      return send(400, { error: 'company_id debe ser un entero positivo.' });
+    }
+    if(url.pathname.startsWith('/api/network/')){
+      if(session?.demo)return send(403,{error:'La cuenta piloto conserva la vista de demostración de RED Pymio.'});
+      return atenderRedPymio(req,pool,companyId,send,url);
+    }
     const categoryId = /^\/api\/categories\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
     const categoryRoute = url.pathname === '/api/categories' || Boolean(categoryId);
     const movementCode = /^\/api\/movements\/([a-f0-9]{12})$/.exec(url.pathname)?.[1];
@@ -169,13 +180,11 @@ export function createInventoryServer(pool, origins, options = {}) {
     const productId = /^\/api\/products\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
     const imageId = /^\/api\/product-images\/([0-9a-f-]{36})$/.exec(url.pathname)?.[1];
     const imageRoute = url.pathname === '/api/product-images' || Boolean(imageId);
-    if (!categoryRoute && !imageRoute && url.pathname !== '/api/customers' && !historyProductId && !movementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
-    const session=sessionSecret?decodeSession(cookieValue(req),sessionSecret):null;
-    if(sessionSecret && !session)return send(401,{error:'Tu sesión venció. Vuelve a ingresar.'});
-    const companyId = session?String(session.companyId):url.searchParams.get('company_id');
-    if (!companyId || !/^[1-9]\d*$/.test(companyId) || companyId.length > 18) {
-      return send(400, { error: 'company_id debe ser un entero positivo.' });
-    }
+    const profileUpload=/^\/api\/profile-images\/(avatar|banner)$/.exec(url.pathname);
+    const profileOwnImage=/^\/api\/profile-images\/(avatar|banner)\/([0-9a-f-]{36})$/.exec(url.pathname);
+    const profilePublicImage=/^\/api\/profile-images\/([1-9]\d{0,18})\/(avatar|banner)\/([0-9a-f-]{36})$/.exec(url.pathname);
+    const profileImageRoute=Boolean(profileUpload||profileOwnImage||profilePublicImage);
+    if (!categoryRoute && !imageRoute && !profileImageRoute && url.pathname !== '/api/customers' && !historyProductId && !movementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
     try {
       if (categoryRoute) return await atenderCategorias(req,pool,companyId,categoryId,send);
       if (url.pathname === '/api/customers') return await atenderClientes(req,pool,companyId,send);
@@ -198,6 +207,25 @@ export function createInventoryServer(pool, origins, options = {}) {
         if (req.method === 'DELETE' && imageId) {
           await pool.deleteProductImage(`${companyId}/${imageId}.webp`);
           return send(200,{deleted:true});
+        }
+        return send(405,{error:'Método no permitido.'});
+      }
+      if(profileImageRoute){
+        if(req.method==='GET' && profilePublicImage){
+          const [,publicCompany,kind,id]=profilePublicImage,body=await pool.getProfileImage(`${publicCompany}/${kind}/${id}.webp`);
+          res.writeHead(200,{'Content-Type':'image/webp','Content-Length':body.length,'Cache-Control':'public, max-age=86400'});
+          return res.end(body);
+        }
+        if(req.method==='POST' && profileUpload){
+          if(req.headers['content-type']?.split(';')[0].trim()!=='image/webp')return send(415,{error:'La imagen debe estar comprimida en formato WebP.'});
+          const kind=profileUpload[1],limit=kind==='banner'?500*1024:250*1024,chunks=[];let bytes=0;
+          for await(const chunk of req){bytes+=chunk.length;if(bytes>limit)return send(413,{error:`La imagen comprimida supera el máximo de ${kind==='banner'?'500':'250'} KB.`});chunks.push(chunk);}
+          const body=Buffer.concat(chunks);
+          if(body.length<12||body.subarray(0,4).toString()!=='RIFF'||body.subarray(8,12).toString()!=='WEBP')return send(400,{error:'El archivo no es una imagen WebP válida.'});
+          const id=randomUUID(),path=`${companyId}/${kind}/${id}.webp`;await pool.uploadProfileImage(path,body);return send(201,{path});
+        }
+        if(req.method==='DELETE' && profileOwnImage){
+          const [,kind,id]=profileOwnImage;await pool.deleteProfileImage(`${companyId}/${kind}/${id}.webp`);return send(200,{deleted:true});
         }
         return send(405,{error:'Método no permitido.'});
       }
