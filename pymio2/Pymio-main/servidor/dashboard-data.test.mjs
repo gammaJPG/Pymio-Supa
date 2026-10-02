@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeDashboardData, rangeForPeriod, previousRangeForPeriod, sixMonthRange, selectSales, summarizeSales, isLowStock } from '../dashboard-data.js';
+import { normalizeDashboardData, rangeForPeriod, previousRangeForPeriod, sixMonthRange, calendarMonthRange, previousCalendarMonthRange, selectSales, summarizeSales, isLowStock } from '../dashboard-data.js';
 
 test('Dashboard: conecta movimientos con categorías del inventario y agrega ventas reales', () => {
   const products = [
@@ -30,4 +30,6 @@ test('Dashboard: compara períodos equivalentes y muestra seis meses de contexto
   assert.equal(previous.end.getTime(),current.start.getTime());
   assert.equal(semester.start.toISOString().slice(0,7),'2026-05');
   assert.equal(semester.end.toISOString().slice(0,7),'2026-11');
+  assert.equal(calendarMonthRange('2026-05').start.toISOString().slice(0,10),'2026-05-01');
+  assert.equal(previousCalendarMonthRange('2026-05').start.toISOString().slice(0,10),'2026-04-01');
 });

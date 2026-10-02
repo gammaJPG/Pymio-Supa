@@ -47,6 +47,18 @@ export function sixMonthRange(now = new Date()) {
   };
 }
 
+export function calendarMonthRange(value) {
+  if (!/^\d{4}-\d{2}$/.test(value || '')) throw new Error('Mes inválido.');
+  const [year, month] = value.split('-').map(Number);
+  if (month < 1 || month > 12) throw new Error('Mes inválido.');
+  return { start: new Date(year, month - 1, 1), end: new Date(year, month, 1) };
+}
+
+export function previousCalendarMonthRange(value) {
+  const {start}=calendarMonthRange(value);
+  return {start:new Date(start.getFullYear(),start.getMonth()-1,1),end:start};
+}
+
 export function monthRange(offset = 0, now = new Date()) {
   return {
     start: new Date(now.getFullYear(), now.getMonth() + offset, 1),

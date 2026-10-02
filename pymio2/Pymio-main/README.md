@@ -54,8 +54,11 @@ Se eliminó el generador demostrativo y se adoptaron estas reglas:
 
 Cuando se selecciona `Este mes`, los KPI siguen describiendo el mes actual, mientras el gráfico muestra seis meses de contexto, desde mayo hasta octubre de 2026 con los datos actuales. Cada barra identifica el mes correspondiente.
 
-Los demás filtros conservan el detalle apropiado:
+El selector se ordena de menor a mayor extensión temporal: `Hoy`, `Últimos 7 días`, `Últimos 30 días`, `Este mes` y `Último año`. Los demás filtros conservan el detalle apropiado:
 
+- `Último año`: habilita el selector `Mes`. Sus meses se construyen desde las ventas realmente registradas y se ordenan desde el registro más reciente hasta el más antiguo.
+- `Seleccionar`, primera opción del selector `Mes`, consolida todas las ventas del histórico disponible. Los KPI muestran totales históricos, las barras representan cada mes registrado y no se presenta una comparación artificial contra un período anterior.
+- Al elegir un mes concreto, los KPI comparan ese mes con el mes calendario anterior y el gráfico lo desglosa por semanas.
 - `Últimos 30 días`: intervalos semanales.
 - `Últimos 7 días`: una barra por día.
 - `Hoy`: intervalos horarios.
@@ -70,6 +73,10 @@ Cada porcentaje compara períodos equivalentes:
 - Hoy contra ayer.
 
 Si el período anterior no tiene una base válida, se muestra `Nuevo` o `Sin cambio` en lugar de fabricar un porcentaje.
+
+Cada porcentaje admite cursor y foco de teclado. Su ayuda contextual muestra los valores absolutos del período seleccionado y del período anterior utilizados en el cálculo.
+
+Los mensajes de las barras elevan su capa visual al recibir cursor o foco para no quedar ocultos detrás de barras vecinas. El gráfico de categorías asigna una paleta estable de colores únicos según el catálogo real, evitando reutilizar el mismo color entre categorías visibles.
 
 ### Consistencia del stock bajo
 

@@ -4,9 +4,11 @@
   .filter-group{min-width:170px;}
   .filter-group label{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin:0 0 6px;}
   .filter-group select{width:100%;padding:9px 34px 9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);font-size:13px;}
+  .filter-group[hidden]{display:none!important;}
 
   .sales-bar-chart{height:280px;display:flex;align-items:flex-end;gap:14px;padding:34px 10px 0;border-bottom:1px solid var(--line);}
-  .sales-bar-col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:54px;}
+  .sales-bar-col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:54px;position:relative;}
+  .sales-bar-col:hover,.sales-bar-col:focus-within{z-index:100;}
   .sales-bar{width:min(58px,72%);background:var(--accent);border-radius:7px 7px 2px 2px;transition:.15s ease;}
   .sales-bar:hover{background:var(--accent-dark);transform:translateY(-2px);}
   .sales-bar-value{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--muted);margin-bottom:6px;white-space:nowrap;}
@@ -29,7 +31,7 @@
 .dash-kpi .critical{color:var(--critical)}
 button.dash-kpi:hover{border-color:var(--accent);background:var(--accent-soft)}
 
-.bar-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink);color:white;border-radius:10px;padding:10px 12px;white-space:nowrap;z-index:3;font-size:12px;line-height:1.6;pointer-events:none}
+.bar-tooltip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink);color:white;border-radius:10px;padding:10px 12px;white-space:nowrap;z-index:200;font-size:12px;line-height:1.6;pointer-events:none;box-shadow:0 10px 28px #10140d45}
 .sales-bar-col:first-child .bar-tooltip{left:0;transform:none}
 .sales-bar-col:last-child .bar-tooltip{left:auto;right:0;transform:none}
 .sales-bar:hover .bar-tooltip,.sales-bar:focus-visible .bar-tooltip{display:block}
@@ -77,6 +79,10 @@ button.pie-legend-item:hover,button.pie-legend-item:focus-visible{background:var
 #tab-dashboard .dash-kpi small{font-size:9px;line-height:1.4}
 #tab-dashboard .kpi-comparison{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;margin-top:auto;padding-top:10px;white-space:nowrap}
 #tab-dashboard .kpi-change{display:inline-flex;align-items:center;padding:3px 5px;border-radius:5px;font-weight:700;color:#566346;background:#eef0e7}
+#tab-dashboard .interactive-metric{position:relative;cursor:help;outline:none}
+#tab-dashboard .interactive-metric::after{content:attr(data-tooltip);display:none;position:absolute;left:0;bottom:calc(100% + 9px);width:max-content;max-width:260px;padding:9px 11px;border-radius:8px;background:#20251c;color:#fff;font-size:10px;font-weight:400;line-height:1.45;white-space:normal;z-index:300;box-shadow:0 10px 28px #10140d45}
+#tab-dashboard .interactive-metric:hover::after,#tab-dashboard .interactive-metric:focus-visible::after{display:block}
+#tab-dashboard .dash-kpi:nth-child(n+5) .interactive-metric::after{left:auto;right:0}
 #tab-dashboard .kpi-change.down{color:#a65440;background:#fbede5}
 #tab-dashboard .dash-kpi.primary .kpi-change.up{color:#f3d977;background:#f3d97718}
 #tab-dashboard .dash-kpi.primary .kpi-change.down{color:#ffc1ad;background:#ffc1ad18}
@@ -95,7 +101,7 @@ button.pie-legend-item:hover,button.pie-legend-item:focus-visible{background:var
 #tab-dashboard .sales-heading h3{font-size:22px;font-weight:500;letter-spacing:-.035em}
 #tab-dashboard .sales-heading .chart-legend{display:flex;align-items:center;gap:8px;margin-left:auto;padding-top:10px;color:#777765;font-size:11px;white-space:nowrap}
 #tab-dashboard .sales-heading .chart-legend i{width:9px;height:9px;border-radius:2px;background:#e9c54d}
-#tab-dashboard .sales-bar-chart{height:270px;padding:48px 10px 0;gap:20px;border-bottom:1px solid #dedfd6;background:repeating-linear-gradient(to top,transparent 0,transparent 67px,#e7e8e1 67px,#e7e8e1 68px)}
+#tab-dashboard .sales-bar-chart{height:270px;padding:48px 10px 0;gap:20px;border-bottom:1px solid #dedfd6;background:repeating-linear-gradient(to top,transparent 0,transparent 67px,#e7e8e1 67px,#e7e8e1 68px);position:relative;overflow:visible}
 #tab-dashboard .sales-bar-col{min-width:0}
 #tab-dashboard .sales-bar{border:0;background:#e6e6dc;min-height:4px;flex-shrink:0;border-radius:8px 8px 0 0;position:relative;padding:0}
 #tab-dashboard .sales-bar-col:last-child .sales-bar{background:#e9c54d}
