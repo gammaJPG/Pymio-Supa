@@ -31,10 +31,12 @@
       <span class="sub">Hasta 500 movimientos del período seleccionado · pulsa una fila para ver sus productos</span>
     </div>
     <div class="table-scroll"><table class="movimientos-listado">
-      <colgroup><col class="mov-col-fecha"><col class="mov-col-detalle"><col class="mov-col-monto"></colgroup>
+      <colgroup><col class="mov-col-fecha"><col class="mov-col-detalle"><col class="mov-col-canal"><col class="mov-col-pago"><col class="mov-col-monto"></colgroup>
       <thead><tr>
         <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="occurred_at" data-type="fecha">Fecha y Hora <span aria-hidden="true">↕</span></th>
         <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="operation_detail" data-type="texto">Detalle de Operación <span aria-hidden="true">↕</span></th>
+        <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="channel" data-type="texto">Canal <span aria-hidden="true">↕</span></th>
+        <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="payment_method" data-type="texto">Medio de pago <span aria-hidden="true">↕</span></th>
         <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="total" data-type="numero">Monto Total <span aria-hidden="true">↕</span></th>
       </tr></thead>
       <tbody id="movimientos-table"></tbody>

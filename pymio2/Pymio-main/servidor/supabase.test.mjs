@@ -158,7 +158,7 @@ test('HTTP: validation, company scope, CORS, CRUD routing and Supabase failures'
   const server=createInventoryServer({async rpc(operation,company,data){calls.push({operation,company,data});if(failure)throw failure;return {id:'81'};}},['http://localhost:5500']);
   const base=await listen(server);
   const url=base+'/api/products?company_id=2';
-  const product={name:'Prueba',category:'Cat',qty:5,cost:10,price:20,crit_qty:1,low_qty:2,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'};
+  const product={name:'Prueba',category:'Cat',qty:5,cost:10,price:20,low_qty:2,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'};
   const send=(url,method,data)=>fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   try {
     assert.equal((await fetch(url,{method:'OPTIONS',headers:{Origin:'http://localhost:5500'}})).status,204);
@@ -166,11 +166,15 @@ test('HTTP: validation, company scope, CORS, CRUD routing and Supabase failures'
     assert.equal((await send(url,'POST',{...product,company_id:999})).status,201);
     assert.equal(calls.at(-1).operation,'product.create'); assert.equal(calls.at(-1).company,'2');
     const before=calls.length;
-    for(const update of [{qty:-1},{qty:1.2},{low_qty:1},{name:' '},{created_at:null}]) assert.equal((await send(url,'POST',{...product,...update})).status,400);
+    for(const update of [{qty:-1},{qty:1.2},{low_qty:-1},{name:' '},{created_at:null}]) assert.equal((await send(url,'POST',{...product,...update})).status,400);
     assert.equal(calls.length,before);
     assert.equal((await fetch(base+'/api/products?company_id=undefined')).status,400);
     assert.equal((await send(base+'/api/products/81?company_id=2','PUT',{...product,sku:'ABC'})).status,200);
     assert.equal(calls.at(-1).operation,'product.update'); assert.equal(calls.at(-1).data.id,'81');
+    assert.equal((await send(base+'/api/products/81/status?company_id=2','PATCH',{Estado:'Inhabilitado'})).status,200);
+    assert.equal(calls.at(-1).operation,'product.status'); assert.deepEqual(calls.at(-1).data,{id:'81',Estado:'Inhabilitado'});
+    assert.equal((await send(base+'/api/products/81/status?company_id=2','PATCH',{Estado:'Otro'})).status,400);
+    assert.equal((await send(url,'PATCH',{Estado:'Inhabilitado'})).status,405);
     await fetch(base+'/api/products/81?company_id=2',{method:'DELETE'});assert.equal(calls.at(-1).operation,'product.delete');
     await fetch(base+'/api/products/81/movements?company_id=2');assert.equal(calls.at(-1).operation,'product.history');
     await send(base+'/api/categories?company_id=2','POST',{name:'Nueva'});assert.equal(calls.at(-1).operation,'category.post');

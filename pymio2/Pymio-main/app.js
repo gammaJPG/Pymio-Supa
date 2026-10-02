@@ -5,7 +5,7 @@ import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=93'
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=45';
-import { renderAlerts } from './diagnostico.js';
+import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js';
 
 const apiUrl=apiBase;
@@ -79,15 +79,8 @@ async function cargarSecciones() {
   seccionesCargadas = true;
 }
 
-
-  
-  // ---------- DATOS FICTICIOS ----------
-
-  const notifData = [
-    {id:'demo-margin',sev:'critical', title:'Margen en descenso', desc:'La categoría Hogar bajó su margen a 19% este mes.', time:'Hace 2 horas'},
-    {id:'demo-stock',sev:'warn', title:'Stock bajo', desc:'"Organizador modular x6" quedó con solo 4 unidades.', time:'Hace 5 horas'},
-  ];
-  let syncNotifications=[];
+let diagnosticNotifications=[];
+let syncNotifications=[];
   const readNotificationIds=new Set();
 
   // ---------- ACCESO Y CUENTAS ----------
@@ -150,7 +143,7 @@ async function cargarSecciones() {
   async function enterApp(session){
     currentSession=session;
     await cargarSecciones();
-    await configureDashboard({companyId:session.companyId,demo:session.demo,apiUrl});
+    await Promise.all([configureDashboard({companyId:session.companyId,demo:session.demo,apiUrl}),configureDiagnostics({companyId:session.companyId,apiUrl})]);
     const business=session.businessName||'Mi negocio', role=session.demo?'Cuenta piloto':'Cuenta personal';
     const initials=business.split(/\s+/).filter(Boolean).slice(0,2).map(word=>word[0]).join('').toUpperCase()||'PY';
     document.getElementById('sidebar-account-type').textContent=role;
@@ -165,7 +158,6 @@ async function cargarSecciones() {
     document.querySelector('.dash-filters .sub').textContent=session.demo?'Datos de demostración':'Información de tu espacio';
     if(!session.demo){
       const insight=document.querySelector('.insight-card');insight.querySelector('h3').innerHTML='Tus próximas señales<br>aparecerán aquí.';insight.querySelector('p').textContent='Registra ventas, compras y costos para que Pymio encuentre oportunidades en tu operación.';insight.querySelector('.insight-foot').textContent='Análisis pendiente · Aún no hay datos suficientes';
-      document.querySelector('.diagnostic-summary [data-alert-count]').textContent='0';document.querySelector('.diagnostic-summary p').textContent='Tus datos · Análisis pendiente';document.querySelector('.diagnostic-summary .diagnostic-label').textContent='Sin alertas';
       const diagnosisLink=[...document.querySelectorAll('.home-feature-list small')].find(element=>element.textContent.includes('diagnóstico'));if(diagnosisLink)diagnosisLink.textContent='Encuentra señales cuando tu operación tenga datos suficientes.';
     }
     startOffline(session.companyId);
@@ -261,17 +253,18 @@ async function cargarSecciones() {
 
   function renderNotifications(){
     const list = document.getElementById('notif-list');
-    const visible=[...(currentSession?.demo?notifData:[]),...syncNotifications];
+    const visible=[...diagnosticNotifications,...syncNotifications];
     list.replaceChildren();
     if(!visible.length){const empty=document.createElement('div');empty.className='notif-empty';empty.textContent='Aún no tienes notificaciones.';list.append(empty);}
     for(const notification of visible){
-      const item=document.createElement('div');item.className='notif-item';
+      const item=document.createElement(notification.alertId?'button':'div');item.className=`notif-item${notification.alertId?' notif-diagnostic':''}`;
+      if(notification.alertId)item.type='button';
       if(readNotificationIds.has(notification.id))item.classList.add('read');
       const dot=document.createElement('div');dot.className=`dot ${notification.sev}`;
-      const content=document.createElement('div'),title=document.createElement('div'),description=document.createElement('div'),time=document.createElement('div');
-      title.className='n-title';description.className='n-desc';time.className='n-time';
-      title.textContent=notification.title;description.textContent=notification.desc;time.textContent=notification.time;
-      content.append(title,description,time);
+      const content=document.createElement('div'),title=document.createElement('div');
+      title.className='n-title';title.textContent=notification.title;content.append(title);
+      if(!notification.alertId){const description=document.createElement('div'),time=document.createElement('div');description.className='n-desc';time.className='n-time';description.textContent=notification.desc;time.textContent=notification.time;content.append(description,time);}
+      if(notification.alertId)item.onclick=()=>{readNotificationIds.add(notification.id);notifPanel.classList.remove('open');bellBtn.setAttribute('aria-expanded','false');navigateTo('diagnostico',false,true);renderNotifications();requestAnimationFrame(()=>{const alert=document.getElementById(notification.alertId);if(!alert)return;alert.classList.add('notification-target');alert.tabIndex=-1;alert.focus({preventScroll:true});alert.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>alert.classList.remove('notification-target'),1800);});};
       if(notification.issueId){
         const action=document.createElement('button');action.type='button';action.className='notif-action';action.textContent='Descartar intento';
         action.onclick=async()=>{if(!confirm('Este movimiento fue rechazado y no se aplicó al inventario. ¿Quieres descartarlo de las notificaciones?'))return;action.disabled=true;await discardSyncIssue(notification.issueId);};
@@ -289,6 +282,8 @@ async function cargarSecciones() {
     renderNotifications();
   }
   window.addEventListener('swc-offline-change',refreshSyncNotifications);
+  document.addEventListener('diagnostico-actualizado',event=>{diagnosticNotifications=event.detail?.alerts||[];renderNotifications();});
+  document.addEventListener('inventario-actualizado',()=>refreshDiagnosticAlerts());
 
   bellBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -302,7 +297,7 @@ async function cargarSecciones() {
     }
   });
   document.getElementById('mark-read-btn').addEventListener('click', () => {
-    for(const notification of [...(currentSession?.demo?notifData:[]),...syncNotifications])readNotificationIds.add(notification.id);
+    for(const notification of [...diagnosticNotifications,...syncNotifications])readNotificationIds.add(notification.id);
     renderNotifications();
   });
 
@@ -319,8 +314,6 @@ async function cargarSecciones() {
     iniciarEcosistema({session:currentSession,apiUrl});
     renderDashboard();
     renderInicio();
-    renderAlerts({demo:currentSession?.demo});
-
     renderNotifications();
     refreshSyncNotifications();
   }

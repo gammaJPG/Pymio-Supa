@@ -43,10 +43,9 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
           <div class="field" data-sku-field><label for="producto-sku">SKU</label><input id="producto-sku" name="sku" maxlength="32" title="Letras mayúsculas y números, separados opcionalmente por guiones. Ejemplo: AND-0021" required></div>
           <div class="field"><label for="producto-category">Categoría</label><select id="producto-category" name="category" required></select></div>
           <div class="field"><label for="producto-qty">Cantidad</label><input id="producto-qty" name="qty" type="number" min="0" max="2147483647" step="1" value="0" required></div>
-          <div class="field"><label for="producto-cost">Costo (CLP)</label><input id="producto-cost" name="cost" type="number" min="0" max="2147483647" step="1" required></div>
-          <div class="field"><label for="producto-price">Precio (CLP)</label><input id="producto-price" name="price" type="number" min="0" max="2147483647" step="1" required></div>
-          <div class="field"><label for="producto-crit">Stock crítico</label><input id="producto-crit" name="crit_qty" type="number" min="0" max="2147483646" step="1" required></div>
-          <div class="field"><label for="producto-low">Stock bajo</label><input id="producto-low" name="low_qty" type="number" min="1" max="2147483647" step="1" required></div>
+          <div class="field"><label for="producto-cost">Costo Unitario (CLP)</label><input id="producto-cost" name="cost" type="number" min="0" max="2147483647" step="1" required></div>
+          <div class="field"><label for="producto-price">Precio Unitario (CLP)</label><input id="producto-price" name="price" type="number" min="0" max="2147483647" step="1" required></div>
+          <div class="field"><label for="producto-low">Stock Bajo</label><input id="producto-low" name="low_qty" type="number" min="1" max="2147483647" step="1" required></div>
           <div class="field"><label for="producto-created">Creado</label><input id="producto-created" name="created_at" type="datetime-local" required></div>
           <div class="field" data-updated-field><label for="producto-updated">Actualizado</label><input id="producto-updated" name="updated_at" type="datetime-local" required></div>
         </div>
@@ -110,6 +109,9 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
 
   function abrir(tipo) {
     form.querySelector('label[for="producto-qty"]').textContent = tipo === 'agregar' ? 'Inventario Inicial' : 'Cantidad';
+    const etiquetaSku = form.querySelector('label[for="producto-sku"]');
+    if (etiquetaSku) etiquetaSku.textContent = tipo === 'modificar' ? 'Número de Identificación (SKU)' : 'SKU';
+    form.querySelector('label[for="producto-cost"]').textContent = 'Costo Unitario (CLP)';
     carga++;
     modo = tipo;
     panel.querySelector('#opciones-inventario').hidden = true;
@@ -151,7 +153,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     if (!response.ok || !Array.isArray(data)) throw new Error('No se pudieron cargar las categorías.');
     if (solicitud !== carga || !dialogo.open) return;
     categorySelect.replaceChildren(new Option('Selecciona una categoría',''));
-    if (modo === 'agregar') categorySelect.add(new Option('+Nueva categoría','__create__'));
+    if (modo === 'agregar') categorySelect.add(new Option('+Nueva Categoría','__create__'));
     data.forEach(c => categorySelect.add(new Option(c.name,c.name)));
     categorySelect.value = seleccionada && data.some(c=>c.name===seleccionada) ? seleccionada
       : data.some(c=>c.name==='Sin Clasificar') ? 'Sin Clasificar' : '';
@@ -177,7 +179,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     try { await cargarCategorias(solicitud); }
     catch(err) { if (solicitud === carga && dialogo.open) mostrarError(err.message); }
   };
-  async function abrirListado(tipo) {
+  async function abrirListado(tipo, productoId = null) {
     abrir(tipo);
     const solicitud = carga;
     selector.replaceChildren(new Option('Cargando productos…', ''));
@@ -196,6 +198,13 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       selector.replaceChildren(new Option(productos.length ? 'Selecciona un producto' : 'No hay productos en esta empresa', ''));
       productos.forEach(p => selector.add(new Option(`${p.name} — ${p.sku}`, String(p.id))));
       selector.disabled = !productos.length;
+      if (productoId != null) {
+        const encontrado = productos.some(p => String(p.id) === String(productoId));
+        if (!encontrado) throw new Error('El producto seleccionado ya no está disponible.');
+        selector.value = String(productoId);
+        selector.onchange();
+        form.elements.name.focus?.();
+      }
     } catch (err) {
       if (solicitud === carga && dialogo.open) {
         selector.replaceChildren(new Option('Listado no disponible', ''));
@@ -234,9 +243,8 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     if (modo === 'agregar') delete datos.sku;
     datos.name = datos.name.trim();
     datos.category = datos.category.trim();
-    for (const campo of ['qty', 'cost', 'price', 'crit_qty', 'low_qty']) datos[campo] = Number(datos[campo]);
+    for (const campo of ['qty', 'cost', 'price', 'low_qty']) datos[campo] = Number(datos[campo]);
     if (!datos.name || !datos.category) return mostrarError('Completa el producto y la categoría.');
-    if (datos.low_qty <= datos.crit_qty) return mostrarError('El stock bajo debe ser mayor que el stock crítico.');
     const original = productos.find(p => String(p.id) === productoId);
     if (modo === 'agregar') datos.updated_at = datos.created_at;
     for (const campo of ['created_at', 'updated_at']) {
@@ -290,4 +298,5 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       guardar.textContent = modo === 'borrar' ? 'Eliminar producto' : modo === 'modificar' ? 'Guardar cambios' : 'Guardar producto';
     }
   };
+  return { abrirModificar: productoId => abrirListado('modificar', productoId) };
 }

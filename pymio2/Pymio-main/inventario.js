@@ -15,7 +15,9 @@ export async function iniciarInventario({
   const viewSelect = panel?.querySelector('#inv-view');
   const detailedView = panel?.querySelector('[data-inventory-detailed]');
   const simpleView = panel?.querySelector('[data-inventory-simple]');
-  if (!panel || !tbody || !search || !categoria || !viewSelect || !detailedView || !simpleView) throw new Error('Primero debes insertar inventario.html.');
+  const statusDialog = panel?.querySelector('#producto-estado-confirmacion');
+  const statusQuestion = statusDialog?.querySelector('[data-product-status-question]');
+  if (!panel || !tbody || !search || !categoria || !viewSelect || !detailedView || !simpleView || !statusDialog || !statusQuestion) throw new Error('Primero debes insertar inventario.html.');
   const encabezados = panel.querySelectorAll('[data-sort]');
   const compararTexto = new Intl.Collator('es', { sensitivity: 'base' });
   let orden = null;
@@ -25,6 +27,7 @@ export async function iniciarInventario({
   const numero = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 });
   const normalizar = texto => String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   let inventory = [];
+  let productFormController = null;
   const viewKey = 'pymio-inventory-view';
   let currentView;
   try { currentView = sessionStorage.getItem(viewKey); } catch {}
@@ -67,7 +70,7 @@ export async function iniciarInventario({
       const card=document.createElement('article'); card.className='inventario-producto-card';
       card.setAttribute('aria-label',`${producto.name}. Stock: ${numero.format(producto.qty)}. Precio: ${clp.format(producto.price)}.`);
       const stock=document.createElement('p'); stock.className='inventario-card-stock';
-      if (Number(producto.qty) === 0 || Number(producto.qty) < Number(producto.crit_qty)) stock.classList.add('critico');
+      if (Number(producto.qty) === 0 || Number(producto.qty) < Number(producto.low_qty)) stock.classList.add('critico');
       stock.append('Stock: ',Object.assign(document.createElement('strong'),{textContent:numero.format(producto.qty)}));
       const media=document.createElement('div'); media.className='inventario-card-media';
       const placeholder=()=>{media.replaceChildren();const empty=document.createElement('div');empty.className='inventario-card-placeholder';empty.setAttribute('aria-label',`${producto.name}, sin imagen`);empty.innerHTML='<span aria-hidden="true">◇</span><small>Sin imagen</small>';media.appendChild(empty);};
@@ -89,6 +92,28 @@ export async function iniciarInventario({
       categoria.add(new Option(nombre || 'Sin categoría', JSON.stringify(nombre)));
     }
     categoria.value = [...categoria.options].some(opcion => opcion.value === seleccionada) ? seleccionada : '';
+  }
+  function confirmarCambioEstado(nombre, estadoDestino) {
+    statusQuestion.textContent = `¿Seguro que quieres cambiar el Estado de "${nombre}" a "${estadoDestino}"?`;
+    statusDialog.returnValue = 'cancel';
+    return new Promise(resolve => {
+      statusDialog.addEventListener('close',() => resolve(statusDialog.returnValue === 'confirm'),{once:true});
+      statusDialog.showModal();
+    });
+  }
+
+  async function cambiarEstadoProducto(producto, estadoDestino) {
+    if (!await confirmarCambioEstado(producto.name, estadoDestino)) return false;
+    const url = new URL(`/api/products/${encodeURIComponent(producto.id)}/status`,apiUrl);
+    url.searchParams.set('company_id',companyId);
+    const respuesta = await fetch(url,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({Estado:estadoDestino}),signal:AbortSignal.timeout(15000)
+    });
+    const resultado = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo cambiar el estado del producto.');
+    producto.Estado = estadoDestino;
+    await actualizar();
+    return true;
   }
   function render() {
     if (cargando) return;
@@ -138,7 +163,7 @@ export async function iniciarInventario({
         hour12: true
       }));
 
-      prepararDetalleInventario(fila, p, { companyId, apiUrl });
+      prepararDetalleInventario(fila, p, { companyId, apiUrl, onToggleStatus: cambiarEstadoProducto, onEditProduct: producto => productFormController?.abrirModificar(producto.id) });
     }
     renderSimple(visibles);
     if (!visibles.length) {
@@ -234,7 +259,7 @@ export async function iniciarInventario({
       const valores = [
         numero.format(inventory.length),
         clp.format(inventory.reduce((total, p) => total + p.qty * p.cost, 0)),
-        numero.format(inventory.filter(p => ['Stock Bajo', 'Stock Crítico'].includes(p['Estado Stock'])).length),
+        numero.format(inventory.filter(p => p['Estado Stock'] === 'Stock Bajo').length),
         numero.format(inventory.filter(p => p.qty === 0).length)
       ];
       indicadores.forEach((el, i) => { if (i < valores.length) el.textContent = valores[i]; });
@@ -253,9 +278,10 @@ export async function iniciarInventario({
   }
   botonAMI.textContent = '+ Productos';
   const categorias=prepararCategorias({panel,companyId,apiUrl,alGuardar:actualizar});
-  prepararFormularioProducto({ panel, companyId, apiUrl, crearCategoria:categorias.crear, alGuardar: async () => {
+  productFormController = prepararFormularioProducto({ panel, companyId, apiUrl, crearCategoria:categorias.crear, alGuardar: async () => {
     search.value = '';
     await actualizar();
+    return true;
   } });
   search.oninput = render;
   categoria.onchange = render;

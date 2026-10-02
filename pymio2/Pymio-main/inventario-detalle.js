@@ -1,7 +1,7 @@
 import { offlineFetch as fetch } from './offline.js';
 import { fechaMovimiento } from './movimientos-vista.js';
 
-export function prepararDetalleInventario(fila, producto, { companyId, apiUrl }) {
+export function prepararDetalleInventario(fila, producto, { companyId, apiUrl, onToggleStatus, onEditProduct }) {
   fila.classList.add('inventario-resumen');
   const boton = document.createElement('button');
   boton.type = 'button'; boton.className = 'movimiento-toggle';
@@ -13,12 +13,32 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl })
   detalle.id = `inventario-detalle-${producto.id}`;
   detalle.hidden = true; detalle.className = 'inventario-detalle';
   const celda = detalle.insertCell(); celda.colSpan = 8;
+  const acciones = document.createElement('div'); acciones.className = 'inventario-detalle-acciones';
+  const estadoMensaje = document.createElement('p'); estadoMensaje.className = 'inventario-estado-mensaje'; estadoMensaje.setAttribute('role','status'); estadoMensaje.hidden = true;
+  const editarBoton = document.createElement('button'); editarBoton.type = 'button'; editarBoton.className = 'detalle-editar';
+  editarBoton.setAttribute('aria-label',`Modificar producto ${producto.name}`); editarBoton.title = 'Editar';
+  editarBoton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Z" stroke-linejoin="round"/><path d="m13.5 6.5 4 4"/></svg>';
+  editarBoton.onclick = evento => { evento.stopPropagation(); onEditProduct?.(producto); };
+  const estadoActual = producto.Estado === 'Inhabilitado' ? 'Inhabilitado' : 'Habilitado';
+  const estadoDestino = estadoActual === 'Habilitado' ? 'Inhabilitado' : 'Habilitado';
+  const estadoBoton = document.createElement('button'); estadoBoton.type = 'button'; estadoBoton.className = 'producto-estado-toggle';
+  estadoBoton.dataset.targetStatus = estadoDestino;
+  estadoBoton.textContent = estadoDestino === 'Inhabilitado' ? 'Inhabilitar producto' : 'Habilitar producto';
+  estadoBoton.onclick = async evento => {
+    evento.stopPropagation();
+    if (typeof onToggleStatus !== 'function') return;
+    estadoBoton.disabled = true; estadoMensaje.hidden = true;
+    try { const cambiado = await onToggleStatus(producto, estadoDestino); if (!cambiado && estadoBoton.isConnected) estadoBoton.disabled = false; }
+    catch (error) { estadoMensaje.textContent = error.message || 'No se pudo cambiar el estado del producto.'; estadoMensaje.hidden = false; estadoBoton.disabled = false; }
+  };
+  const botones = document.createElement('div'); botones.className = 'inventario-detalle-botones'; botones.append(editarBoton,estadoBoton);
+  acciones.append(estadoMensaje,botones);
   const layout = document.createElement('div'); layout.className = 'inventario-detalle-grid';
   const stockColumn = document.createElement('div'); stockColumn.className = 'inventario-stock-column';
   const stock = document.createElement('section'); stock.className = 'inventario-detalle-card';
   const stockTitle = document.createElement('h3'); stockTitle.textContent = 'Información de stock';
   const limites = document.createElement('dl'); limites.className = 'inventario-umbrales';
-  for (const [nombre, valor] of [['Stock se considera bajo si hay menos de :',producto.low_qty],['Stock se considera crítico si hay menos de :',producto.crit_qty]]) {
+  for (const [nombre, valor] of [['Stock se considera bajo si hay menos de:',producto.low_qty]]) {
     const item = document.createElement('div');
     const label = document.createElement('dt'); label.textContent = nombre;
     const number = document.createElement('dd'); number.textContent = valor == null ? '—' : Number(valor).toLocaleString('es-CL');
@@ -30,10 +50,11 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl })
   const stockState = document.createElement('section'); stockState.className = 'inventario-detalle-card inventario-estado-stock';
   const stockStateTitle = document.createElement('h3'); stockStateTitle.textContent = 'Estado de Stock';
   const currentStock = Number(producto.qty);
-  const criticalStock = Number(producto.crit_qty);
-  const state = producto['Estado Stock'] || (currentStock === 0 ? 'Sin Stock' : currentStock < criticalStock ? 'Stock Crítico' : 'Stock Normal');
+  const lowStock = Number(producto.low_qty);
+  const storedState = producto['Estado Stock'];
+  const state = ['Stock Normal','Stock Bajo','Sin Stock'].includes(storedState) ? storedState : (currentStock === 0 ? 'Sin Stock' : currentStock < lowStock ? 'Stock Bajo' : 'Stock Normal');
   const stockStateValue = document.createElement('p'); stockStateValue.className = 'inventario-estado-valor';
-  stockStateValue.dataset.state = state === 'Sin Stock' ? 'out' : state === 'Stock Crítico' ? 'critical' : 'normal';
+  stockStateValue.dataset.state = state === 'Sin Stock' ? 'out' : state === 'Stock Bajo' ? 'low' : 'normal';
   const stockStateDot = document.createElement('span'); stockStateDot.setAttribute('aria-hidden','true');
   stockStateValue.append(stockStateDot,state);
   stockState.append(stockStateTitle,stockStateValue);
@@ -43,7 +64,7 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl })
   const historial = document.createElement('div'); historial.className = 'table-scroll inventario-historial';
   historial.setAttribute('aria-live','polite');
   movimientos.append(titulo,historial);
-  layout.append(stockColumn,movimientos); celda.appendChild(layout);
+  layout.append(stockColumn,movimientos); celda.append(acciones,layout);
   let cargado = false, cargando = false;
   async function cargar() {
     if (cargado || cargando) return;

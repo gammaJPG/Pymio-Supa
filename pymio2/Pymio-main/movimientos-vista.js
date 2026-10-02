@@ -48,7 +48,7 @@ export function ordenarMovimientos(movements, order, collator = new Intl.Collato
   });
 }
 
-export function renderMovimientos(table, movements, {onMarkPaid} = {}) {
+export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
   table.replaceChildren();
   for (const [index, movement] of movements.entries()) {
     const row = table.insertRow();
@@ -62,23 +62,33 @@ export function renderMovimientos(table, movements, {onMarkPaid} = {}) {
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-controls', `movimiento-detalle-${index}`);
     dateCell.appendChild(toggle);
-    for (const value of [movement.operation_detail ?? 'Otros', moneda(movement.total)]) row.insertCell().textContent = value;
+    for (const value of [movement.operation_detail ?? 'Otros', movement.channel ?? '-', movement.payment_method ?? '-', moneda(movement.total)]) row.insertCell().textContent = value;
     const detail = table.insertRow();
     detail.id = `movimiento-detalle-${index}`;
     detail.hidden = true;
     detail.className = 'movimiento-detalle';
-    const cell = detail.insertCell(); cell.colSpan = 3;
-    if (movement.Estado === 'Pendiente de Pago' && onMarkPaid) {
+    const cell = detail.insertCell(); cell.colSpan = 5;
+    if (onEdit || (movement.Estado === 'Pendiente de Pago' && onMarkPaid)) {
       const actions = document.createElement('div'); actions.className = 'movimiento-detalle-acciones';
-      const paid = document.createElement('button');
-      paid.type = 'button'; paid.className = 'movimiento-marcar-pagado';
-      paid.innerHTML = '<span aria-hidden="true">✓</span> Marcar como pagado';
-      paid.onclick = async () => {
-        paid.disabled = true; paid.setAttribute('aria-busy','true');
-        try { await onMarkPaid(movement); } catch {}
-        finally { paid.disabled = false; paid.removeAttribute('aria-busy'); }
-      };
-      actions.appendChild(paid); cell.appendChild(actions);
+      if (onEdit) {
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'detalle-editar';
+        edit.setAttribute('aria-label',`Modificar movimiento ${movement.code}`); edit.title = 'Editar';
+        edit.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Z" stroke-linejoin="round"/><path d="m13.5 6.5 4 4"/></svg>';
+        edit.onclick = () => onEdit(movement);
+        actions.appendChild(edit);
+      }
+      if (movement.Estado === 'Pendiente de Pago' && onMarkPaid) {
+        const paid = document.createElement('button');
+        paid.type = 'button'; paid.className = 'movimiento-marcar-pagado';
+        paid.innerHTML = '<span aria-hidden="true">✓</span> Marcar como pagado';
+        paid.onclick = async () => {
+          paid.disabled = true; paid.setAttribute('aria-busy','true');
+          try { await onMarkPaid(movement); } catch {}
+          finally { paid.disabled = false; paid.removeAttribute('aria-busy'); }
+        };
+        actions.appendChild(paid);
+      }
+      cell.appendChild(actions);
     }
     const wrap = document.createElement('div'); wrap.className = 'table-scroll';
     const nested = document.createElement('table');
@@ -106,7 +116,7 @@ export function renderMovimientos(table, movements, {onMarkPaid} = {}) {
     };
   }
   if (!movements.length) {
-    const cell = table.insertRow().insertCell(); cell.colSpan = 3;
+    const cell = table.insertRow().insertCell(); cell.colSpan = 5;
     cell.textContent = 'Aún no hay movimientos registrados.';
   }
 }

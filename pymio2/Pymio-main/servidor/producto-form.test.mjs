@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta', async () => {
   const source = await readFile(new URL('../producto-form.js', import.meta.url), 'utf8');
-  const campos = ['name', 'sku', 'category', 'qty', 'cost', 'price', 'crit_qty', 'low_qty', 'created_at', 'updated_at']
+  const campos = ['name', 'sku', 'category', 'qty', 'cost', 'price', 'low_qty', 'created_at', 'updated_at']
     .map(name => ({ name, value: '', disabled: false }));
   const category=campos.find(c=>c.name==='category');
   category.options=[];category.replaceChildren=function(...options){this.options=options;this.value='';};category.add=function(option){this.options.push(option);};
@@ -19,7 +19,7 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   const imageStatus = {};
   const form = {
     elements: Object.fromEntries(campos.map(c => [c.name, c])),
-    querySelector: s => ({ '.producto-campos': camposWrap, '#producto-selector': selector, '#producto-image': imageInput, '[data-image-field]': imageField, '[data-image-preview]': imagePreview, '[data-image-status]': imageStatus, '[type="submit"]': guardar, '[data-cancelar]': cancelar, 'label[for="producto-qty"]': {}, '[data-updated-field]': {}, '[data-sku-field]': {}, '[data-selector]': selectorWrap, '[data-descripcion]': descripcion }[s]),
+    querySelector: s => ({ '.producto-campos': camposWrap, '#producto-selector': selector, '#producto-image': imageInput, '[data-image-field]': imageField, '[data-image-preview]': imagePreview, '[data-image-status]': imageStatus, '[type="submit"]': guardar, '[data-cancelar]': cancelar, 'label[for="producto-qty"]': {}, 'label[for="producto-cost"]': {}, '[data-updated-field]': {}, '[data-sku-field]': {}, '[data-selector]': selectorWrap, '[data-descripcion]': descripcion }[s]),
     querySelectorAll: () => campos,
     reportValidity: () => true,
     reset() { campos.forEach(c => { c.value = ''; }); selector.value = ''; }
@@ -27,7 +27,7 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   const dialogo = { open: false, querySelector: s => ({ form, '.producto-error': error, h2: titulo }[s]), showModal() { this.open = true; }, close() { this.open = false; } };
   const agregar = {}, modificar = {}, borrar = {}, menu = {}, boton = { setAttribute() {} };
   const panel = { querySelector: s => ({ '#producto-dialogo': dialogo, '[data-accion="agregar"]': agregar, '[data-accion="modificar"]': modificar, '[data-accion="borrar"]': borrar, '#opciones-inventario': menu, '[data-add-modify-inventory]': boton }[s]) };
-  const producto = { id: '81', company_id: '2', name: 'Producto original', sku: 'SKU-81', category: 'Categoría', qty: 5, cost: 100, price: 200, crit_qty: 2, low_qty: 6, created_at: '2026-09-09T12:00:35.123Z', updated_at: '2026-09-09T13:00:45.456Z' };
+  const producto = { id: '81', company_id: '2', name: 'Producto original', sku: 'SKU-81', category: 'Categoría', qty: 5, cost: 100, price: 200, low_qty: 6, created_at: '2026-09-09T12:00:35.123Z', updated_at: '2026-09-09T13:00:45.456Z' };
   const llamadas = [];
   let recargas = 0;
   let confirmar = false;
@@ -44,7 +44,11 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   });
   // El formulario usa offlineFetch; esta prueba aporta su doble mediante context.fetch.
   vm.runInContext(source.replace("import { offlineFetch as fetch } from './offline.js';", '').replace('export function', 'function'), context);
-  context.prepararFormularioProducto({ panel, companyId: 2, apiUrl: 'http://localhost:3001', alGuardar: async () => { recargas++; }, crearCategoria: async()=>{nuevaCategoria=true;return 'Nueva categoría';} });
+  const controller=context.prepararFormularioProducto({ panel, companyId: 2, apiUrl: 'http://localhost:3001', alGuardar: async () => { recargas++; }, crearCategoria: async()=>{nuevaCategoria=true;return 'Nueva categoría';} });
+  await controller.abrirModificar('81');
+  assert.equal(selector.value,'81');
+  assert.equal(form.elements.name.value,producto.name);
+  dialogo.close();
   await modificar.onclick();
   assert.equal(dialogo.open, true);
   assert.equal(llamadas[0].url.searchParams.get('company_id'), '2');
@@ -72,7 +76,7 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   assert.equal(selectorWrap.hidden, true);
   assert.equal(form.elements.name.value, '');
   assert.equal(guardar.disabled, false);
-  assert.equal(category.options[1].text, '+Nueva categoría');
+  assert.equal(category.options[1].text, '+Nueva Categoría');
   category.value='Sin Clasificar';category.onfocus();category.value='__create__';await category.onchange();
   assert.equal(category.value, 'Nueva categoría');
   dialogo.close();

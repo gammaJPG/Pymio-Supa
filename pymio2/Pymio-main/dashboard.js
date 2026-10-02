@@ -78,7 +78,7 @@ export function renderInicio() {
     if(!productsResponse.ok||!movementsResponse.ok)throw new Error('No se pudieron cargar los datos de tu espacio.');
     const products=await productsResponse.json(),movements=await movementsResponse.json();
     const productById=new Map(products.map(product=>[String(product.id),product]));
-    inventory.splice(0,inventory.length,...products.map(product=>{const qty=Number(product.qty)||0,critical=Number(product.crit_qty)||0,low=Number(product.low_qty)||0;return {...product,cat:product.category,qty,price:Number(product.price)||0,cost:Number(product.cost)||0,status:qty<=0?'out':qty<=critical?'out':qty<=low?'low':'ok'};}));
+    inventory.splice(0,inventory.length,...products.map(product=>{const qty=Number(product.qty)||0,low=Number(product.low_qty)||0;return {...product,cat:product.category,qty,price:Number(product.price)||0,cost:Number(product.cost)||0,status:qty<=0?'out':qty<low?'low':'ok'};}));
     const sales=[];
     movements.filter(movement=>movement.operation_detail==='Venta'||movement.operation==='Egreso').forEach(movement=>{
       (movement.products||[]).forEach((line,index)=>{const product=productById.get(String(line.product_id));sales.push({id:movement.code+'-'+index,date:new Date(movement.occurred_at),sku:line.sku||product?.sku||'',cat:product?.category||'Otros',name:line.name||product?.name||'Producto',qty:Math.abs(Number(line.units)||0),amount:Number(line.net_total??line.total)||0,status:String(movement.Estado||'').toLowerCase()==='pagado'?'paid':'pending'});});

@@ -50,13 +50,13 @@ export function createInventoryServer(pool, origins, options = {}) {
     if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
     if (origin) res.setHeader('Access-Control-Allow-Credentials', 'true');
     if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       res.writeHead(204);
       return res.end();
     }
-    if (!['GET', 'POST', 'PUT', 'DELETE'].includes(req.method)) {
-      res.setHeader('Allow', 'GET, POST, PUT, DELETE, OPTIONS');
+    if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      res.setHeader('Allow', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       return send(405, { error: 'Método no permitido.' });
     }
     const url = new URL(req.url, 'http://127.0.0.1');
@@ -178,13 +178,14 @@ export function createInventoryServer(pool, origins, options = {}) {
     const movementCode = /^\/api\/movements\/([a-f0-9]{12})$/.exec(url.pathname)?.[1];
     const historyProductId = /^\/api\/products\/([1-9]\d{0,18})\/movements$/.exec(url.pathname)?.[1];
     const productId = /^\/api\/products\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
+    const statusProductId = /^\/api\/products\/([1-9]\d{0,18})\/status$/.exec(url.pathname)?.[1];
     const imageId = /^\/api\/product-images\/([0-9a-f-]{36})$/.exec(url.pathname)?.[1];
     const imageRoute = url.pathname === '/api/product-images' || Boolean(imageId);
     const profileUpload=/^\/api\/profile-images\/(avatar|banner)$/.exec(url.pathname);
     const profileOwnImage=/^\/api\/profile-images\/(avatar|banner)\/([0-9a-f-]{36})$/.exec(url.pathname);
     const profilePublicImage=/^\/api\/profile-images\/([1-9]\d{0,18})\/(avatar|banner)\/([0-9a-f-]{36})$/.exec(url.pathname);
     const profileImageRoute=Boolean(profileUpload||profileOwnImage||profilePublicImage);
-    if (!categoryRoute && !imageRoute && !profileImageRoute && url.pathname !== '/api/customers' && !historyProductId && !movementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
+    if (!categoryRoute && !imageRoute && !profileImageRoute && url.pathname !== '/api/customers' && !historyProductId && !statusProductId && !movementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
     try {
       if (categoryRoute) return await atenderCategorias(req,pool,companyId,categoryId,send);
       if (url.pathname === '/api/customers') return await atenderClientes(req,pool,companyId,send);
@@ -234,6 +235,16 @@ export function createInventoryServer(pool, origins, options = {}) {
         return send(200, await pool.rpc('product.history', companyId, {id:historyProductId}));
       }
       if (movementCode || url.pathname === '/api/movements') return await atenderMovimientos(req, pool, companyId, send, movementCode);
+      if (statusProductId) {
+        if (req.method !== 'PATCH') return send(405,{error:'Método no permitido.'});
+        if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') return send(415,{error:'Envía el estado en formato JSON.'});
+        const chunks=[]; let bytes=0;
+        for await (const chunk of req) { bytes+=chunk.length; if(bytes>1024)return send(413,{error:'El estado excede el tamaño permitido.'}); chunks.push(chunk); }
+        let payload;
+        try { payload=JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400,{error:'JSON inválido.'}); }
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !['Habilitado','Inhabilitado'].includes(payload.Estado)) return send(400,{error:'Estado de producto inválido.'});
+        return send(200,await pool.rpc('product.status',companyId,{id:statusProductId,Estado:payload.Estado}));
+      }
       if (req.method === 'DELETE') {
         const deleted=await pool.rpc('product.delete', companyId, {id:productId});
         if (deleted.image_path) await pool.deleteProductImage(deleted.image_path).catch(()=>{});
@@ -254,13 +265,13 @@ export function createInventoryServer(pool, origins, options = {}) {
         try { producto = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400, { error: 'JSON inválido.' }); }
         if (!producto || typeof producto !== 'object' || Array.isArray(producto)) return send(400, { error: 'Producto inválido.' });
         if (req.method === 'POST') producto.updated_at = producto.created_at;
-        const { name, sku, category, qty, cost, price, crit_qty, low_qty, created_at, updated_at, image_path } = producto;
+        const { name, sku, category, qty, cost, price, low_qty, created_at, updated_at, image_path } = producto;
         if (typeof name !== 'string' || !name.trim() || typeof category !== 'string' || !category.trim() ||
             (req.method === 'PUT' && (typeof sku !== 'string' || !sku.trim() || sku.length > 32))) {
           return send(400, { error: 'Completa producto, categoría y un SKU válido (mayúsculas, números y guiones).' });
         }
-        if (![qty, cost, price, crit_qty, low_qty].every(n => Number.isInteger(n) && n >= 0 && n <= 2147483647) || low_qty <= crit_qty) {
-          return send(400, { error: 'Usa números enteros no negativos; el stock bajo debe superar al crítico.' });
+        if (![qty, cost, price, low_qty].every(n => Number.isInteger(n) && n >= 0 && n <= 2147483647)) {
+          return send(400, { error: 'Usa números enteros no negativos para cantidad, costo, precio y stock bajo.' });
         }
         if (image_path != null && (typeof image_path !== 'string' || !new RegExp(`^${companyId}/[0-9a-f-]{36}\\.webp$`).test(image_path))) return send(400,{error:'La ruta de imagen no es válida para esta empresa.'});
         const fechaValida = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));
@@ -272,6 +283,7 @@ export function createInventoryServer(pool, origins, options = {}) {
         }
         return send(201, await crearProducto(pool,companyId,producto));
       }
+      if (req.method !== 'GET') return send(405,{error:'Método no permitido.'});
       send(200, await pool.rpc('product.list', companyId));
     } catch (error) {
       if (error.status) return send(error.status,{error:error.message});
