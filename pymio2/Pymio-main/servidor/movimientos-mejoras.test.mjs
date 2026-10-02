@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 
 import {validarMovimiento,guardarMovimiento,cambiarMovimiento,listarMovimientos} from './movimientos.mjs';
-import {dentroDelRangoHorario} from '../movimientos-vista.js';
+import {dentroDelRangoHorario,datosMovimientoPagado} from '../movimientos-vista.js';
 const sale=()=>({code:randomUUID(),operation:'Egreso',operation_detail:'Venta',channel:'Físico',payment_method:'Efectivo',occurred_at:new Date().toISOString(),items:[{product_id:'1',units:1}],Estado:'Pendiente de Pago'});
 test('Horas: límites e intervalo nocturno',()=>{
  const at=(h,m=0)=>new Date(2026,8,27,h,m).toISOString();
@@ -11,8 +11,14 @@ test('Horas: límites e intervalo nocturno',()=>{
 });
 test('Pago: validación y compatibilidad con solicitudes antiguas',()=>{
  assert.equal(validarMovimiento(sale()).Estado,'Pendiente de Pago');
+ assert.equal(validarMovimiento({...sale(),operation:'Ingreso',operation_detail:'Compra'}).Estado,'Pendiente de Pago');
  assert.throws(()=>validarMovimiento({...sale(),Estado:'Otro'}),{status:400});
  assert.throws(()=>validarMovimiento({...sale(),operation_detail:'Merma'}),{status:400});
  const old=sale();delete old.Estado;assert.equal(Object.hasOwn(validarMovimiento(old),'Estado'),false);
+});
+test('Pago: marcar pagado conserva los datos del movimiento',()=>{
+ const action=randomUUID();
+ const data=datosMovimientoPagado({revision:3,operation:'Egreso',operation_detail:'Venta',channel:'Online',payment_method:'Tarjeta',customer_id:'9',occurred_at:'2026-09-27T16:10:00.000Z',discount_scope:'product',products:[{product_id:'4',units:-2,discount_type:'percentage',discount_value:10}]},action);
+ assert.deepEqual(data,{action_id:action,revision:3,operation:'Egreso',operation_detail:'Venta',channel:'Online',payment_method:'Tarjeta',Estado:'Pagado',customer_id:'9',occurred_at:'2026-09-27T16:10:00.000Z',discount:{scope:'product'},items:[{product_id:'4',units:2,discount:{type:'percentage',value:10}}]});
 });
 

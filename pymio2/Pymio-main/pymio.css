@@ -1,15 +1,15 @@
 /* Pymio visual system: warm neutrals, ink and honey. */
 /* Shared filters, connection status, and movement table refinements. */
 .filter-menu{position:relative;flex:0 0 auto;}
-.filter-options{position:absolute;top:calc(100% + 6px);left:0;z-index:20;min-width:220px;max-width:min(360px,calc(100vw - 36px));background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px #30342116;padding:14px;}
+.filter-options{position:absolute;top:calc(100% + 6px);left:0;z-index:20;box-sizing:border-box;min-width:min(220px,calc(100vw - 24px));max-width:min(360px,calc(100vw - 24px));overflow:auto;overscroll-behavior:contain;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px #30342116;padding:14px;}
 .filter-options label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:11px;}
 .filter-options select{width:100%;}
-.movement-filter-menu{margin:-8px 0 14px;}
-.movement-filter-menu .movimiento-filtros{margin:0;width:min(520px,calc(100vw - 36px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+.movement-filter-menu{margin:0;}
+.movement-filter-menu .movimiento-filtros{margin:0;width:min(520px,calc(100vw - 24px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
 .movement-filter-menu .movimiento-filtros label:first-child{grid-column:1/-1;}
 #tab-inventario [data-category-toggle]{width:auto;min-width:0;min-height:42px;padding:10px 16px;background:var(--accent);color:#34301e;border:1px solid #e3c65f;border-radius:8px;font-size:12px;font-weight:600;}
 #tab-inventario [data-category-toggle]:hover{background:#e3c364;color:#34301e;}
-#tab-inventario .inventario-detalle-grid{align-items:start;}
+#tab-inventario .inventario-detalle-grid{align-items:stretch;}
 #tab-inventario .inventario-historial th,#tab-inventario .inventario-historial td{padding:7px 8px;text-align:left;color:var(--ink);}
 #tab-inventario .inventario-historial th{color:var(--ink);}
 #tab-inventario .inventario-historial td a{color:#0866c2;}
@@ -23,7 +23,7 @@
 .connection-tooltip strong,.connection-tooltip span{display:block;}
 .connection-tooltip span{margin-top:5px;color:var(--muted);}
 .connection-indicator:hover .connection-tooltip,.connection-indicator:focus-visible .connection-tooltip{display:block;}
-@media(max-width:600px){.workspace-mode{display:none;}.topbar-right{gap:4px;}.topbar-sync{font-size:9px!important;padding:5px 7px!important;min-height:30px!important;}.connection-indicator{flex-basis:18px;width:18px;}.connection-tooltip{right:-36px;}.movement-filter-menu .movimiento-filtros{width:min(320px,calc(100vw - 36px));}}
+@media(max-width:600px){.workspace-mode{display:none;}.topbar-right{gap:4px;}.topbar-sync{font-size:9px!important;padding:5px 7px!important;min-height:30px!important;}.connection-indicator{flex-basis:18px;width:18px;}.connection-tooltip{right:-36px;}.movement-filter-menu .movimiento-filtros{width:min(320px,calc(100vw - 24px));}}
 :root,#tab-ecosistema{--ink:#20221d;--ink-soft:#44463e;--ink-line:#373a30;--paper:#f5f5ef;--surface:#fff;--line:#e5e6dc;--muted:#707263;--muted-2:#737568;--accent:#f1cf54;--accent-dark:#665218;--accent-soft:#f9f1d4;--honey:#f1cf54;--honey-dark:#665218;--honey-soft:#f9f1d4;--teal:#665218;--teal-soft:#f5efdc;--shadow-card:none;--ease-out:cubic-bezier(.23,1,.32,1);--ease-in-out:cubic-bezier(.77,0,.175,1);--motion-fast:250ms;--motion-panel:360ms;}
 
 html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;overscroll-behavior:none;color-scheme:light;}
@@ -587,8 +587,18 @@ button{min-height:44px;}
 
 /* New movement controls inherit the current Pymio theme. */
 .movimiento-botones{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.movimiento-detalle-resumen{display:flex;flex-wrap:wrap;gap:12px 28px;padding:16px 0;color:var(--muted);font-size:12px;}
-.movimiento-detalle-resumen p{margin:0;}
+.movimiento-detalle-resumen{display:flex;flex-wrap:wrap;gap:8px;padding:10px 0 0;color:var(--muted);font-size:12px;}
+.movimiento-detalle-resumen p{display:inline-flex;align-items:center;gap:4px;min-height:38px;margin:0;padding:9px 12px;background:#fff!important;border:1px solid var(--line);border-radius:8px;color:var(--ink-soft);box-shadow:0 1px 2px #3034210a;}
+.movimiento-detalle-resumen p strong{color:var(--ink);font-weight:600;}
+.movimiento-detalle-acciones{display:flex;justify-content:flex-end;margin:0 0 8px;}
+.movimiento-marcar-pagado{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:9px 13px;border:1px solid #a9d8b1;border-radius:8px;background:#dff2e2;color:#245c31;font-size:11px;font-weight:600;box-shadow:0 1px 2px #245c3112;}
+.movimiento-marcar-pagado span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#63a873;color:#fff;font-size:12px;line-height:1;}
+.movimiento-marcar-pagado:hover{background:#cfead5;border-color:#8bc798;}
+.movimiento-marcar-pagado:disabled{cursor:wait;opacity:.65;}
+.movimiento-pago-confirmacion{width:min(430px,calc(100vw - 32px));}
+.movimiento-pago-confirmacion p{margin:0 0 24px;color:var(--ink-soft);font-size:14px!important;}
+.movimiento-pago-confirmacion .producto-acciones{justify-content:flex-end;}
+.movimiento-pago-confirmacion .producto-acciones button{width:auto;min-width:92px;}
 .movimiento-fecha{margin-top:20px;border-top:1px solid var(--line);padding-top:14px;}
 .movimiento-fecha summary{cursor:pointer;font-size:13px;margin-bottom:12px;}
 .mov-discount-percentage{display:inline-flex;align-items:center;gap:6px;}
@@ -597,7 +607,21 @@ button{min-height:44px;}
 .movimiento-pago[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-dark);}
 
 #tab-movimientos .movimiento-botones .btn-chiquito{width:auto;min-width:0;height:auto;white-space:nowrap;}
-
+.movimientos-listado{width:100%;min-width:620px;table-layout:fixed;}
+.movimientos-listado .mov-col-fecha{width:34%;}
+.movimientos-listado .mov-col-detalle{width:38%;}
+.movimientos-listado .mov-col-monto{width:28%;}
+#tab-movimientos th.mov-sort{position:relative;cursor:pointer;user-select:none;text-align:center;}
+#tab-movimientos th.mov-sort span{display:inline-block;margin-left:4px;color:var(--muted);}
+#tab-movimientos th.mov-sort:hover{color:var(--accent-dark);}
+#tab-movimientos th.mov-sort:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;}
+#tab-movimientos .movimiento-resumen>td{text-align:center;}
+#tab-movimientos .movimiento-toggle{display:inline-flex;align-items:center;justify-content:center;max-width:100%;text-align:center;}
+#tab-movimientos .movimiento-resumen:hover{background:#f4f5f0;}
+#tab-movimientos .movimiento-detalle>td{padding:10px;background:#f4f5f0;text-align:left;}
+#tab-movimientos .movimiento-detalle .table-scroll{border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 1px 2px #3034210a;}
+#tab-movimientos .movimiento-detalle table{background:#fff;}
+#tab-movimientos .movimiento-detalle table th,#tab-movimientos .movimiento-detalle table td{padding:9px 8px;}
 /* Shared alignment for sale, purchase and movement dialogs. */
 #movimiento-form > [data-movement-fields]{min-width:0;margin:0;padding:0;border:0;}
 #movimiento-form [data-operation-fields] > div{display:contents;}
@@ -613,8 +637,11 @@ button{min-height:44px;}
 #movimiento-form [data-remove-line]{min-height:46px;align-self:end;}
 #movimiento-form [data-add-line]{display:inline-flex;align-items:center;justify-content:center;width:auto;min-height:42px;padding:10px 16px;white-space:nowrap;margin:0;}
 #movimiento-form .movimiento-descuento{margin-top:20px;}
+#movimiento-form .movimiento-descuento #mov-discount{box-sizing:border-box;margin:0;padding:16px;background:#fff;border:1px solid var(--line);border-radius:10px;}
 #movimiento-form .movimiento-fecha{margin-top:20px;padding-top:16px;}
 #movimiento-form .movimiento-fecha summary{line-height:1.5;}
+#movimiento-form .mov-time{display:grid;grid-template-columns:minmax(64px,90px) auto minmax(64px,90px) minmax(72px,90px);width:fit-content;max-width:100%;align-items:center;gap:6px;}
+#movimiento-form .mov-time :is(input,select){box-sizing:border-box;width:100%;min-width:0;}
 #movimiento-form .producto-acciones{align-items:center;margin-top:20px;padding-top:20px;gap:12px;}
 #movimiento-form .producto-acciones button{min-height:44px;}
 #movimiento-form .movimiento-linea.con-descuento{grid-template-columns:minmax(0,1fr) 100px auto;}
@@ -628,6 +655,7 @@ button{min-height:44px;}
   #movimiento-form .movimiento-linea > label:first-child{grid-column:1/-1;}
   #movimiento-form .movimiento-linea [data-line-discount]:not([hidden]){grid-row:3;grid-template-columns:minmax(0,1fr);}
   #movimiento-form .producto-acciones{flex-wrap:wrap;}
+  #movimiento-form .mov-time{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) 76px;width:100%;}
 }
 
 /* Match movement selectors to the product search field. */
@@ -677,14 +705,24 @@ button{min-height:44px;}
 
 #tab-inventario #inv-table .inventario-detalle>td{padding:12px;background:var(--accent-soft);text-align:left;}
 #tab-inventario #inv-table .inventario-detalle>td:before{content:none;}
-#tab-inventario .inventario-detalle-grid{align-items:start;}
+#tab-inventario .inventario-detalle-grid{align-items:stretch;}
 #tab-inventario .inventario-detalle-card{padding:14px;}
 #tab-inventario .inventario-detalle-card h3{margin-bottom:9px;}
+#tab-inventario .inventario-stock-column{display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;min-width:0;align-self:stretch;}
+#tab-inventario .inventario-stock-column .inventario-detalle-card,#tab-inventario .inventario-detalle-grid>.inventario-detalle-card{box-sizing:border-box;height:100%;}
+#tab-inventario .inventario-estado-stock{display:flex;flex-direction:column;justify-content:center;}
+#tab-inventario .inventario-estado-valor{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink-soft);font-size:14px;font-weight:600;}
+#tab-inventario .inventario-estado-valor span{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#6f9d75;box-shadow:0 0 0 3px #6f9d7520;}
+#tab-inventario .inventario-estado-valor[data-state=critical]{color:var(--warn);}
+#tab-inventario .inventario-estado-valor[data-state=critical] span{background:var(--warn);box-shadow:0 0 0 3px #b8722b20;}
+#tab-inventario .inventario-estado-valor[data-state=out]{color:var(--critical);}
+#tab-inventario .inventario-estado-valor[data-state=out] span{background:var(--critical);box-shadow:0 0 0 3px #a23b3420;}
 #tab-inventario .inventario-historial th,#tab-inventario .inventario-historial td{padding:7px 8px;text-align:left;color:var(--ink);}
 #tab-inventario .inventario-historial td a{color:#0866c2;}
 @media(max-width:600px){.topbar .workspace-mode{display:none;}.topbar .topbar-right{gap:4px;}.topbar .topbar-sync{font-size:9px!important;padding:5px 7px!important;min-height:30px!important;}.topbar .connection-indicator{flex-basis:18px;width:18px;}}
 @media(max-width:420px){.topbar .topbar-sync{width:82px;white-space:normal;line-height:1.1;}.topbar .breadcrumb{min-width:0;}.topbar .topbar-right{flex-shrink:0;}}
 .movimiento-cliente{max-width:340px;margin:0 0 18px;}
+.movimiento-cliente>.field{margin-top:12px;}
 .movimiento-cliente label{display:block;margin-bottom:6px;font-size:12px;font-weight:500;color:var(--muted);}
 .movimiento-cliente select{width:100%;}
 .producto-imagen{margin:18px 0;}

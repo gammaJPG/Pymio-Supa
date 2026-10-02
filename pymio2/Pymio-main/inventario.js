@@ -252,8 +252,8 @@ export async function iniciarInventario({
     }
   }
   botonAMI.textContent = '+ Productos';
-  prepararCategorias({panel,companyId,apiUrl,alGuardar:actualizar});
-  prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar: async () => {
+  const categorias=prepararCategorias({panel,companyId,apiUrl,alGuardar:actualizar});
+  prepararFormularioProducto({ panel, companyId, apiUrl, crearCategoria:categorias.crear, alGuardar: async () => {
     search.value = '';
     await actualizar();
   } });

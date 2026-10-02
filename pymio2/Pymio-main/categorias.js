@@ -5,7 +5,7 @@ export function prepararCategorias({panel,companyId,apiUrl,alGuardar}) {
  $('[data-add-modify-inventory]').parentElement.after(menu);
  const dialog=$('#categoria-dialogo'),form=dialog.querySelector('form'),selector=$('#categoria-selector'),name=$('#categoria-nombre');
  const error=$('[data-category-error]'),info=$('[data-category-info]'),save=form.querySelector('[type="submit"]'),cancel=$('[data-category-cancel]');
- let mode='crear',categories=[],busy=false,version=0;
+ let mode='crear',categories=[],busy=false,version=0,creationResolve=null;
  const labels={crear:'Crear categoría',modificar:'Modificar categoría',eliminar:'Eliminar categoría'};
  const url=id=>{const u=new URL('/api/categories'+(id?'/'+id:''),apiUrl);u.searchParams.set('company_id',companyId);return u;};
  const closeMenu=()=>{options.hidden=true;toggle.setAttribute('aria-expanded','false');};
@@ -21,8 +21,9 @@ export function prepararCategorias({panel,companyId,apiUrl,alGuardar}) {
   info.textContent=selected?`Sigla: ${selected.abbreviation} · Creación: ${fechaMovimiento(selected.created_at)} · Última actualización: ${fechaMovimiento(selected.updated_at)}`:'';
   if(mode==='eliminar'&&selected)info.textContent+=' · Sus productos pasarán a Sin Clasificar.';
  };
- for(const button of menu.querySelectorAll('[data-category-action]')) button.onclick=async()=>{
-  closeMenu();mode=button.dataset.categoryAction;const current=++version;
+ const finishCreation=value=>{if(creationResolve)creationResolve(value);creationResolve=null;};
+ async function open(categoryMode,resolve=null){
+  closeMenu();mode=categoryMode;creationResolve=resolve;const current=++version;
   form.reset();error.hidden=true;save.textContent=labels[mode];$('#categoria-titulo').textContent=labels[mode];
   $('[data-category-selector-wrap]').hidden=mode==='crear';selector.disabled=true;selector.required=mode!=='crear';
   $('[data-category-name-wrap]').hidden=mode==='eliminar';name.disabled=mode!=='crear';
@@ -37,8 +38,9 @@ export function prepararCategorias({panel,companyId,apiUrl,alGuardar}) {
    selector.replaceChildren(new Option(categories.length?'Selecciona una categoría':'No hay categorías disponibles',''));
    categories.forEach(c=>selector.add(new Option(`${c.name} (${c.abbreviation})`,String(c.id))));selector.disabled=!categories.length;
   }catch(err){if(current===version&&dialog.open)showError(err.message);}
- };
- cancel.onclick=()=>{version++;dialog.close();};dialog.oncancel=e=>{if(busy)e.preventDefault();else version++;};
+ }
+ for(const button of menu.querySelectorAll('[data-category-action]')) button.onclick=()=>open(button.dataset.categoryAction);
+ cancel.onclick=()=>{version++;dialog.close();finishCreation(null);};dialog.oncancel=e=>{if(busy)e.preventDefault();else{version++;finishCreation(null);}};
  form.onsubmit=async e=>{
   e.preventDefault();if(busy||!form.reportValidity())return;error.hidden=true;
   const id=mode==='crear'?null:selector.value;
@@ -48,8 +50,11 @@ export function prepararCategorias({panel,companyId,apiUrl,alGuardar}) {
   try{
    const response=await fetch(url(id),{method:mode==='crear'?'POST':mode==='modificar'?'PUT':'DELETE',headers:{'Content-Type':'application/json'},body:mode==='eliminar'?undefined:JSON.stringify({name:name.value.trim()})});
    const data=await response.json();if(!response.ok)throw new Error(data.error||'No se pudo guardar la categoría.');
+   const completedMode=mode,createdName=data.name??name.value.trim();
    dialog.close();await alGuardar();
+   if(completedMode==='crear')finishCreation(createdName);
   }catch(err){showError(err.message);}
   finally{busy=false;save.disabled=cancel.disabled=false;selector.disabled=mode==='crear';name.disabled=mode==='eliminar';}
  };
+ return {crear:()=>new Promise(resolve=>open('crear',resolve))};
 }

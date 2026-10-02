@@ -31,19 +31,20 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   const llamadas = [];
   let recargas = 0;
   let confirmar = false;
+  let nuevaCategoria = false;
   const context = vm.createContext({
     URL, Date, AbortSignal, window: { confirm: () => confirmar },
     Option: class { constructor(text, value) { this.text = text; this.value = value; } },
     FormData: class { constructor() { return campos.map(c => [c.name, String(c.value)]); } },
     fetch: async (url, options = {}) => {
       llamadas.push({ url, options });
-      if(url.pathname==='/api/categories')return {ok:true,json:async()=>[{name:'Sin Clasificar'},{name:'Categoría'}]};
+      if(url.pathname==='/api/categories')return {ok:true,json:async()=>[{name:'Sin Clasificar'},{name:'Categoría'},...(nuevaCategoria?[{name:'Nueva categoría'}]:[])]};
       return { ok: true, json: async () => options.method ? { id: '81' } : [producto, { ...producto, id: '99', company_id: '3' }] };
     }
   });
   // El formulario usa offlineFetch; esta prueba aporta su doble mediante context.fetch.
   vm.runInContext(source.replace("import { offlineFetch as fetch } from './offline.js';", '').replace('export function', 'function'), context);
-  context.prepararFormularioProducto({ panel, companyId: 2, apiUrl: 'http://localhost:3001', alGuardar: async () => { recargas++; } });
+  context.prepararFormularioProducto({ panel, companyId: 2, apiUrl: 'http://localhost:3001', alGuardar: async () => { recargas++; }, crearCategoria: async()=>{nuevaCategoria=true;return 'Nueva categoría';} });
   await modificar.onclick();
   assert.equal(dialogo.open, true);
   assert.equal(llamadas[0].url.searchParams.get('company_id'), '2');
@@ -71,6 +72,9 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   assert.equal(selectorWrap.hidden, true);
   assert.equal(form.elements.name.value, '');
   assert.equal(guardar.disabled, false);
+  assert.equal(category.options[1].text, '+Nueva categoría');
+  category.value='Sin Clasificar';category.onfocus();category.value='__create__';await category.onchange();
+  assert.equal(category.value, 'Nueva categoría');
   dialogo.close();
   await borrar.onclick();
   assert.equal(camposWrap.hidden, true);

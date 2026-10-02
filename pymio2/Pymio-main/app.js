@@ -43,10 +43,36 @@ async function cargarSecciones() {
     const button = menu.querySelector('[data-filter-toggle]');
     const options = menu.querySelector('.filter-options');
     const close = () => { options.hidden = true; button.setAttribute('aria-expanded', 'false'); };
+    const positionOptions = () => {
+      if (options.hidden) return;
+      const margin = 12;
+      options.style.left = '0px';
+      options.style.right = 'auto';
+      options.style.top = 'calc(100% + 6px)';
+      options.style.bottom = 'auto';
+      options.style.maxHeight = '';
+      const buttonRect = button.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const popupWidth = options.getBoundingClientRect().width;
+      const maximumLeft = Math.max(margin, window.innerWidth - margin - popupWidth);
+      const desiredLeft = Math.min(Math.max(menuRect.left, margin), maximumLeft);
+      options.style.left = `${desiredLeft - menuRect.left}px`;
+      const gap = 6;
+      const roomBelow = Math.max(0, window.innerHeight - buttonRect.bottom - margin - gap);
+      const roomAbove = Math.max(0, buttonRect.top - margin - gap);
+      const openAbove = roomBelow < Math.min(options.scrollHeight, 260) && roomAbove > roomBelow;
+      if (openAbove) {
+        options.style.top = 'auto';
+        options.style.bottom = 'calc(100% + 6px)';
+      }
+      options.style.maxHeight = `${Math.max(0, openAbove ? roomAbove : roomBelow)}px`;
+    };
     button.addEventListener('click', () => {
       options.hidden = !options.hidden;
       button.setAttribute('aria-expanded', String(!options.hidden));
+      positionOptions();
     });
+    window.addEventListener('resize', positionOptions);
     document.addEventListener('click', event => { if (!menu.contains(event.target)) close(); });
     menu.addEventListener('keydown', event => { if (event.key === 'Escape') { close(); button.focus(); } });
   });
