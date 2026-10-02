@@ -58,7 +58,7 @@ function cleanProfile(data){
 }
 
 function cleanCommunity(data){
-  const result={name:text(data.name,100),description:text(data.description,500),industry:text(data.industry,80)};
+  const result={name:text(data.name,100),description:text(data.description,500),industry:text(data.industry,80),is_open:[true,'true','on','1'].includes(data.isOpen)};
   if(!result.name || !result.description)throw Object.assign(new Error('Completa el nombre y la descripción de la comunidad.'),{status:400});
   return result;
 }
@@ -86,6 +86,8 @@ function cleanPost(data){
 export async function atenderRedPymio(req,pool,companyId,send,url){
   try{
     const communityJoin=/^\/api\/network\/communities\/([0-9a-f-]{36})\/join$/i.exec(url.pathname);
+    const communityDecision=/^\/api\/network\/communities\/([0-9a-f-]{36})\/requests\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    const connection=/^\/api\/network\/connections\/([1-9]\d{0,18})$/i.exec(url.pathname);
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
       return send(200,await pool.network('bootstrap',companyId,{}));
     }
@@ -98,6 +100,15 @@ export async function atenderRedPymio(req,pool,companyId,send,url){
     if(communityJoin && req.method==='POST'){
       if(!UUID.test(communityJoin[1]))return send(400,{error:'La comunidad seleccionada no es válida.'});
       return send(200,await pool.network('community.join',companyId,{community_id:communityJoin[1]}));
+    }
+    if(communityDecision && req.method==='POST'){
+      requireJson(req);const data=await bodyJson(req),decision=data.decision==='approve'?'approve':data.decision==='reject'?'reject':'';
+      if(!decision)return send(400,{error:'Selecciona si deseas aceptar o rechazar la solicitud.'});
+      return send(200,await pool.network('community.request.respond',companyId,{community_id:communityDecision[1],request_id:communityDecision[2],decision}));
+    }
+    if(connection && req.method==='POST'){
+      if(String(connection[1])===String(companyId))return send(400,{error:'Tu negocio ya forma parte de tu propia red.'});
+      return send(200,await pool.network('connection.create',companyId,{target_company_id:connection[1]}));
     }
     if(url.pathname==='/api/network/posts' && req.method==='POST'){
       requireJson(req);return send(201,await pool.network('post.create',companyId,cleanPost(await bodyJson(req))));
