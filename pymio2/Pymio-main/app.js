@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema } from './ecosistema.js';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=97';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=50';
@@ -88,7 +88,32 @@ async function cargarSecciones() {
     {id:'demo-stock',sev:'warn', title:'Stock bajo', desc:'"Organizador modular x6" quedó con solo 4 unidades.', time:'Hace 5 horas'},
   ];
   let syncNotifications=[];
+  let inventoryNotifications=[];
   const readNotificationIds=new Set();
+
+  function inventoryNotificationKey(){return `pymio:inventory-notifications:${currentSession?.companyId||'unknown'}`;}
+  function readNotificationKey(){return `pymio:read-notifications:${currentSession?.companyId||'unknown'}`;}
+  function loadInventoryNotifications(){
+    if(currentSession?.demo){inventoryNotifications=[];return;}
+    try{
+      const saved=JSON.parse(localStorage.getItem(inventoryNotificationKey())||'[]');
+      inventoryNotifications=Array.isArray(saved)?saved.slice(0,25):[];
+    }catch{inventoryNotifications=[];}
+  }
+  function loadReadNotifications(){
+    readNotificationIds.clear();
+    try{
+      const saved=JSON.parse(localStorage.getItem(readNotificationKey())||'[]');
+      if(Array.isArray(saved))saved.forEach(id=>readNotificationIds.add(String(id)));
+    }catch{}
+  }
+  function saveInventoryNotifications(){
+    if(currentSession?.demo)return;
+    try{localStorage.setItem(inventoryNotificationKey(),JSON.stringify(inventoryNotifications.slice(0,25)));}catch{}
+  }
+  function saveReadNotifications(){
+    try{localStorage.setItem(readNotificationKey(),JSON.stringify([...readNotificationIds].slice(-100)));}catch{}
+  }
 
   // ---------- ACCESO Y CUENTAS ----------
   const loginForm = document.getElementById('login-form');
@@ -126,7 +151,7 @@ async function cargarSecciones() {
     if(authMode==='google-setup')return;
     googleStatus.hidden=enabled;
     googleStatus.textContent=enabled?'':'El acceso con Google todavía no está disponible. Puedes volver a intentarlo desde este botón.';
-  }).catch(()=>{if(authMode==='google-setup')return;googleStatus.hidden=false;googleStatus.textContent='No se pudo comprobar el acceso con Google. Puedes volver a intentarlo desde este botón.';});
+  }).catch(()=>{if(authMode==='google-setup')return;googleStatus.hidden=true;});
   function setAuthMode(mode,setup={}){
     authMode=mode;const isRegister=mode==='register',isGoogleSetup=mode==='google-setup';
     document.querySelectorAll('[data-auth-mode]').forEach(option=>{const active=option.dataset.authMode===mode;option.classList.toggle('active',active);option.setAttribute('aria-selected',String(active));});
@@ -149,6 +174,8 @@ async function cargarSecciones() {
 
   async function enterApp(session){
     currentSession=session;
+    loadInventoryNotifications();
+    loadReadNotifications();
     await cargarSecciones();
     await configureDashboard({companyId:session.companyId,demo:session.demo,apiUrl});
     const business=session.businessName||'Mi negocio', role=session.demo?'Cuenta piloto':'Cuenta personal';
@@ -223,8 +250,23 @@ async function cargarSecciones() {
     button.setAttribute('aria-label', button.textContent.trim());
     button.title = button.textContent.trim();
     if (button.classList.contains('active')) button.setAttribute('aria-current', 'page');
-    button.addEventListener('click', event => navigateTo(button.dataset.tab, event.detail === 0));
+    button.addEventListener('click', event => {
+      navigateTo(button.dataset.tab, event.detail === 0);
+      if(button.dataset.tab==='ecosistema'){
+        const menu=document.querySelector('.network-nav-menu'),open=menu.hidden;
+        menu.hidden=!open;button.setAttribute('aria-expanded',String(open));
+        if(open)requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          const nav=menu.closest('.nav');
+          if(nav)nav.scrollTo({top:nav.scrollHeight,behavior:'smooth'});
+        }));
+        mostrarVistaEcosistema('overview',{keyboard:event.detail===0});
+      }
+    });
   });
+  document.querySelectorAll('.network-nav-menu [data-network-view]').forEach(button=>button.addEventListener('click',event=>{
+    navigateTo('ecosistema',event.detail===0);
+    mostrarVistaEcosistema(button.dataset.networkView,{keyboard:event.detail===0});
+  }));
   document.querySelector('.sidebar-home').addEventListener('click', event => navigateTo('inicio', event.detail === 0, true));
   document.querySelector('.content').addEventListener('click', event => {
     const movement = event.target.closest('[data-start-movement]');
@@ -246,7 +288,7 @@ async function cargarSecciones() {
 
   function renderNotifications(){
     const list = document.getElementById('notif-list');
-    const visible=[...(currentSession?.demo?notifData:[]),...syncNotifications];
+    const visible=[...inventoryNotifications,...(currentSession?.demo?notifData:[]),...syncNotifications];
     list.replaceChildren();
     if(!visible.length){const empty=document.createElement('div');empty.className='notif-empty';empty.textContent='Aún no tienes notificaciones.';list.append(empty);}
     for(const notification of visible){
@@ -274,11 +316,32 @@ async function cargarSecciones() {
     renderNotifications();
   }
   window.addEventListener('swc-offline-change',refreshSyncNotifications);
+  document.addEventListener('producto-guardado',event=>{
+    if(currentSession?.demo)return;
+    const detail=event.detail||{},created=detail.action==='created';
+    const name=String(detail.name||'Producto').trim(),sku=String(detail.sku||'').trim();
+    inventoryNotifications.unshift({
+      id:`inventory-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      sev:'info',
+      title:created?'Producto creado':'Producto actualizado',
+      desc:`${name}${sku?` · ${sku}`:''}`,
+      time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})
+    });
+    inventoryNotifications=inventoryNotifications.slice(0,25);
+    saveInventoryNotifications();
+    renderNotifications();
+  });
 
   bellBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     notifPanel.classList.toggle('open');
-    bellBtn.setAttribute('aria-expanded', String(notifPanel.classList.contains('open')));
+    const opened=notifPanel.classList.contains('open');
+    bellBtn.setAttribute('aria-expanded', String(opened));
+    if(opened){
+      for(const notification of [...inventoryNotifications,...(currentSession?.demo?notifData:[]),...syncNotifications])readNotificationIds.add(notification.id);
+      saveReadNotifications();
+      renderNotifications();
+    }
   });
   document.addEventListener('click', (e) => {
     if(!notifPanel.contains(e.target) && e.target !== bellBtn){
@@ -287,7 +350,8 @@ async function cargarSecciones() {
     }
   });
   document.getElementById('mark-read-btn').addEventListener('click', () => {
-    for(const notification of [...(currentSession?.demo?notifData:[]),...syncNotifications])readNotificationIds.add(notification.id);
+    for(const notification of [...inventoryNotifications,...(currentSession?.demo?notifData:[]),...syncNotifications])readNotificationIds.add(notification.id);
+    saveReadNotifications();
     renderNotifications();
   });
 
@@ -301,7 +365,7 @@ async function cargarSecciones() {
 
   // ---------- INIT ----------
   function initApp(){
-    iniciarEcosistema();
+    iniciarEcosistema({session:currentSession,apiUrl});
     renderDashboard();
     renderInicio();
     renderAlerts({demo:currentSession?.demo});

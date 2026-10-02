@@ -11,7 +11,7 @@
 <meta name="color-scheme" content="light">
 <title>Pymio — Gestión inteligente para pymes</title>
 <link rel="stylesheet" href="style.css" type="text/css">
-<link rel="stylesheet" href="ecosistema.css" type="text/css">
+<link rel="stylesheet" href="ecosistema.css?v=97" type="text/css">
 <link rel="stylesheet" href="pymio.css" type="text/css">
 <link rel="stylesheet" href="dashboard.css">
 <link rel="stylesheet" href="inicio.css">
@@ -106,10 +106,18 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2 7 4-14 2 7h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span>Diagnóstico</span>
         </button>
-        <button class="nav-item" data-tab="ecosistema">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="7" r="3"/><circle cx="17" cy="8" r="3"/><circle cx="12" cy="17" r="3"/><path d="m9 10 2 4m5-3-3 3M11 7h3"/></svg>
-          <span>RED Pymio</span>
-        </button>
+        <div class="network-nav-group">
+          <button class="nav-item network-nav-toggle" data-tab="ecosistema" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="7" r="3"/><circle cx="17" cy="8" r="3"/><circle cx="12" cy="17" r="3"/><path d="m9 10 2 4m5-3-3 3M11 7h3"/></svg>
+            <span>RED Pymio</span><svg class="network-nav-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m5 6 3 3 3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="network-nav-menu" aria-label="Secciones de RED Pymio" hidden>
+            <button type="button" data-network-view="pymio"><span>Mi Pymio</span></button>
+            <button type="button" data-network-view="red"><span>Mi RED</span></button>
+            <button type="button" data-network-view="explorar"><span>Explorar y Matchmaking</span></button>
+            <button type="button" data-network-view="eventos"><span>Eventos y Beneficios</span></button>
+          </div>
+        </div>
       </nav>
       <div class="pymium-sidebar"><button type="button" class="pymium-trigger" data-pymium-open aria-label="Hazte Pymium"><span class="sidebar-note-mark bee-outline" aria-hidden="true"></span><span>Hazte Pymium</span></button></div>
       <div class="sidebar-note"><p>Las buenas decisiones<br>empiezan con tus datos.</p><span>Pymio · Gestión inteligente</span></div>
@@ -182,6 +190,6 @@
 
 
 
-<script type="module" src="app.js?v=83"></script>
+<script type="module" src="app.js?v=97"></script>
 </body>
 </html>

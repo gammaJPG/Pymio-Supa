@@ -213,17 +213,20 @@
 
   .sidebar{
     width:230px;
+    height:100%;
+    min-height:0;
     flex-shrink:0;
     background:var(--ink);
     color:#fff7da;
     display:flex;
     flex-direction:column;
     padding:20px 14px;
+    overflow:hidden;
   }
   .sidebar-top{display:flex;align-items:center;gap:10px;padding:6px 8px 26px;}
   .sidebar-top .brand-mark{width:32px;height:32px;font-size:13px;}
   .sidebar-top span{font-family:'Space Grotesk';font-weight:600;font-size:16px;color:#fff7da;}
-  .nav{display:flex;flex-direction:column;gap:2px;flex:1;}
+  .nav{display:flex;flex-direction:column;gap:2px;flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--ink-line) transparent;}
   .nav-item{
     display:flex;align-items:center;gap:12px;
     padding:10px 12px;

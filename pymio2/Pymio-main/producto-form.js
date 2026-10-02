@@ -280,6 +280,13 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       uploadedPath = null;
       dialogo.close();
       await alGuardar();
+      if (modo === 'agregar' || modo === 'modificar') {
+        document.dispatchEvent(new CustomEvent('producto-guardado', {detail: {
+          action: modo === 'agregar' ? 'created' : 'updated',
+          name: resultado?.name || datos.name,
+          sku: resultado?.sku || seleccionado?.sku || datos.sku || ''
+        }}));
+      }
     } catch (err) {
       if (!productRequestStarted) await eliminarImagen(uploadedPath);
       mostrarError(err instanceof TypeError ? 'No se pudo confirmar el guardado. Revisa la conexión y actualiza el inventario antes de reintentar.' : err.message);

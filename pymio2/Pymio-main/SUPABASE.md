@@ -14,6 +14,10 @@ La aplicación usa la Data API HTTPS de Supabase. Se eliminó el cliente `pg` y 
    - `supabase/migrations/006_product_images.sql`
    - `supabase/migrations/007_accounts.sql`
    - `supabase/migrations/008_company_sku.sql`
+   - `supabase/migrations/008_google_profile_setup.sql`
+   - `supabase/migrations/009_red_pymio.sql`
+   - `supabase/migrations/010_business_storefront.sql`
+   - `supabase/migrations/011_business_profile_images.sql`
 3. La primera migración importa el adjunto `inventario_app`: 4 empresas, 39 categorías, 82 productos, 5 movimientos y 7 líneas. Conserva IDs, secuencias, restricciones, índices y el disparador de actualización. No requiere cargar CSV ni ejecutar el dump original.
 
 No ejecutes la importación sobre tablas existentes. Está preparada para un proyecto vacío y no elimina datos. El archivo contiene los datos del adjunto; consérvalo como respaldo privado.
@@ -25,6 +29,12 @@ La migración `006_product_images.sql` agrega la ruta de la foto a productos y c
 La migración `007_accounts.sql` vincula cada usuario de Supabase Auth con una empresa propia. Las cuentas nuevas reciben una empresa vacía; la cuenta piloto continúa usando la empresa 1.
 
 La migración `008_company_sku.sql` permite repetir un SKU entre empresas distintas y mantiene su unicidad dentro de cada empresa. Es necesaria para que dos cuentas nuevas puedan usar la misma categoría y comenzar su numeración en `A001`.
+
+La migración `009_red_pymio.sql` agrega los perfiles públicos de empresa, comunidades, membresías, eventos y beneficios. RED Pymio accede a estos datos únicamente a través del servidor y conserva las tablas cerradas para clientes directos.
+
+La migración `010_business_storefront.sql` amplía esos perfiles con la vitrina Mi Pymio, color identificador, frase comercial y canales opcionales de sitio web, Instagram, YouTube, TikTok, Facebook, LinkedIn y correo electrónico.
+
+La migración `011_business_profile_images.sql` agrega la foto de perfil y el banner de cada negocio, además del bucket público `profile-images`. Conserva el color del banner como alternativa cuando el usuario no usa una imagen.
 
 ## 2. Configurar la conexión
 
