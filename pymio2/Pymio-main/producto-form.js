@@ -46,6 +46,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
           <div class="field"><label for="producto-cost">Costo (CLP)</label><input id="producto-cost" name="cost" type="number" min="0" max="2147483647" step="1" required></div>
           <div class="field"><label for="producto-price">Precio (CLP)</label><input id="producto-price" name="price" type="number" min="0" max="2147483647" step="1" required></div>
           <div class="field"><label for="producto-crit">Stock crítico</label><input id="producto-crit" name="crit_qty" type="number" min="0" max="2147483646" step="1" required></div>
+          <div class="field"><label for="producto-low">Stock bajo</label><input id="producto-low" name="low_qty" type="number" min="1" max="2147483647" step="1" required></div>
           <div class="field"><label for="producto-created">Creado</label><input id="producto-created" name="created_at" type="datetime-local" required></div>
           <div class="field" data-updated-field><label for="producto-updated">Actualizado</label><input id="producto-updated" name="updated_at" type="datetime-local" required></div>
         </div>
@@ -216,8 +217,9 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     if (modo === 'agregar') delete datos.sku;
     datos.name = datos.name.trim();
     datos.category = datos.category.trim();
-    for (const campo of ['qty', 'cost', 'price', 'crit_qty']) datos[campo] = Number(datos[campo]);
+    for (const campo of ['qty', 'cost', 'price', 'crit_qty', 'low_qty']) datos[campo] = Number(datos[campo]);
     if (!datos.name || !datos.category) return mostrarError('Completa el producto y la categoría.');
+    if (datos.low_qty <= datos.crit_qty) return mostrarError('El stock bajo debe ser mayor que el stock crítico.');
     const original = productos.find(p => String(p.id) === productoId);
     if (modo === 'agregar') datos.updated_at = datos.created_at;
     for (const campo of ['created_at', 'updated_at']) {

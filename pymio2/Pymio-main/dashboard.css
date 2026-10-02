@@ -74,12 +74,8 @@ button.pie-legend-item:hover,button.pie-legend-item:focus-visible{background:var
 #tab-dashboard .dash-kpi{border-radius:14px;padding:16px 14px;min-height:150px;min-width:0;box-shadow:none}
 #tab-dashboard .dash-kpi .label{font-size:10px;line-height:1.35;min-height:28px;margin-bottom:8px}
 #tab-dashboard .dash-kpi .value{font-size:clamp(19px,1.55vw,28px);letter-spacing:-.04em;white-space:nowrap}
-#tab-dashboard{container-type:inline-size}
-#tab-dashboard .dash-kpi{overflow:hidden;container-type:inline-size}
-#tab-dashboard .dash-kpi .label{font-size:20px;font-weight:700;line-height:1.25;min-height:0;overflow-wrap:anywhere}
-#tab-dashboard .dash-kpi .value{display:block;width:100%;max-width:100%;min-width:0;font-size:clamp(12px,12cqi,28px);line-height:1.15;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 #tab-dashboard .dash-kpi small{font-size:9px;line-height:1.4}
-#tab-dashboard .kpi-comparison{display:flex;align-items:center;gap:5px;flex-wrap:wrap;max-width:100%;margin-top:auto;padding-top:10px;white-space:normal;overflow-wrap:anywhere}
+#tab-dashboard .kpi-comparison{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;margin-top:auto;padding-top:10px;white-space:nowrap}
 #tab-dashboard .kpi-change{display:inline-flex;align-items:center;padding:3px 5px;border-radius:5px;font-weight:700;color:#566346;background:#eef0e7}
 #tab-dashboard .kpi-change.down{color:#a65440;background:#fbede5}
 #tab-dashboard .dash-kpi.primary .kpi-change.up{color:#f3d977;background:#f3d97718}
@@ -122,8 +118,5 @@ button.pie-legend-item:hover,button.pie-legend-item:focus-visible{background:var
 #tab-dashboard .dialog-summary{background:#f0f1e7}
 #tab-dashboard .dialog-summary strong{color:#566346}
 @media(max-width:900px){#tab-dashboard .dash-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.bar-money-full{display:none}.bar-money-short{display:inline}}
-@media(max-width:760px){#tab-dashboard .dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#tab-dashboard .pie-layout{flex-direction:column;gap:20px}#tab-dashboard .pie-legend{width:100%}#tab-dashboard .dashboard-middle>.dashboard-block{padding:22px 18px 18px}#tab-dashboard .sales-heading h3{font-size:19px}#tab-dashboard .sales-heading .chart-legend{margin-left:0;padding-top:2px}#tab-dashboard .sales-bar-chart{gap:7px;height:240px;padding-top:38px}#tab-dashboard .sales-bar-value{font-size:10px}#tab-dashboard .chart-footer{align-items:flex-start}#tab-dashboard .dash-filters .sub{margin-left:0}#tab-dashboard .filter-group{flex:1;min-width:130px}#tab-dashboard .top-product{flex-wrap:wrap}#tab-dashboard .top-total{margin-left:42px;text-align:left}#tab-dashboard .bar-tooltip{display:none}#tab-dashboard .dash-kpi{padding:16px 13px}#tab-dashboard .dash-kpi .value{font-size:clamp(14px,14cqi,24px)}}
+@media(max-width:760px){#tab-dashboard .dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#tab-dashboard .pie-layout{flex-direction:column;gap:20px}#tab-dashboard .pie-legend{width:100%}#tab-dashboard .dashboard-middle>.dashboard-block{padding:22px 18px 18px}#tab-dashboard .sales-heading h3{font-size:19px}#tab-dashboard .sales-heading .chart-legend{margin-left:0;padding-top:2px}#tab-dashboard .sales-bar-chart{gap:7px;height:240px;padding-top:38px}#tab-dashboard .sales-bar-value{font-size:10px}#tab-dashboard .chart-footer{align-items:flex-start}#tab-dashboard .dash-filters .sub{margin-left:0}#tab-dashboard .filter-group{flex:1;min-width:130px}#tab-dashboard .top-product{flex-wrap:wrap}#tab-dashboard .top-total{margin-left:42px;text-align:left}#tab-dashboard .bar-tooltip{display:none}#tab-dashboard .dash-kpi{padding:16px 13px}#tab-dashboard .dash-kpi .value{font-size:24px}}
 @media(max-width:400px){#tab-dashboard .dash-kpis,#tab-dashboard .pie-legend{grid-template-columns:1fr}}
-@container (max-width:1000px){#tab-dashboard .dash-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}}
-@container (max-width:620px){#tab-dashboard .dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@container (max-width:330px){#tab-dashboard .dash-kpis{grid-template-columns:minmax(0,1fr);}}

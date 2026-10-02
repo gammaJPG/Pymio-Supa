@@ -3,16 +3,6 @@
   <div class="toolbar">
     <div class="movimiento-botones">
     <button type="button" class="btn-chiquito" data-sale-add>+Agregar Venta</button>
-    <div class="filter-menu movement-filter-menu">
-      <button type="button" class="btn-secondary" data-filter-toggle aria-expanded="false" aria-controls="movement-filters">Filtros</button>
-      <div class="movimiento-filtros filter-options" id="movement-filters" aria-label="Filtrar movimientos por fecha y hora" hidden>
-        <label>Período<select id="mov-filter-period"><option value="all">Todos</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Personalizado</option></select></label>
-        <label>Desde:<input id="mov-filter-from" type="date"></label>
-        <label>Hasta:<input id="mov-filter-to" type="date"></label>
-        <label>Hora desde:<input id="mov-filter-hour-from" type="time"></label>
-        <label>Hora hasta:<input id="mov-filter-hour-to" type="time"></label>
-      </div>
-    </div>
     <button type="button" class="btn-chiquito" data-purchase-add>+Agregar Compra</button>
     <div class="inventario-menu">
       <button type="button" class="btn-chiquito" data-movement-menu aria-label="Gestionar movimientos" aria-expanded="false" aria-controls="opciones-movimientos">Otros Movimientos</button>
@@ -24,19 +14,24 @@
     </div>
   </div>
   </div>
+  <div class="filter-menu movement-filter-menu">
+    <button type="button" class="btn-secondary" data-filter-toggle aria-expanded="false" aria-controls="movement-filters">Filtros</button>
+  <div class="movimiento-filtros filter-options" id="movement-filters" aria-label="Filtrar movimientos por fecha y hora" hidden>
+    <label>Período<select id="mov-filter-period"><option value="all">Todos</option><option value="today">Hoy</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option><option value="custom">Personalizado</option></select></label>
+    <label>Desde:<input id="mov-filter-from" type="date"></label>
+    <label>Hasta:<input id="mov-filter-to" type="date"></label>
+    <label>Hora desde:<input id="mov-filter-hour-from" type="time"></label>
+    <label>Hora hasta:<input id="mov-filter-hour-to" type="time"></label>
+  </div>
+  </div>
   <p data-movement-status role="status"></p>
   <div class="card">
     <div class="card-head">
       <h2>Movimientos</h2>
       <span class="sub">Hasta 500 movimientos del período seleccionado · pulsa una fila para ver sus productos</span>
     </div>
-    <div class="table-scroll"><table class="movimientos-listado">
-      <colgroup><col class="mov-col-fecha"><col class="mov-col-detalle"><col class="mov-col-monto"></colgroup>
-      <thead><tr>
-        <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="occurred_at" data-type="fecha">Fecha y Hora <span aria-hidden="true">↕</span></th>
-        <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="operation_detail" data-type="texto">Detalle de Operación <span aria-hidden="true">↕</span></th>
-        <th class="mov-sort" tabindex="0" role="button" aria-sort="none" data-movement-sort="total" data-type="numero">Monto Total <span aria-hidden="true">↕</span></th>
-      </tr></thead>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha y Hora</th><th>Tipo de operación</th><th>Detalle de Operación</th><th>Monto Total</th></tr></thead>
       <tbody id="movimientos-table"></tbody>
     </table></div>
   </div>

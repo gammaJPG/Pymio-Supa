@@ -21,6 +21,66 @@ test('Supabase: HTTPS RPC, secret stays server-side, error mapping and timeout',
   await assert.rejects(offline.rpc('product.list',1),{status:503});
 });
 
+test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del servidor', async()=>{
+  const calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});if(url.pathname.includes('/admin/users'))return Response.json({id:'user-1',email:'pyme@example.com'});if(url.pathname.endsWith('/pymio_register_account'))return Response.json({company_id:9,business_name:'Mi Pyme',owner_name:'Ana'});return Response.json({user:{id:'user-1',email:'pyme@example.com'}});}});
+  const user=await client.createAuthUser('pyme@example.com','segura123',{business_name:'Mi Pyme'});
+  const account=await client.registerAccount(user.id,user.email,'Mi Pyme','Ana');
+  assert.equal(account.company_id,9);assert.equal(calls[0].options.headers.Authorization,'Bearer sb_secret_test');
+  assert.equal(calls[0].url.pathname,'/auth/v1/admin/users');assert.equal(calls[1].url.pathname,'/rest/v1/rpc/pymio_register_account');
+});
+
+test('Supabase Auth: prepara Google con PKCE e intercambia el código en el servidor',async()=>{
+  const calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});if(url.pathname.endsWith('/settings'))return Response.json({external:{google:true}});return Response.json({user:{id:'google-user',email:'ana@example.com'}});}});
+  assert.deepEqual(await client.authProviders(),{google:true});
+  const authorize=new URL(client.googleAuthorizeUrl('http://localhost/callback','state-1','challenge-1'));
+  assert.equal(authorize.pathname,'/auth/v1/authorize');assert.equal(authorize.searchParams.get('provider'),'google');assert.equal(authorize.searchParams.get('code_challenge'),'challenge-1');
+  const auth=await client.exchangeOAuthCode('code-1','verifier-1');
+  assert.equal(auth.user.email,'ana@example.com');
+  assert.equal(calls.at(-1).url.searchParams.get('grant_type'),'pkce');
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body),{auth_code:'code-1',code_verifier:'verifier-1'});
+});
+
+test('HTTP Auth: Google pide los datos del negocio antes de crear el espacio',async()=>{
+  const registrations=[];
+  const pool={
+    authProviders:async()=>({google:true}),
+    googleAuthorizeUrl:(redirect,state,challenge)=>`https://auth.example/authorize?redirect_to=${encodeURIComponent(redirect)}&state=${state}&challenge=${challenge}`,
+    exchangeOAuthCode:async()=>({user:{id:'google-user',email:'ana@example.com',user_metadata:{full_name:'Ana Pérez'}}}),
+    accountForUser:async()=>{throw Object.assign(new Error('sin cuenta'),{status:404});},
+    registerAccount:async(userId,email,businessName,ownerName)=>{registrations.push({userId,email,businessName,ownerName});return {company_id:12,business_name:businessName,owner_name:ownerName};}
+  };
+  const server=createInventoryServer(pool,['http://localhost:5500'],{sessionSecret:'test-secret'}),base=await listen(server);
+  try{
+    const start=await fetch(base+'/api/auth/google/start?return_to='+encodeURIComponent('http://localhost:5500/piloto.html'),{redirect:'manual'});
+    assert.equal(start.status,302);const oauthCookie=start.headers.get('set-cookie').split(';')[0],authorize=new URL(start.headers.get('location'));
+    const callback=new URL(authorize.searchParams.get('redirect_to'));callback.searchParams.set('state',authorize.searchParams.get('state'));callback.searchParams.set('code','code-1');
+    const result=await fetch(callback,{headers:{Cookie:oauthCookie},redirect:'manual'});
+    assert.equal(result.status,302);assert.equal(new URL(result.headers.get('location')).searchParams.get('google_setup'),'1');
+    const setupCookie=result.headers.getSetCookie().find(value=>value.startsWith('pymio_google_setup=')).split(';')[0];
+    const setupResponse=await fetch(base+'/api/auth/google/setup',{headers:{Cookie:setupCookie}}),setup=await setupResponse.json();
+    assert.equal(setupResponse.status,200);assert.deepEqual(setup,{email:'ana@example.com',businessName:'',ownerName:'Ana Pérez'});assert.equal(registrations.length,0);
+    const complete=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes',ownerName:'Anita'})});
+    assert.equal(complete.status,201);assert.deepEqual(registrations,[{userId:'google-user',email:'ana@example.com',businessName:'Café Los Andes',ownerName:'Anita'}]);
+    const sessionCookie=complete.headers.getSetCookie().find(value=>value.startsWith('pymio_session=')).split(';')[0];
+    const response=await fetch(base+'/api/auth/session',{headers:{Cookie:sessionCookie}}),session=(await response.json()).session;
+    assert.equal(response.status,200);assert.equal(session.userId,'google-user');assert.equal(session.email,'ana@example.com');assert.equal(session.companyId,'12');assert.equal(session.businessName,'Café Los Andes');assert.equal(session.ownerName,'Anita');assert.equal(session.demo,false);
+  } finally {await close(server);}
+});
+
+test('HTTP Auth: mantiene el piloto en empresa 1 y fuerza esa empresa desde la sesión',async()=>{
+  const calls=[];const pool={rpc:async(operation,company)=>{calls.push({operation,company});return [];}};
+  const server=createInventoryServer(pool,[],{sessionSecret:'test-secret',pilotPassword:'pilot-pass'}),base=await listen(server);
+  try{
+    assert.equal((await fetch(base+'/api/products?company_id=999')).status,401);
+    const login=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifier:'pilotodepruebas',password:'pilot-pass'})});
+    assert.equal(login.status,200);const cookie=login.headers.get('set-cookie').split(';')[0];
+    const products=await fetch(base+'/api/products?company_id=999',{headers:{Cookie:cookie}});assert.equal(products.status,200);assert.equal(calls.at(-1).company,'1');
+    const session=await fetch(base+'/api/auth/session',{headers:{Cookie:cookie}});assert.equal((await session.json()).session.demo,true);
+  } finally {await close(server);}
+});
+
 test('Supabase Storage: sube únicamente WebP y permite eliminarlo', async () => {
   const calls=[];
   const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});return Response.json({Key:'ok'});}});
@@ -69,7 +129,7 @@ test('HTTP: validation, company scope, CORS, CRUD routing and Supabase failures'
   const server=createInventoryServer({async rpc(operation,company,data){calls.push({operation,company,data});if(failure)throw failure;return {id:'81'};}},['http://localhost:5500']);
   const base=await listen(server);
   const url=base+'/api/products?company_id=2';
-  const product={name:'Prueba',category:'Cat',qty:5,cost:10,price:20,crit_qty:1,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'};
+  const product={name:'Prueba',category:'Cat',qty:5,cost:10,price:20,crit_qty:1,low_qty:2,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'};
   const send=(url,method,data)=>fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   try {
     assert.equal((await fetch(url,{method:'OPTIONS',headers:{Origin:'http://localhost:5500'}})).status,204);
@@ -77,7 +137,7 @@ test('HTTP: validation, company scope, CORS, CRUD routing and Supabase failures'
     assert.equal((await send(url,'POST',{...product,company_id:999})).status,201);
     assert.equal(calls.at(-1).operation,'product.create'); assert.equal(calls.at(-1).company,'2');
     const before=calls.length;
-    for(const update of [{qty:-1},{qty:1.2},{crit_qty:-1},{name:' '},{created_at:null}]) assert.equal((await send(url,'POST',{...product,...update})).status,400);
+    for(const update of [{qty:-1},{qty:1.2},{low_qty:1},{name:' '},{created_at:null}]) assert.equal((await send(url,'POST',{...product,...update})).status,400);
     assert.equal(calls.length,before);
     assert.equal((await fetch(base+'/api/products?company_id=undefined')).status,400);
     assert.equal((await send(base+'/api/products/81?company_id=2','PUT',{...product,sku:'ABC'})).status,200);

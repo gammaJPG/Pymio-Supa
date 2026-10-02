@@ -116,6 +116,7 @@ export async function iniciarInventario({
       const fila = tbody.insertRow();
 
       celda(fila, p.name);
+      celda(fila, p.sku);
       celda(fila, p.category);
       celda(fila, numero.format(p.qty), 'num');
       celda(fila, clp.format(p.price), 'num');
@@ -136,7 +137,6 @@ export async function iniciarInventario({
         minute: '2-digit',
         hour12: true
       }));
-      celda(fila, p.sku);
 
       prepararDetalleInventario(fila, p, { companyId, apiUrl });
     }
@@ -234,7 +234,7 @@ export async function iniciarInventario({
       const valores = [
         numero.format(inventory.length),
         clp.format(inventory.reduce((total, p) => total + p.qty * p.cost, 0)),
-        numero.format(inventory.filter(p => p['Estado Stock'] === 'Stock Crítico').length),
+        numero.format(inventory.filter(p => ['Stock Bajo', 'Stock Crítico'].includes(p['Estado Stock'])).length),
         numero.format(inventory.filter(p => p.qty === 0).length)
       ];
       indicadores.forEach((el, i) => { if (i < valores.length) el.textContent = valores[i]; });

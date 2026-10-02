@@ -1,5 +1,6 @@
-import { offlineFetch as fetch, apiBase } from './offline.js';
-import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario, ordenarMovimientos } from './movimientos-vista.js';
+import { offlineFetch as fetch, apiBase, pendingMovements } from './offline.js';
+import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario } from './movimientos-vista.js';
+import { stockDisponibleParaEgreso } from './movimientos-stock.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
   if (panel.dataset.initialized) return;
@@ -88,31 +89,6 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   }
   filterPeriod.onchange = () => { applyPeriod(); status.textContent = ''; refresh(); };
   for (const input of [filterFrom, filterTo]) input.onchange = () => { filterPeriod.value = 'custom'; status.textContent = ''; refresh(); };
-  const sortHeaders = [...panel.querySelectorAll('[data-movement-sort]')];
-  let displayedMovements = [], movementOrder = null;
-  function renderMovementList() {
-    const ordered=ordenarMovimientos(displayedMovements,movementOrder);
-    renderMovimientos($('#movimientos-table'),ordered);
-    if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent='No hay movimientos para el período seleccionado.';
-  }
-  sortHeaders.forEach(header => {
-    const sort=()=>{
-      const same=movementOrder?.field===header.dataset.movementSort;
-      movementOrder={field:header.dataset.movementSort,type:header.dataset.type,direction:same?-movementOrder.direction:(header.dataset.type==='texto'?1:-1)};
-      sortHeaders.forEach(item=>{
-        const active=item===header;
-        item.setAttribute('aria-sort',active?(movementOrder.direction===1?'ascending':'descending'):'none');
-        item.querySelector('span').textContent=active?(movementOrder.direction===1?'↑':'↓'):'↕';
-      });
-      renderMovementList();
-    };
-    header.onclick=sort;
-    header.onkeydown=event=>{
-      if(event.key!=='Enter' && event.key!==' ')return;
-      event.preventDefault();
-      sort();
-    };
-  });
   let refreshVersion = 0;
   async function refresh(targetCode = null) {
     const current = ++refreshVersion;
@@ -141,8 +117,9 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         data.unshift(detail);
       }
       if (current !== refreshVersion) return;
-      displayedMovements = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value));
-      renderMovementList();
+      const filtered = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value));
+      renderMovimientos($('#movimientos-table'), filtered);
+      if (!filtered.length) $('#movimientos-table').rows[0].cells[0].textContent = 'No hay movimientos para el período seleccionado.';
       if (targetCode) {
         const row = [...panel.querySelectorAll('[data-movement-code]')].find(r => r.dataset.movementCode === targetCode);
         const toggle = row.querySelector('.movimiento-toggle');
@@ -339,13 +316,28 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       } else {
       if (!form.reportValidity()) return;
       const items = [], seen = new Set();
+      const outgoing = form.elements.operation.value === 'Egreso';
+      const queuedRows = outgoing ? await pendingMovements().catch(()=>[]) : [];
       for (const row of lines.children) {
         const input = row.querySelector('[data-product]');
+        const unitsInput = row.querySelector('[data-units]');
+        unitsInput.setCustomValidity('');
         const product = products.find(p => label(p) === input.value);
         if (!product) { input.setCustomValidity('Selecciona un producto de la lista.'); input.reportValidity(); return; }
         if (seen.has(String(product.id))) return showError('Incluye cada producto una sola vez; ajusta sus unidades en la misma fila.');
         seen.add(String(product.id));
-        items.push({ product_id: String(product.id), units: Number(row.querySelector('[data-units]').value),
+        const units = Number(unitsInput.value);
+        if (outgoing) {
+          const original = mode === 'edit' && selected?.operation === 'Egreso' ? selected.products.find(item=>String(item.product_id)===String(product.id)) : null;
+          const available = stockDisponibleParaEgreso(product.id, product.qty, queuedRows, Math.abs(Number(original?.units ?? 0)));
+          if (units > available) {
+            const requestedLabel = `${units} ${units === 1 ? 'unidad' : 'unidades'}`;
+            const availableLabel = `${available} ${available === 1 ? 'unidad disponible' : 'unidades disponibles'}`;
+            const message = `${form.elements.operation_detail.value === 'Venta' ? 'No puedes vender' : 'No puedes retirar'} ${requestedLabel} de ${product.name}. Hay ${availableLabel}.`;
+            unitsInput.setCustomValidity(message); unitsInput.reportValidity(); showError(message); return;
+          }
+        }
+        items.push({ product_id: String(product.id), units,
           discount: !discount.hidden && form.elements.discount_scope.value === 'product'
             ? {type: row.querySelector('[data-line-discount-type]').value, value: Number(row.querySelector('[data-line-discount-value]').value)} : null });
       }
@@ -369,7 +361,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       }
       pending = null;
       dialog.close();
-      status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : mode === 'add' ? '' : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}. Inventario actualizado.`;
+      status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}. Inventario actualizado.`;
       document.dispatchEvent(new CustomEvent('inventario-actualizado'));
       await refresh();
     } catch (err) {
