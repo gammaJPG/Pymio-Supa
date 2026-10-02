@@ -246,7 +246,7 @@ Antes de publicar una actualización también se debe comprobar que:
 - Los perfiles y vitrinas empresariales se consultan con el contexto de la sesión activa.
 - La API incorpora rutas y persistencia para la red empresarial sin alterar el aislamiento por empresa.
 - Las migraciones `009_red_pymio.sql`, `010_business_storefront.sql` y `011_business_profile_images.sql` agregan conexiones, vitrinas e imágenes de perfil.
-- La migración `012_network_post_editing.sql` permite editar eventos y beneficios, validando en la base que la empresa activa sea su creadora.
+- La migración `015_network_post_editing.sql` permite editar eventos y beneficios, validando en la base que la empresa activa sea su creadora.
 - Los eventos y beneficios propios muestran la acción `Editar`, reutilizan el formulario con sus datos actuales y vuelven a publicar los cambios en toda la red. Las publicaciones ajenas no muestran esa acción y el servidor filtra la actualización por empresa creadora.
 - El Dashboard conserva sus datos reales, filtros históricos y navegación directa a Movimientos e Inventario.
 
@@ -256,3 +256,14 @@ Antes de publicar una actualización también se debe comprobar que:
 - Los avisos se almacenan localmente y se separan por empresa; eliminar productos no genera este aviso.
 - Abrir la campana marca como leídas todas las notificaciones visibles y oculta inmediatamente el contador rojo.
 - El estado leído también se conserva al recargar, mientras una notificación posterior vuelve a activar el contador.
+
+## Integración final de `Tinoski-branch` con `main`
+
+- Se unificaron en la campana las notificaciones de inventario y las alertas reales del diagnóstico, conservando el estado leído por empresa.
+- El diagnóstico clasifica los productos como stock normal, stock bajo o sin stock y permite navegar desde cada alerta a su contexto.
+- Inventario incorpora el estado operativo `Habilitado` o `Inhabilitado`, edición de productos y navegación filtrada desde el Dashboard.
+- RED Pymio admite conexiones entre empresas, comunidades abiertas o privadas y aprobación o rechazo de solicitudes por la empresa creadora.
+- La edición de eventos y beneficios continúa restringida a la empresa autora tanto en la interfaz como en la función protegida de Supabase.
+- Se conservaron el Dashboard conectado a Supabase, sus filtros históricos y los accesos directos a ventas por cobrar y stock bajo.
+- Las migraciones `012_remove_critical_stock.sql`, `013_product_status.sql`, `014_network_connections_and_private_communities.sql` y `015_network_post_editing.sql` representan la secuencia final integrada.
+- La suite automatizada cubre clientes, Dashboard, diagnóstico, movimientos, inventario, RED Pymio, Supabase, autenticación, almacenamiento y seguridad HTTP.

@@ -323,7 +323,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       discountSymbols();
     }
   };
-  async function open(type, preset = null) {
+  async function open(type, preset = null, targetMovement = null) {
     closeMenu(); mode = type; selected = null;
     const current = ++version;
     form.reset(); resetFields(); pending = null;
@@ -360,9 +360,15 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         addLine(); fields.disabled = save.disabled = false;
       } else {
         movements = mode === 'edit' ? results[1] : results[0];
+        if (targetMovement && !movements.some(m => m.code === targetMovement.code)) movements.unshift(targetMovement);
         selector.replaceChildren(new Option(movements.length ? 'Selecciona un movimiento' : 'No hay movimientos disponibles',''));
         movements.forEach(m => selector.add(new Option(m.code + ' · ' + fechaMovimiento(m.occurred_at) + ' · ' + m.operation, m.code)));
         selector.disabled = !movements.length;
+        if (targetMovement) {
+          selector.value = targetMovement.code;
+          selector.onchange();
+          form.querySelector('[data-product]')?.focus();
+        }
       }
     } catch(err) { if (current === version && dialog.open) showError(err.message); }
   }

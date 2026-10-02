@@ -9,25 +9,27 @@ export function mostrarVistaEcosistema(view='overview',{keyboard=false}={}){
 }
 const demoData={
   communities:[
-    {id:'demo-1',name:'Gastronomía RM',industry:'Alimentos',member_count:482,description:'Restaurantes, cafeterías y productores de alimentos de la Región Metropolitana.',joined:true,owner_name:'Mesa Gastronómica'},
-    {id:'demo-2',name:'Zona Industrial Quilicura',industry:'Logística',member_count:167,description:'Empresas manufactureras y logísticas de Quilicura.',joined:true,owner_name:'Empresas Quilicura'},
-    {id:'demo-3',name:'Fondos y Subsidios Pyme',industry:'Financiamiento',member_count:310,description:'Mapeo colaborativo de fondos públicos, Corfo y subsidios vigentes.',joined:false,owner_name:'Impulsa Pyme'},
+    {id:'demo-1',name:'Gastronomía RM',industry:'Alimentos',member_count:482,description:'Restaurantes, cafeterías y productores de alimentos de la Región Metropolitana.',joined:true,is_open:true,owner_name:'Mesa Gastronómica'},
+    {id:'demo-2',name:'Zona Industrial Quilicura',industry:'Logística',member_count:167,description:'Empresas manufactureras y logísticas de Quilicura.',joined:true,is_open:false,owner_name:'Empresas Quilicura'},
+    {id:'demo-3',name:'Fondos y Subsidios Pyme',industry:'Financiamiento',member_count:310,description:'Mapeo colaborativo de fondos públicos, Corfo y subsidios vigentes.',joined:false,is_open:false,owner_name:'Impulsa Pyme'},
   ],
   profile:{company_id:1,display_name:'Distribuidora Andes Ltda.',description:'Logística y distribución regional para comercios que necesitan entregas confiables.',store_tagline:'Movemos tu negocio a tiempo.',industry:'Logística',product_tags:['Distribución','Última milla'],location:'Quilicura',website:'https://pymio.cl',instagram:'https://instagram.com',linkedin:'https://linkedin.com',contact_email:'contacto@pymio.cl',accent_color:'#f4ce4f',verified:true,is_self:true},
   businesses:[
-    {company_id:2,display_name:'EcoPack SpA',description:'Fabricante de empaques compostables.',store_tagline:'Empaques que cuidan lo que importa.',industry:'Manufactura',product_tags:['Empaques reciclables','Envases'],location:'Providencia',instagram:'https://instagram.com',website:'https://example.com',verified:true},
+    {company_id:2,display_name:'EcoPack SpA',description:'Fabricante de empaques compostables.',store_tagline:'Empaques que cuidan lo que importa.',industry:'Manufactura',product_tags:['Empaques reciclables','Envases'],location:'Providencia',instagram:'https://instagram.com',website:'https://example.com',verified:true,connected:true},
     {company_id:1,display_name:'Distribuidora Andes Ltda.',description:'Logística y distribución regional.',store_tagline:'Movemos tu negocio a tiempo.',industry:'Logística',product_tags:['Distribución','Última milla'],location:'Quilicura',linkedin:'https://linkedin.com',contact_email:'contacto@pymio.cl',verified:true,is_self:true},
     {company_id:3,display_name:'Estudio Trazo Digital',description:'Diseño y marketing para retail.',store_tagline:'Diseño que vende sin perder identidad.',industry:'Servicios creativos',product_tags:['Branding','Marketing'],location:'Ñuñoa',instagram:'https://instagram.com',tiktok:'https://tiktok.com',verified:false},
-    {company_id:4,display_name:'QuimLimpia SpA',description:'Insumos de aseo industrial.',industry:'Insumos',product_tags:['Aseo industrial'],location:'Rancagua',facebook:'https://facebook.com',verified:true},
+    {company_id:4,display_name:'QuimLimpia SpA',description:'Insumos de aseo industrial.',industry:'Insumos',product_tags:['Aseo industrial'],location:'Rancagua',facebook:'https://facebook.com',verified:true,connected:true},
     {company_id:5,display_name:'Cafetalera del Sur',description:'Café en grano de origen.',industry:'Alimentos',product_tags:['Café','Venta mayorista'],location:'Talca',youtube:'https://youtube.com',verified:false},
     {company_id:6,display_name:'RM Publicidad Exterior',description:'Espacios publicitarios locales.',industry:'Publicidad',product_tags:['Publicidad exterior'],location:'Santiago Centro',verified:true},
   ],
+  connections:[],community_requests:[],
   posts:[
     {kind:'event',title:'Taller: Cómo postular a fondos Corfo 2026',description:'Revisión práctica de requisitos y errores frecuentes.',event_at:'2026-10-24T18:00:00-03:00',location:'Online',author_name:'Gremio Pymes RM'},
     {kind:'event',title:'Networking Zona Industrial Quilicura',description:'Encuentro entre proveedores y empresas de la zona.',event_at:'2026-11-02T09:30:00-03:00',location:'Quilicura',author_name:'Zona Industrial Quilicura'},
     {kind:'benefit',title:'20% de descuento en fletes',description:'Tarifa preferente para miembros de Gastronomía RM.',expires_at:'2026-12-31T23:59:00-03:00',author_name:'Distribuidora Andes Ltda.'},
   ],
 };
+demoData.connections=demoData.businesses.filter(item=>item.connected);
 const demoProducts=[
   {name:'Aceite vegetal 900 ml',category:'Abarrotes',qty:42,price:2890,image_path:''},
   {name:'Café molido premium',category:'Bebidas',qty:18,price:6490,image_path:''},
@@ -82,7 +84,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   const root=document.getElementById('tab-ecosistema'); if(!root)return;
   initialized=true;
   const get=id=>root.querySelector('#'+id),demo=Boolean(session?.demo);
-  let state=demo?structuredClone(demoData):{profile:null,businesses:[],communities:[],posts:[]},products=[];
+  let state=demo?structuredClone(demoData):{profile:null,businesses:[],connections:[],communities:[],community_requests:[],posts:[]},products=[];
   const feedback=root.querySelector('.ecosistema-feedback');
   const announce=(message,type='success')=>{feedback.textContent=message;feedback.dataset.type=type;feedback.hidden=false;};
   const setBusy=(button,busy,label)=>{button.disabled=busy;if(label){if(!button.dataset.label)button.dataset.label=button.textContent;button.textContent=busy?label:button.dataset.label;}};
@@ -109,7 +111,16 @@ export function iniciarEcosistema({session,apiUrl}={}){
   function renderCommunities(){
     const rows=state.communities||[],joined=rows.filter(item=>item.joined).length,owned=rows.filter(item=>item.owned).length;
     const summary=root.querySelector('[data-community-summary]');summary.hidden=demo;summary.innerHTML=`<span><strong>${joined}</strong> en tu red</span><span><strong>${owned}</strong> creadas por ti</span><span><strong>${rows.length}</strong> disponibles</span>`;
-    get('community-grid').innerHTML=rows.length?rows.map((item,index)=>`<article class="card community-card"><div class="community-heading"><span class="community-monogram">${String(index+1).padStart(2,'0')}</span><span>↗</span></div><span class="pill honey">${escapeHTML(item.industry||'Comunidad abierta')}</span><h3>${escapeHTML(item.name)}</h3><p>${escapeHTML(item.description)}</p><div class="community-owner">Creada por ${escapeHTML(item.owner_name||'una empresa de Pymio')}</div><div class="community-meta"><span>${Number(item.member_count||0).toLocaleString('es-CL')} miembros</span>${item.joined?`<span class="joined-label">${item.owned?'Administras':'Ya eres miembro'}</span>`:`<button class="btn-outline" data-community-join="${escapeHTML(item.id)}">Unirme</button>`}</div></article>`).join(''):emptyState('Aún no hay comunidades','Crea la primera comunidad de RED Pymio y define el espacio que tu sector necesita.');
+    get('community-grid').innerHTML=rows.length?rows.map((item,index)=>{
+      const requests=(state.community_requests||[]).filter(request=>request.community_id===item.id);
+      const action=item.owned?'<span class="joined-label">Administras</span>':item.joined?'<span class="joined-label">Ya eres miembro</span>':item.pending_request?'<button class="btn-outline" disabled>Solicitud enviada</button>':`<button class="btn-outline" data-community-join="${escapeHTML(item.id)}">${item.is_open?'Unirme':'Solicitar acceso'}</button>`;
+      const requestList=item.owned&&requests.length?`<div class="join-requests"><strong>${requests.length===1?'1 solicitud pendiente':`${requests.length} solicitudes pendientes`}</strong>${requests.map(request=>`<div class="join-request"><div class="match-avatar">${avatarMarkup(request)}</div><div><b>${escapeHTML(request.display_name)}</b><small>${escapeHTML([request.industry,request.location].filter(Boolean).join(' · ')||'Perfil en Pymio')}</small></div><div class="request-actions"><button type="button" data-community-request="${escapeHTML(request.id)}" data-community-id="${escapeHTML(item.id)}" data-decision="approve">Aceptar</button><button type="button" data-community-request="${escapeHTML(request.id)}" data-community-id="${escapeHTML(item.id)}" data-decision="reject">Rechazar</button></div></div>`).join('')}</div>`:'';
+      return `<article class="card community-card"><div class="community-heading"><span class="community-monogram">${String(index+1).padStart(2,'0')}</span><span class="community-access-label">${item.is_open?'Abierta':'Con aprobación'}</span></div><span class="pill honey">${escapeHTML(item.industry||'Comunidad')}</span><h3>${escapeHTML(item.name)}</h3><p>${escapeHTML(item.description)}</p><div class="community-owner">Creada por ${escapeHTML(item.owner_name||'una empresa de Pymio')}</div><div class="community-meta"><span>${Number(item.member_count||0).toLocaleString('es-CL')} miembros</span>${action}</div>${requestList}</article>`;
+    }).join(''):emptyState('Aún no hay comunidades','Crea la primera comunidad de RED Pymio y define el espacio que tu sector necesita.');
+  }
+  function renderConnections(){
+    const rows=state.connections||[];root.querySelector('[data-connection-count]').textContent=`${rows.length} ${rows.length===1?'conexión':'conexiones'}`;
+    get('connection-grid').innerHTML=rows.length?rows.map(item=>`<article class="card connection-card"><div class="match-top"><div class="match-avatar">${avatarMarkup(item)}</div><div><div class="match-name">${escapeHTML(item.display_name)} ${verifiedMark(item.verified)}</div><div class="match-rubro">${escapeHTML([item.industry,item.location].filter(Boolean).join(' · ')||'Perfil en Pymio')}</div></div></div><p>${escapeHTML(item.store_tagline||item.description||'Esta empresa forma parte de tu red.')}</p><button type="button" class="profile-link" data-profile-view="${escapeHTML(item.company_id)}"><span>Ver perfil Pymio</span><span>→</span></button></article>`).join(''):emptyState('Todavía no conectas con otras empresas','Explora perfiles y usa el botón Conectar para construir tu red.');
   }
   function updateFilters(){
     const businesses=state.businesses||[];
@@ -137,7 +148,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   }
   function renderMatches(){
     const rows=filteredBusinesses();get('match-count').textContent=`${rows.length} ${rows.length===1?'empresa encontrada':'empresas encontradas'}`;
-    get('match-grid').innerHTML=rows.length?rows.map(item=>`<article class="card match-card ${item.is_self?'is-self':''}"><div class="match-top"><div class="match-avatar">${avatarMarkup(item)}</div><div><div class="match-name">${escapeHTML(item.display_name)} ${verifiedMark(item.verified)} ${item.is_self?'<span class="self-label">Tu negocio</span>':''}</div><div class="match-rubro">${escapeHTML([item.industry,item.location].filter(Boolean).join(' · ')||'Perfil en preparación')}</div></div></div><p class="match-description">${escapeHTML(item.store_tagline||item.description||'Esta empresa aún no agregó una descripción.')}</p><div class="match-badges">${(item.product_tags||[]).slice(0,3).map(tag=>`<span class="pill teal">${escapeHTML(tag)}</span>`).join('')}</div><button type="button" class="profile-link" data-profile-view="${escapeHTML(item.company_id)}"><span>Ver perfil Pymio</span><span>→</span></button></article>`).join(''):emptyState('No encontramos coincidencias','Prueba con otro rubro, producto o ubicación.');
+    get('match-grid').innerHTML=rows.length?rows.map(item=>`<article class="card match-card ${item.is_self?'is-self':''}"><div class="match-top"><div class="match-avatar">${avatarMarkup(item)}</div><div><div class="match-name">${escapeHTML(item.display_name)} ${verifiedMark(item.verified)} ${item.is_self?'<span class="self-label">Tu negocio</span>':''}</div><div class="match-rubro">${escapeHTML([item.industry,item.location].filter(Boolean).join(' · ')||'Perfil en preparación')}</div></div></div><p class="match-description">${escapeHTML(item.store_tagline||item.description||'Esta empresa aún no agregó una descripción.')}</p><div class="match-badges">${(item.product_tags||[]).slice(0,3).map(tag=>`<span class="pill teal">${escapeHTML(tag)}</span>`).join('')}</div><div class="match-actions"><button type="button" class="profile-link" data-profile-view="${escapeHTML(item.company_id)}"><span>Ver perfil</span><span>→</span></button>${item.is_self?'':item.connected?'<button type="button" class="connect-button is-connected" disabled>Conectado</button>':`<button type="button" class="connect-button" data-connect-business="${escapeHTML(item.company_id)}">Conectar</button>`}</div></article>`).join(''):emptyState('No encontramos coincidencias','Prueba con otro rubro, producto o ubicación.');
   }
   const formatDate=value=>value?new Intl.DateTimeFormat('es-CL',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(value)):'';
   function renderPosts(){
@@ -159,7 +170,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     if(products.length||demo){if(demo&&!products.length)products=demoProducts;renderProducts();return;}
     try{products=await request(`/api/products?company_id=${encodeURIComponent(session.companyId)}`);renderProducts();}catch{get('store-inventory-grid').innerHTML=emptyState('No pudimos cargar tu inventario','Inténtalo nuevamente desde el botón Actualizar.');}
   }
-  function renderAll(){renderCommunities();renderProfile();updateFilters();renderMatches();renderPosts();if(currentView==='pymio')loadProducts();}
+  function renderAll(){renderCommunities();renderConnections();renderProfile();updateFilters();renderMatches();renderPosts();if(currentView==='pymio')loadProducts();}
   async function load(){
     if(demo){renderAll();return;}root.classList.add('network-loading');feedback.hidden=true;
     try{state=await request('/api/network/bootstrap');renderAll();}catch(error){announce(error.message,'error');get('community-grid').innerHTML=emptyState('No pudimos cargar RED Pymio','Revisa tu conexión y vuelve a intentarlo.');}finally{root.classList.remove('network-loading');}
@@ -178,9 +189,15 @@ export function iniciarEcosistema({session,apiUrl}={}){
     dialog.querySelector('[data-public-description]').textContent=profile.description||profile.store_tagline||'Este negocio aún no agregó una descripción.';
     dialog.querySelector('[data-public-tags]').innerHTML=(profile.product_tags||[]).map(tag=>`<span class="pill teal">${escapeHTML(tag)}</span>`).join('');
     dialog.querySelector('[data-public-socials]').innerHTML=socialHTML(profile)||'<span class="no-socials">Este negocio aún no agregó canales de contacto.</span>';
+    const connect=dialog.querySelector('[data-public-connect]');connect.hidden=Boolean(profile.is_self);connect.disabled=Boolean(profile.connected);connect.textContent=profile.connected?'Conectado':'Conectar';connect.dataset.connectBusiness=profile.company_id||'';
     dialog.querySelector('.public-profile-cover').style.background=profile.accent_color||'#f4ce4f';openDialog(dialog);
   }
-  get('match-grid').addEventListener('click',event=>{const button=event.target.closest('[data-profile-view]');if(!button)return;const item=(state.businesses||[]).find(row=>String(row.company_id)===button.dataset.profileView);if(item)openPublicProfile(item);});
+  const findBusiness=id=>(state.businesses||[]).find(row=>String(row.company_id)===String(id))||(state.connections||[]).find(row=>String(row.company_id)===String(id));
+  async function connectBusiness(button){
+    if(demo)return announce('Las conexiones no se envían desde la cuenta piloto.','info');
+    setBusy(button,true,'Conectando…');try{state=await request(`/api/network/connections/${encodeURIComponent(button.dataset.connectBusiness)}`,{method:'POST'});renderAll();closeDialog(get('profile-view-dialog'));announce('La empresa ya forma parte de tu red.');}catch(error){announce(error.message,'error');setBusy(button,false);}
+  }
+  root.addEventListener('click',event=>{const profileButton=event.target.closest('[data-profile-view]');if(profileButton){const item=findBusiness(profileButton.dataset.profileView);if(item)openPublicProfile(item);return;}const connectButton=event.target.closest('[data-connect-business]');if(connectButton)connectBusiness(connectButton);});
   root.querySelector('[data-open-own-profile]').addEventListener('click',()=>openPublicProfile(state.profile||{}));
 
   const productDialog=get('store-product-dialog'),productForm=root.querySelector('[data-store-product-form]');
@@ -246,7 +263,12 @@ export function iniciarEcosistema({session,apiUrl}={}){
   const communityDialog=get('community-dialog'),communityForm=root.querySelector('[data-community-form]');
   root.querySelector('[data-community-create]').addEventListener('click',()=>{if(demo)return announce('La creación de comunidades está disponible en las cuentas personales.','info');communityForm.reset();openDialog(communityDialog);});
   communityForm.addEventListener('submit',async event=>{event.preventDefault();const button=communityForm.querySelector('[type="submit"]'),error=communityForm.querySelector('.form-error');setBusy(button,true,'Creando…');error.hidden=true;try{state=await request('/api/network/communities',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(communityForm)))});renderAll();closeDialog(communityDialog);announce('La comunidad fue creada.');}catch(cause){error.textContent=cause.message;error.hidden=false;}finally{setBusy(button,false);}});
-  get('community-grid').addEventListener('click',async event=>{const button=event.target.closest('[data-community-join]');if(!button)return;if(demo)return announce('Las solicitudes no se envían desde la cuenta piloto.','info');setBusy(button,true,'Uniéndote…');try{state=await request(`/api/network/communities/${encodeURIComponent(button.dataset.communityJoin)}/join`,{method:'POST'});renderAll();announce('Ya formas parte de la comunidad.');}catch(error){announce(error.message,'error');}finally{setBusy(button,false);}});
+  get('community-grid').addEventListener('click',async event=>{
+    const decisionButton=event.target.closest('[data-community-request]');
+    if(decisionButton){if(demo)return;setBusy(decisionButton,true,decisionButton.dataset.decision==='approve'?'Aceptando…':'Rechazando…');try{state=await request(`/api/network/communities/${encodeURIComponent(decisionButton.dataset.communityId)}/requests/${encodeURIComponent(decisionButton.dataset.communityRequest)}`,{method:'POST',body:JSON.stringify({decision:decisionButton.dataset.decision})});renderAll();announce(decisionButton.dataset.decision==='approve'?'La empresa se unió a la comunidad.':'La solicitud fue rechazada.');}catch(error){announce(error.message,'error');setBusy(decisionButton,false);}return;}
+    const button=event.target.closest('[data-community-join]');if(!button)return;if(demo)return announce('Las solicitudes no se envían desde la cuenta piloto.','info');
+    const community=(state.communities||[]).find(item=>item.id===button.dataset.communityJoin);setBusy(button,true,community?.is_open?'Uniéndote…':'Enviando…');try{state=await request(`/api/network/communities/${encodeURIComponent(button.dataset.communityJoin)}/join`,{method:'POST'});renderAll();announce(community?.is_open?'Ya formas parte de la comunidad.':'La solicitud fue enviada a quien administra la comunidad.');}catch(error){announce(error.message,'error');setBusy(button,false);}
+  });
 
   const postDialog=get('post-dialog'),postForm=root.querySelector('[data-post-form]');
   let editingPostId=null;

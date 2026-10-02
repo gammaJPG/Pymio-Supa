@@ -7,7 +7,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
  try {
   const page = await browser.newPage({viewport:{width:1280,height:900}});
   const errors=[]; page.on('pageerror', e => errors.push(e.message));
-  const products=[{id:'1',company_id:'1',name:'Árbol',sku:'ARB-01',category:'Jardín',qty:10,low_qty:5,crit_qty:2,cost:100,price:200,created_at:'2026-09-01',updated_at:'2026-09-01'}, {id:'2',company_id:'1',name:'Mesa',sku:'MES-02',category:'Hogar',qty:20,cost:200,price:400,created_at:'2026-09-01',updated_at:'2026-09-01'}];
+  const products=[{id:'1',company_id:'1',name:'Árbol',sku:'ARB-01',category:'Jardín',qty:10,low_qty:5,cost:100,price:200,created_at:'2026-09-01',updated_at:'2026-09-01'}, {id:'2',company_id:'1',name:'Mesa',sku:'MES-02',category:'Hogar',qty:20,cost:200,price:400,created_at:'2026-09-01',updated_at:'2026-09-01'}];
   let categories=[{id:'1',name:'Sin Clasificar',abbreviation:'SIN'},{id:'2',name:'Jardín',abbreviation:'JAR'},{id:'3',name:'Hogar',abbreviation:'HOG'}].map(c=>({...c,created_at:'2026-09-13T12:00:00Z',updated_at:'2026-09-13T12:00:00Z'}));
   const categoryChanges=[]; const dateQueries=[];
   const changes=[]; const posts=[]; let failFirst=true;

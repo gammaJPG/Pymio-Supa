@@ -32,8 +32,8 @@ test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',contactEmail:'correo-invalido'})).response.status,400);
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',avatarPath:'archivo.png'})).response.status,400);
   assert.equal((await call('/api/network/communities','POST',{name:' ',description:'Vacía'})).response.status,400);
-  const community=await call('/api/network/communities','POST',{name:'Comercio Local',description:'Un espacio para colaborar',industry:'Retail'});
-  assert.equal(community.response.status,201);assert.equal(community.calls[0].operation,'community.create');
+  const community=await call('/api/network/communities','POST',{name:'Comercio Local',description:'Un espacio para colaborar',industry:'Retail',isOpen:'on'});
+  assert.equal(community.response.status,201);assert.equal(community.calls[0].operation,'community.create');assert.equal(community.calls[0].payload.is_open,true);
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos'})).response.status,400);
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos',eventAt:'fecha imposible'})).response.status,400);
   const post=await call('/api/network/posts','POST',{kind:'benefit',title:'Descuento',description:'Oferta para la red'});
@@ -48,4 +48,14 @@ test('RED Pymio: valida el identificador antes de unirse a una comunidad',async(
   assert.equal((await call('/api/network/communities/no-valida/join','POST')).response.status,404);
   const joined=await call('/api/network/communities/10000000-0000-4000-8000-000000000001/join','POST');
   assert.equal(joined.response.status,200);assert.equal(joined.calls[0].operation,'community.join');
+});
+
+test('RED Pymio: conecta empresas y permite responder solicitudes privadas',async()=>{
+  assert.equal((await call('/api/network/connections/7','POST')).response.status,400);
+  const connected=await call('/api/network/connections/12','POST');
+  assert.equal(connected.response.status,200);assert.deepEqual(connected.calls[0],{operation:'connection.create',company:'7',payload:{target_company_id:'12'}});
+  const requestId='20000000-0000-4000-8000-000000000002',communityId='10000000-0000-4000-8000-000000000001';
+  assert.equal((await call(`/api/network/communities/${communityId}/requests/${requestId}`,'POST',{decision:'otro'})).response.status,400);
+  const approved=await call(`/api/network/communities/${communityId}/requests/${requestId}`,'POST',{decision:'approve'});
+  assert.equal(approved.response.status,200);assert.deepEqual(approved.calls[0].payload,{community_id:communityId,request_id:requestId,decision:'approve'});
 });

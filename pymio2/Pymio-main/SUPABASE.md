@@ -18,6 +18,10 @@ La aplicación usa la Data API HTTPS de Supabase. Se eliminó el cliente `pg` y 
    - `supabase/migrations/009_red_pymio.sql`
    - `supabase/migrations/010_business_storefront.sql`
    - `supabase/migrations/011_business_profile_images.sql`
+   - `supabase/migrations/012_remove_critical_stock.sql`
+   - `supabase/migrations/013_product_status.sql`
+   - `supabase/migrations/014_network_connections_and_private_communities.sql`
+   - `supabase/migrations/015_network_post_editing.sql`
 3. La primera migración importa el adjunto `inventario_app`: 4 empresas, 39 categorías, 82 productos, 5 movimientos y 7 líneas. Conserva IDs, secuencias, restricciones, índices y el disparador de actualización. No requiere cargar CSV ni ejecutar el dump original.
 
 No ejecutes la importación sobre tablas existentes. Está preparada para un proyecto vacío y no elimina datos. El archivo contiene los datos del adjunto; consérvalo como respaldo privado.
@@ -35,6 +39,14 @@ La migración `009_red_pymio.sql` agrega los perfiles públicos de empresa, comu
 La migración `010_business_storefront.sql` amplía esos perfiles con la vitrina Mi Pymio, color identificador, frase comercial y canales opcionales de sitio web, Instagram, YouTube, TikTok, Facebook, LinkedIn y correo electrónico.
 
 La migración `011_business_profile_images.sql` agrega la foto de perfil y el banner de cada negocio, además del bucket público `profile-images`. Conserva el color del banner como alternativa cuando el usuario no usa una imagen.
+
+La migración `012_remove_critical_stock.sql` simplifica los umbrales del inventario y conserva un único límite de stock bajo.
+
+La migración `013_product_status.sql` separa el estado operativo del producto de su disponibilidad de stock y permite habilitarlo o inhabilitarlo.
+
+La migración `014_network_connections_and_private_communities.sql` habilita conexiones entre perfiles y comunidades abiertas o con aprobación. También incorpora las solicitudes de ingreso y su gestión por la empresa creadora.
+
+La migración `015_network_post_editing.sql` permite actualizar eventos y beneficios y refuerza en la base de datos que solo la empresa creadora pueda editarlos.
 
 ## 2. Configurar la conexión
 
