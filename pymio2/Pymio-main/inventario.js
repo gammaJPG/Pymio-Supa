@@ -25,6 +25,7 @@ export async function iniciarInventario({
   const numero = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 });
   const normalizar = texto => String(texto).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   let inventory = [];
+  let dashboardProductIds = null;
   const viewKey = 'pymio-inventory-view';
   let currentView;
   try { currentView = sessionStorage.getItem(viewKey); } catch {}
@@ -93,7 +94,8 @@ export async function iniciarInventario({
   function render() {
     if (cargando) return;
     const filtro = normalizar(search.value.trim());
-    const visibles = inventory.filter(p => normalizar(`${p.name} ${p.sku}`).includes(filtro)
+    const visibles = inventory.filter(p => (!dashboardProductIds || dashboardProductIds.has(String(p.id)))
+      && normalizar(`${p.name} ${p.sku}`).includes(filtro)
       && (!categoria.value || String(p.category ?? '') === JSON.parse(categoria.value)));
     if (orden) {
       visibles.sort((a, b) => {
@@ -252,13 +254,19 @@ export async function iniciarInventario({
     }
   }
   botonAMI.textContent = '+ Productos';
-  prepararCategorias({panel,companyId,apiUrl,alGuardar:actualizar});
-  prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar: async () => {
+  const categorias=prepararCategorias({panel,companyId,apiUrl,alGuardar:actualizar});
+  prepararFormularioProducto({ panel, companyId, apiUrl, crearCategoria:categorias.crear, alGuardar: async () => {
     search.value = '';
     await actualizar();
   } });
-  search.oninput = render;
-  categoria.onchange = render;
+  search.oninput = () => { dashboardProductIds = null; render(); };
+  categoria.onchange = () => { dashboardProductIds = null; render(); };
+  document.addEventListener('abrir-inventario-filtrado', event => {
+    dashboardProductIds = new Set((event.detail?.ids ?? []).map(String));
+    search.value = ''; categoria.value = '';
+    document.querySelector('[data-tab="inventario"]').click();
+    render();
+  });
   encabezados.forEach(boton => {
     boton.closest('th').setAttribute('aria-sort', 'none');
     boton.querySelector('span').textContent = '↕';

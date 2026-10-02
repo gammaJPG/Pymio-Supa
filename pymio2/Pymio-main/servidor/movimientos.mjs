@@ -30,7 +30,7 @@ export function validarMovimiento(data) {
   if (!['Físico','Online'].includes(data.channel)) throw fallo(400, 'Selecciona un canal válido.');
   if (!['Efectivo','Tarjeta','Transferencia'].includes(data.payment_method)) throw fallo(400, 'Selecciona un medio de pago válido.');
   if (data.Estado != null && !['Pagado','Pendiente de Pago'].includes(data.Estado)) throw fallo(400, 'Estado de pago inválido.');
-  if (data.Estado === 'Pendiente de Pago' && data.operation_detail !== 'Venta') throw fallo(400, 'Solo las ventas pueden quedar pendientes de pago.');
+  if (data.Estado === 'Pendiente de Pago' && !['Venta','Compra'].includes(data.operation_detail)) throw fallo(400, 'Solo las ventas y compras pueden quedar pendientes de pago.');
   if (data.customer_id != null && (!/^[1-9]\d{0,18}$/.test(String(data.customer_id)) || data.operation_detail !== 'Venta')) throw fallo(400, 'Selecciona un cliente válido para la venta.');
   const rawDiscount = data.discount ?? null;
   let discount = null;

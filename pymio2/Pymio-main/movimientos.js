@@ -1,5 +1,5 @@
 import { offlineFetch as fetch, apiBase, pendingMovements } from './offline.js';
-import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario } from './movimientos-vista.js';
+import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario, ordenarMovimientos, datosMovimientoPagado } from './movimientos-vista.js';
 import { stockDisponibleParaEgreso } from './movimientos-stock.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
@@ -15,6 +15,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const customerField = $('[data-customer-field]'), customerSelect = $('#mov-customer');
   const customerDialog = $('#cliente-dialogo'), customerForm = $('#cliente-form');
   const customerError = $('[data-customer-error]');
+  const paymentConfirm = $('#movimiento-pago-confirmacion');
   let customers = [], previousCustomer = '';
   function renderCustomers(value = '') {
     customerSelect.replaceChildren(new Option('+Crear Cliente', '__create__'), new Option('Sin cliente', ''));
@@ -59,9 +60,10 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     finally { submit.disabled = false; }
   };
   paymentPending.onclick = () => paymentPending.setAttribute('aria-pressed', String(paymentPending.getAttribute('aria-pressed') !== 'true'));
-  const discount = $('#mov-discount');
-  const dateDetails = $('.movimiento-fecha');
+  const discountDetails = $('[data-discount-details]'), discount = $('#mov-discount');
+  const dateDetails = $('[data-date-details]');
   dateDetails.addEventListener('invalid', () => { dateDetails.open = true; }, true);
+  discount.addEventListener('invalid', () => { discountDetails.open = true; }, true);
   let mode = 'add', movements = [], selected = null;
   const selector = $('#movement-selector');
   const actionLabel = () => mode === 'delete' ? 'Eliminar movimiento' : mode === 'edit' ? 'Guardar cambios' : 'Guardar movimiento';
@@ -77,7 +79,9 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
 
   const filterPeriod = $('#mov-filter-period'), filterFrom = $('#mov-filter-from'), filterTo = $('#mov-filter-to');
   const hourFrom = $('#mov-filter-hour-from'), hourTo = $('#mov-filter-hour-to');
-  for (const input of [hourFrom, hourTo]) input.onchange = () => { status.textContent = ''; refresh(); };
+  let dashboardMovementCodes = null;
+  const clearDashboardFilter = () => { dashboardMovementCodes = null; };
+  for (const input of [hourFrom, hourTo]) input.onchange = () => { clearDashboardFilter(); status.textContent = ''; refresh(); };
   const localDate = date => [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
   function applyPeriod() {
     if (filterPeriod.value === 'custom') return;
@@ -87,8 +91,56 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     filterFrom.value = localDate(from);
     filterTo.value = localDate(today);
   }
-  filterPeriod.onchange = () => { applyPeriod(); status.textContent = ''; refresh(); };
-  for (const input of [filterFrom, filterTo]) input.onchange = () => { filterPeriod.value = 'custom'; status.textContent = ''; refresh(); };
+  filterPeriod.onchange = () => { clearDashboardFilter(); applyPeriod(); status.textContent = ''; refresh(); };
+  for (const input of [filterFrom, filterTo]) input.onchange = () => { clearDashboardFilter(); filterPeriod.value = 'custom'; status.textContent = ''; refresh(); };
+  const sortHeaders = [...panel.querySelectorAll('[data-movement-sort]')];
+  let displayedMovements = [], movementOrder = null;
+  function renderMovementList(openCode = null) {
+    const ordered=ordenarMovimientos(displayedMovements,movementOrder);
+    renderMovimientos($('#movimientos-table'),ordered,{onMarkPaid:markMovementPaid});
+    if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent='No hay movimientos para el período seleccionado.';
+    if (openCode) panel.querySelector(`[data-movement-code="${openCode}"] .movimiento-toggle`)?.click();
+  }
+  function confirmMarkPaid() {
+    paymentConfirm.returnValue = '';
+    paymentConfirm.showModal();
+    return new Promise(resolve => paymentConfirm.addEventListener('close', () => resolve(paymentConfirm.returnValue === 'confirm'), {once:true}));
+  }
+  async function markMovementPaid(movement) {
+    if (!await confirmMarkPaid()) return;
+    status.textContent = '';
+    const response = await fetch(endpoint('/api/movements/' + encodeURIComponent(movement.code)), {
+      method:'PUT', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(datosMovimientoPagado(movement, crypto.randomUUID())), signal:AbortSignal.timeout(20000)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      status.textContent = result.error || 'No se pudo marcar el movimiento como pagado.';
+      throw new Error(status.textContent);
+    }
+    movement.Estado = 'Pagado';
+    if (result.revision) movement.revision = result.revision;
+    status.textContent = result.queued ? 'Cambio guardado en el dispositivo. Se marcará como pagado al recuperar la conexión.' : 'Movimiento marcado como pagado.';
+    renderMovementList(movement.code);
+  }
+  sortHeaders.forEach(header => {
+    const sort=()=>{
+      const same=movementOrder?.field===header.dataset.movementSort;
+      movementOrder={field:header.dataset.movementSort,type:header.dataset.type,direction:same?-movementOrder.direction:(header.dataset.type==='texto'?1:-1)};
+      sortHeaders.forEach(item=>{
+        const active=item===header;
+        item.setAttribute('aria-sort',active?(movementOrder.direction===1?'ascending':'descending'):'none');
+        item.querySelector('span').textContent=active?(movementOrder.direction===1?'↑':'↓'):'↕';
+      });
+      renderMovementList();
+    };
+    header.onclick=sort;
+    header.onkeydown=event=>{
+      if(event.key!=='Enter' && event.key!==' ')return;
+      event.preventDefault();
+      sort();
+    };
+  });
   let refreshVersion = 0;
   async function refresh(targetCode = null) {
     const current = ++refreshVersion;
@@ -117,9 +169,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         data.unshift(detail);
       }
       if (current !== refreshVersion) return;
-      const filtered = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value));
-      renderMovimientos($('#movimientos-table'), filtered);
-      if (!filtered.length) $('#movimientos-table').rows[0].cells[0].textContent = 'No hay movimientos para el período seleccionado.';
+      displayedMovements = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value) && (!dashboardMovementCodes || dashboardMovementCodes.has(m.code)));
+      renderMovementList();
       if (targetCode) {
         const row = [...panel.querySelectorAll('[data-movement-code]')].find(r => r.dataset.movementCode === targetCode);
         const toggle = row.querySelector('.movimiento-toggle');
@@ -133,6 +184,13 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     document.querySelector('[data-tab="movimientos"]').click();
     status.textContent = '';
     refresh(code);
+  });
+  document.addEventListener('abrir-movimientos-filtrados', event => {
+    dashboardMovementCodes = new Set((event.detail?.codes ?? []).map(String));
+    filterPeriod.value = 'all'; filterFrom.value = filterTo.value = hourFrom.value = hourTo.value = '';
+    document.querySelector('[data-tab="movimientos"]').click();
+    status.textContent = event.detail?.label || 'Filtro aplicado desde el Dashboard: ventas por cobrar.';
+    refresh();
   });
 
   function addLine(item) {
@@ -155,6 +213,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       input.value = product ? label(product) : item.name + ' - ' + item.sku;
       row.querySelector('[data-units]').value = Math.abs(item.units);
     }
+    const unitsInput = row.querySelector('[data-units]');
+    unitsInput.addEventListener('input', () => { unitsInput.setCustomValidity(''); error.hidden = true; });
     row.querySelector('[data-line-discount-type]').value = item?.discount_type ?? 'fixed';
     row.querySelector('[data-line-discount-value]').value = item?.discount_value ?? 0;
     row.addEventListener('input', discountSymbols);
@@ -163,17 +223,14 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     discountSymbols();
   }
   $('[data-add-line]').onclick = addLine;
-  $('[data-discount-toggle]').onclick = event => {
-    discount.hidden = !discount.hidden;
-    discount.disabled = discount.hidden;
-    event.currentTarget.setAttribute('aria-expanded', String(!discount.hidden));
-    event.currentTarget.textContent = discount.hidden ? 'Incluir Descuento' : 'Quitar Descuento';
+  discountDetails.ontoggle = () => {
+    discount.disabled = !discountDetails.open;
     discountSymbols();
   };
   function discountSymbols() {
-    const individual = !discount.hidden && form.elements.discount_scope.value === 'product';
+    const individual = discountDetails.open && form.elements.discount_scope.value === 'product';
     $('[data-global-discount]').hidden = individual;
-    form.elements.discount_value.disabled = discount.hidden || individual;
+    form.elements.discount_value.disabled = !discountDetails.open || individual;
     $('[data-product-discount-help]').hidden = !individual;
     for (const row of lines.children) {
       row.classList.toggle('con-descuento', individual);
@@ -208,19 +265,32 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   }
   function resetFields() {
     lines.replaceChildren(); error.hidden = true;
-    customerField.hidden = true; renderCustomers();
+    customerField.hidden = true; customerField.open = false; renderCustomers();
     paymentPending.hidden = true; paymentPending.setAttribute('aria-pressed', 'false');
     form.elements.channel.value = '';
     form.elements.payment_method.value = '';
     operationDetails();
-    discount.hidden = discount.disabled = true;
-    $('[data-discount-toggle]').textContent = 'Incluir Descuento';
-    $('[data-discount-toggle]').setAttribute('aria-expanded', 'false');
+    discountDetails.hidden = false; discountDetails.open = false; discount.disabled = true;
     form.elements.discount_scope.value = 'global';
     form.elements.discount_value.value = '';
     discountSymbols();
     dateDetails.open = false;
     setDate(new Date());
+  }
+  function configureCommercialFields(detail) {
+    const isSale = detail === 'Venta';
+    const isPurchase = detail === 'Compra';
+    paymentPending.hidden = !isSale && !isPurchase;
+    customerField.hidden = !isSale;
+    if (!isSale) customerField.open = false;
+    discountDetails.hidden = isPurchase;
+    if (isPurchase) {
+      discountDetails.open = false;
+      discount.disabled = true;
+      form.elements.discount_scope.value = 'global';
+      form.elements.discount_value.value = '';
+    }
+    discountSymbols();
   }
   selector.onchange = () => {
     selected = movements.find(m => m.code === selector.value) ?? null;
@@ -235,16 +305,16 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     form.elements.payment_method.value = selected.payment_method ?? '';
     $('[data-operation-fields]').hidden = ['Venta', 'Compra'].includes(selected.operation_detail);
     operationDetails(selected.operation_detail ?? 'Otros');
-    paymentPending.hidden = selected.operation_detail !== 'Venta';
-    customerField.hidden = selected.operation_detail !== 'Venta';
-    if (!customerField.hidden) renderCustomers(selected.customer_id == null ? '' : String(selected.customer_id));
+    configureCommercialFields(selected.operation_detail);
+    if (!customerField.hidden) {
+      renderCustomers(selected.customer_id == null ? '' : String(selected.customer_id));
+      customerField.open = selected.customer_id != null;
+    }
     paymentPending.setAttribute('aria-pressed', String(selected.Estado === 'Pendiente de Pago'));
     setDate(selected.occurred_at);
     selected.products.forEach(addLine);
-    if (selected.discount_type || selected.discount_scope === 'product') {
-      discount.hidden = discount.disabled = false;
-      $('[data-discount-toggle]').textContent = 'Quitar Descuento';
-      $('[data-discount-toggle]').setAttribute('aria-expanded','true');
+    if (selected.operation_detail !== 'Compra' && (selected.discount_type || selected.discount_scope === 'product')) {
+      discountDetails.open = true; discount.disabled = false;
       form.elements.discount_scope.value = selected.discount_scope === 'product' ? 'product' : 'global';
       if (selected.discount_type === 'fixed') {
         showError('Este movimiento tiene un descuento global fijo antiguo. Selecciona un porcentaje global o descuentos por producto antes de guardar.');
@@ -262,8 +332,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     if (preset) {
       form.elements.operation.value = preset.operation;
       operationDetails(preset.detail);
-      paymentPending.hidden = preset.detail !== 'Venta';
-      customerField.hidden = preset.detail !== 'Venta';
+      configureCommercialFields(preset.detail);
     }
     save.textContent = actionLabel();
     $('#movimiento-titulo').textContent = mode === 'delete' ? 'Eliminar movimiento' : mode === 'edit' ? 'Modificar movimiento' : preset?.detail === 'Venta' ? 'Agregar venta' : preset?.detail === 'Compra' ? 'Agregar compra' : 'Agregar movimiento';
@@ -314,6 +383,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         if (!window.confirm('¿Eliminar el movimiento ' + selected.code + ' y revertir sus unidades en el inventario?')) return;
         pending = { action_id: crypto.randomUUID(), revision: selected.revision };
       } else {
+      for (const unitsInput of form.querySelectorAll('[data-units]')) unitsInput.setCustomValidity('');
       if (!form.reportValidity()) return;
       const items = [], seen = new Set();
       const outgoing = form.elements.operation.value === 'Egreso';
@@ -328,21 +398,26 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         seen.add(String(product.id));
         const units = Number(unitsInput.value);
         if (outgoing) {
-          const original = mode === 'edit' && selected?.operation === 'Egreso' ? selected.products.find(item=>String(item.product_id)===String(product.id)) : null;
+          const original = mode === 'edit' && selected?.operation === 'Egreso'
+            ? selected.products.find(item => String(item.product_id) === String(product.id))
+            : null;
           const available = stockDisponibleParaEgreso(product.id, product.qty, queuedRows, Math.abs(Number(original?.units ?? 0)));
           if (units > available) {
             const requestedLabel = `${units} ${units === 1 ? 'unidad' : 'unidades'}`;
             const availableLabel = `${available} ${available === 1 ? 'unidad disponible' : 'unidades disponibles'}`;
             const message = `${form.elements.operation_detail.value === 'Venta' ? 'No puedes vender' : 'No puedes retirar'} ${requestedLabel} de ${product.name}. Hay ${availableLabel}.`;
-            unitsInput.setCustomValidity(message); unitsInput.reportValidity(); showError(message); return;
+            unitsInput.setCustomValidity(message);
+            unitsInput.reportValidity();
+            showError(message);
+            return;
           }
         }
         items.push({ product_id: String(product.id), units,
-          discount: !discount.hidden && form.elements.discount_scope.value === 'product'
+          discount: discountDetails.open && form.elements.discount_scope.value === 'product'
             ? {type: row.querySelector('[data-line-discount-type]').value, value: Number(row.querySelector('[data-line-discount-value]').value)} : null });
       }
       pending = { code: crypto.randomUUID(), operation: form.elements.operation.value, operation_detail: form.elements.operation_detail.value, occurred_at: new Date(form.elements.occurred_at.value + 'T' + String(Number(form.elements.hour.value) % 12 + (form.elements.period.value === 'pm' ? 12 : 0)).padStart(2,'0') + ':' + String(form.elements.minute.value).padStart(2,'0')).toISOString(), items,
-        discount: discount.hidden ? null : form.elements.discount_scope.value === 'product' ? {scope:'product'} : {scope:'global', type:'percentage', value:Number(form.elements.discount_value.value)} };
+        discount: !discountDetails.open ? null : form.elements.discount_scope.value === 'product' ? {scope:'product'} : {scope:'global', type:'percentage', value:Number(form.elements.discount_value.value)} };
       pending.Estado = paymentPending.getAttribute('aria-pressed') === 'true' ? 'Pendiente de Pago' : 'Pagado';
       pending.channel = form.elements.channel.value;
       pending.payment_method = form.elements.payment_method.value;
@@ -361,7 +436,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       }
       pending = null;
       dialog.close();
-      status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}. Inventario actualizado.`;
+      status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : mode === 'add' ? '' : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}.`;
       document.dispatchEvent(new CustomEvent('inventario-actualizado'));
       await refresh();
     } catch (err) {

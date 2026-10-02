@@ -167,6 +167,12 @@ export function renderDashboard(){
   refreshViews();
 }
 function openAttention(kind){
-  const low=kind==='low',filters=getDashFilters(),link=document.getElementById('dash-attention-link');link.hidden=false;link.dataset.goTab=low?'inventario':'movimientos';link.textContent=low?'Abrir inventario ↗':'Abrir movimientos ↗';link.onclick=()=>document.getElementById('category-dialog').close();
-  const rows=low?dashboardData.products.filter(product=>isLowStock(product)&&(!filters.category||product.category===filters.category)):salesFor(filters.period,filters.category,filters.month).filter(sale=>sale.status==='Pendiente de Pago');document.getElementById('category-dialog-title').textContent=low?'Productos con stock bajo':'Ventas por cobrar';document.getElementById('category-dialog-period').textContent=(low?'Inventario actual':selectedPeriodText(filters))+' · Datos reales';document.getElementById('category-dialog-share').textContent=number(rows.length);document.getElementById('category-dialog-income').textContent=low?'Productos que necesitan atención':'Transacciones pendientes de pago';document.querySelector('#category-dialog h3').textContent=low?'Stock disponible':'Detalle de pendientes';document.querySelector('#category-dialog .dialog-note').textContent=low?'Existencias actuales según el umbral configurado.':'Ventas pendientes en el período seleccionado.';const list=document.getElementById('category-dialog-products');list.replaceChildren();rows.forEach(row=>{const item=document.createElement('li');item.textContent=low?row.name+' · '+number(row.qty)+' unidades':row.id+' · '+(row.customerName||'Sin cliente')+' · '+clp(summarizeSales([row]).income);list.append(item);});document.getElementById('category-dialog-note').textContent=rows.length?'':'No hay registros para esta selección.';document.getElementById('category-dialog').showModal();
+  const low=kind==='low',filters=getDashFilters();
+  if(low){
+    const products=dashboardData.products.filter(product=>isLowStock(product)&&(!filters.category||product.category===filters.category));
+    document.dispatchEvent(new CustomEvent('abrir-inventario-filtrado',{detail:{ids:products.map(product=>String(product.id)),label:'Stock bajo desde el Dashboard'}}));
+    return;
+  }
+  const sales=salesFor(filters.period,filters.category,filters.month).filter(sale=>sale.status==='Pendiente de Pago');
+  document.dispatchEvent(new CustomEvent('abrir-movimientos-filtrados',{detail:{codes:sales.map(sale=>sale.id),label:'Filtro Dashboard · Ventas por cobrar · '+selectedPeriodText(filters)}}));
 }

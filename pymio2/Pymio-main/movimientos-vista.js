@@ -5,7 +5,50 @@ export function fechaMovimiento(value) {
   return `${fecha} ${String(date.getHours() % 12 || 12).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')} ${date.getHours() >= 12 ? 'pm' : 'am'}`;
 }
 
-export function renderMovimientos(table, movements) {
+export function datosMovimientoPagado(movement, actionId) {
+  const productDiscount = movement.discount_scope === 'product';
+  const discount = productDiscount
+    ? {scope:'product'}
+    : movement.discount_type
+      ? {scope:'global',type:movement.discount_type,value:Number(movement.discount_value)}
+      : null;
+  return {
+    action_id: actionId,
+    revision: Number(movement.revision),
+    operation: movement.operation,
+    operation_detail: movement.operation_detail,
+    channel: movement.channel,
+    payment_method: movement.payment_method,
+    Estado: 'Pagado',
+    ...(movement.customer_id == null ? {} : {customer_id:String(movement.customer_id)}),
+    occurred_at: new Date(movement.occurred_at).toISOString(),
+    discount,
+    items: movement.products.map(product => ({
+      product_id: String(product.product_id),
+      units: Math.abs(Number(product.units)),
+      discount: productDiscount ? {type:product.discount_type,value:Number(product.discount_value)} : null
+    }))
+  };
+}
+
+export function ordenarMovimientos(movements, order, collator = new Intl.Collator('es',{sensitivity:'base'})) {
+  if (!order) return [...movements];
+  return [...movements].sort((a,b) => {
+    const getValue = movement => {
+      const raw=movement[order.field];
+      if(raw==null || raw==='')return null;
+      if(order.type==='texto')return String(raw);
+      const value=order.type==='fecha'?Date.parse(raw):Number(raw);
+      return Number.isFinite(value)?value:null;
+    };
+    const first=getValue(a),second=getValue(b);
+    if(first===null)return second===null?0:1;
+    if(second===null)return -1;
+    return (order.type==='texto'?collator.compare(first,second):first-second)*order.direction;
+  });
+}
+
+export function renderMovimientos(table, movements, {onMarkPaid} = {}) {
   table.replaceChildren();
   for (const [index, movement] of movements.entries()) {
     const row = table.insertRow();
@@ -19,12 +62,24 @@ export function renderMovimientos(table, movements) {
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-controls', `movimiento-detalle-${index}`);
     dateCell.appendChild(toggle);
-    for (const value of [movement.operation, movement.operation_detail ?? 'Otros', moneda(movement.total)]) row.insertCell().textContent = value;
+    for (const value of [movement.operation_detail ?? 'Otros', moneda(movement.total)]) row.insertCell().textContent = value;
     const detail = table.insertRow();
     detail.id = `movimiento-detalle-${index}`;
     detail.hidden = true;
     detail.className = 'movimiento-detalle';
-    const cell = detail.insertCell(); cell.colSpan = 4;
+    const cell = detail.insertCell(); cell.colSpan = 3;
+    if (movement.Estado === 'Pendiente de Pago' && onMarkPaid) {
+      const actions = document.createElement('div'); actions.className = 'movimiento-detalle-acciones';
+      const paid = document.createElement('button');
+      paid.type = 'button'; paid.className = 'movimiento-marcar-pagado';
+      paid.innerHTML = '<span aria-hidden="true">✓</span> Marcar como pagado';
+      paid.onclick = async () => {
+        paid.disabled = true; paid.setAttribute('aria-busy','true');
+        try { await onMarkPaid(movement); } catch {}
+        finally { paid.disabled = false; paid.removeAttribute('aria-busy'); }
+      };
+      actions.appendChild(paid); cell.appendChild(actions);
+    }
     const wrap = document.createElement('div'); wrap.className = 'table-scroll';
     const nested = document.createElement('table');
     const headers = nested.createTHead().insertRow();
@@ -38,7 +93,7 @@ export function renderMovimientos(table, movements) {
     }
     wrap.appendChild(nested); cell.appendChild(wrap);
     const summary = document.createElement('div'); summary.className = 'movimiento-detalle-resumen';
-    for (const [title, value] of [['Descuento Total', Number(movement.discount_amount ?? 0) === 0 ? '-' : moneda(movement.discount_amount)], ['Estado', movement.Estado ?? 'Pagado'], ...(movement.customer_name ? [['Cliente', movement.customer_name]] : []), ['Código del movimiento', movement.code]]) {
+    for (const [title, value] of [['Descuento Total', Number(movement.discount_amount ?? 0) === 0 ? '-' : moneda(movement.discount_amount)], ['Estado', movement.Estado ?? 'Pagado'], ['Medio de pago', movement.payment_method ?? '-'], ['Tipo', movement.operation], ['Código', movement.code], ...(movement.customer_name ? [['Cliente', movement.customer_name]] : [])]) {
       const item = document.createElement('p'), label = document.createElement('strong');
       label.textContent = title + ': '; item.append(label, String(value)); summary.appendChild(item);
     }
@@ -51,7 +106,7 @@ export function renderMovimientos(table, movements) {
     };
   }
   if (!movements.length) {
-    const cell = table.insertRow().insertCell(); cell.colSpan = 4;
+    const cell = table.insertRow().insertCell(); cell.colSpan = 3;
     cell.textContent = 'Aún no hay movimientos registrados.';
   }
 }

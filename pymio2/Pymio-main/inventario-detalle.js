@@ -14,6 +14,7 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl })
   detalle.hidden = true; detalle.className = 'inventario-detalle';
   const celda = detalle.insertCell(); celda.colSpan = 8;
   const layout = document.createElement('div'); layout.className = 'inventario-detalle-grid';
+  const stockColumn = document.createElement('div'); stockColumn.className = 'inventario-stock-column';
   const stock = document.createElement('section'); stock.className = 'inventario-detalle-card';
   const stockTitle = document.createElement('h3'); stockTitle.textContent = 'Información de stock';
   const limites = document.createElement('dl'); limites.className = 'inventario-umbrales';
@@ -26,12 +27,23 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl })
     item.append(label,number); limites.appendChild(item);
   }
   stock.append(stockTitle,limites);
+  const stockState = document.createElement('section'); stockState.className = 'inventario-detalle-card inventario-estado-stock';
+  const stockStateTitle = document.createElement('h3'); stockStateTitle.textContent = 'Estado de Stock';
+  const currentStock = Number(producto.qty);
+  const criticalStock = Number(producto.crit_qty);
+  const state = producto['Estado Stock'] || (currentStock === 0 ? 'Sin Stock' : currentStock < criticalStock ? 'Stock Crítico' : 'Stock Normal');
+  const stockStateValue = document.createElement('p'); stockStateValue.className = 'inventario-estado-valor';
+  stockStateValue.dataset.state = state === 'Sin Stock' ? 'out' : state === 'Stock Crítico' ? 'critical' : 'normal';
+  const stockStateDot = document.createElement('span'); stockStateDot.setAttribute('aria-hidden','true');
+  stockStateValue.append(stockStateDot,state);
+  stockState.append(stockStateTitle,stockStateValue);
+  stockColumn.append(stock,stockState);
   const movimientos = document.createElement('section'); movimientos.className = 'inventario-detalle-card';
   const titulo = document.createElement('h3'); titulo.textContent = 'Últimos 5 movimientos';
   const historial = document.createElement('div'); historial.className = 'table-scroll inventario-historial';
   historial.setAttribute('aria-live','polite');
   movimientos.append(titulo,historial);
-  layout.append(stock,movimientos); celda.appendChild(layout);
+  layout.append(stockColumn,movimientos); celda.appendChild(layout);
   let cargado = false, cargando = false;
   async function cargar() {
     if (cargado || cargando) return;

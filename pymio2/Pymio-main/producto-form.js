@@ -26,7 +26,7 @@ async function optimizarImagenProducto(file) {
   return {blob,width,height,quality};
 }
 // La empresa llega desde iniciarInventario, después del login.
-export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar }) {
+export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar, crearCategoria }) {
   let dialogo = panel.querySelector('#producto-dialogo');
   if (!dialogo) {
     dialogo = document.createElement('dialog');
@@ -78,7 +78,9 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
   let modo = 'agregar';
   let productos = [];
   let carga = 0;
+  let categoriaAnterior = '';
   const selector = form.querySelector('#producto-selector');
+  const categorySelect = form.elements.category;
   const campos = [...form.querySelectorAll('.producto-campos input, .producto-campos select')];
   const fechaLocal = valor => {
     const fecha = new Date(valor);
@@ -140,21 +142,36 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     form.elements.updated_at.value = local;
     dialogo.showModal();
   }
-  async function cargarCategorias(solicitud) {
-    const category = form.elements.category;
-    guardar.disabled = true; category.disabled = true;
-    category.replaceChildren(new Option('Cargando categorías…',''));
+  async function cargarCategorias(solicitud,seleccionada='') {
+    guardar.disabled = true; categorySelect.disabled = true;
+    categorySelect.replaceChildren(new Option('Cargando categorías…',''));
     const url = new URL('/api/categories',apiUrl); url.searchParams.set('company_id',companyId);
     const response = await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(15000)});
     const data = await response.json();
     if (!response.ok || !Array.isArray(data)) throw new Error('No se pudieron cargar las categorías.');
     if (solicitud !== carga || !dialogo.open) return;
-    category.replaceChildren(new Option('Selecciona una categoría',''));
-    data.forEach(c => category.add(new Option(c.name,c.name)));
-    category.value = data.some(c=>c.name==='Sin Clasificar') ? 'Sin Clasificar' : '';
-    category.disabled = modo !== 'agregar';
+    categorySelect.replaceChildren(new Option('Selecciona una categoría',''));
+    if (modo === 'agregar') categorySelect.add(new Option('+Nueva categoría','__create__'));
+    data.forEach(c => categorySelect.add(new Option(c.name,c.name)));
+    categorySelect.value = seleccionada && data.some(c=>c.name===seleccionada) ? seleccionada
+      : data.some(c=>c.name==='Sin Clasificar') ? 'Sin Clasificar' : '';
+    categoriaAnterior = categorySelect.value;
+    categorySelect.disabled = modo !== 'agregar';
     if (modo === 'agregar') guardar.disabled = false;
   }
+  categorySelect.onfocus = () => { if (categorySelect.value !== '__create__') categoriaAnterior = categorySelect.value; };
+  categorySelect.onchange = async () => {
+    if (categorySelect.value !== '__create__') { categoriaAnterior = categorySelect.value; return; }
+    const anterior = categoriaAnterior;
+    categorySelect.value = anterior;
+    if (typeof crearCategoria !== 'function') return;
+    const solicitud = carga;
+    const creada = await crearCategoria();
+    if (solicitud !== carga || !dialogo.open) return;
+    if (!creada) { categorySelect.value = anterior; return; }
+    try { await cargarCategorias(solicitud,creada); }
+    catch(err) { if (solicitud === carga && dialogo.open) mostrarError(err.message); }
+  };
   panel.querySelector('[data-accion="agregar"]').onclick = async () => {
     abrir('agregar'); const solicitud = carga;
     try { await cargarCategorias(solicitud); }

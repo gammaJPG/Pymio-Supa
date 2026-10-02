@@ -82,6 +82,24 @@ Los mensajes de las barras elevan su capa visual al recibir cursor o foco para n
 
 La tarjeta KPI y la señal de “Tu próxima decisión” usan exactamente la misma colección y el mismo criterio. La señal comunica primero el total del KPI y después destaca la categoría con mayor concentración. Así, un total de cuatro productos puede indicar que dos pertenecen a Legumbres sin aparentar que existen dos totales distintos.
 
+## Integración con `main`
+
+El merge conserva el dashboard conectado de `Tinoski-branch` e incorpora las mejoras operativas de `main`:
+
+- Las sesiones identifican la empresa activa y el Dashboard, Inicio, Movimientos e Inventario consultan exclusivamente sus datos.
+- El acceso admite cuenta piloto, cuentas personales y el flujo preparado para Google Auth.
+- Inventario conserva vistas detallada y simple, gestión de categorías, imágenes, historial y formularios adaptables.
+- Movimientos descuenta del stock disponible las ventas todavía pendientes de sincronización y restaura las unidades originales al editar.
+- Los movimientos pendientes pueden marcarse como pagados sin perder canal, medio de pago, cliente, descuentos ni productos.
+- El formulario de venta exige canal y medio de pago; el cliente sigue siendo opcional y mantiene la misma estética de selector.
+- Corregir una cantidad que excedía el stock elimina inmediatamente el error anterior y permite volver a validar el formulario.
+- El detalle expandido muestra descuento total, estado, medio de pago, tipo, código y cliente con el formato visual original.
+- `Ventas por cobrar` abre directamente Movimientos mostrando los códigos calculados por el período y categoría activos.
+- `Stock bajo` abre directamente Inventario mostrando exactamente los productos incluidos en el KPI.
+- Las tarjetas del Dashboard conservan tooltips, colores únicos, diseño adaptable y tooltips de barras sobre el resto del gráfico.
+
+El service worker integra tanto `dashboard-data.js` como `movimientos-stock.js`; su caché se versionó como `v83` para evitar recursos anteriores al merge.
+
 ## Ventas históricas creadas en Supabase
 
 Se agregaron cuatro ventas pagadas, sin descuentos y con cantidades pequeñas de productos con stock disponible. Sus UUID de solicitud son fijos para que un reintento sea idempotente.
