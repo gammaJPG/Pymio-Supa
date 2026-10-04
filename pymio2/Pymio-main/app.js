@@ -119,6 +119,9 @@ async function cargarSecciones() {
   // ---------- ACCESO Y CUENTAS ----------
   const loginForm = document.getElementById('login-form');
   const loginError = document.getElementById('login-error');
+  const accessErrorMessage=error=>/failed to fetch|networkerror|load failed/i.test(String(error?.message||''))
+    ? 'No pudimos conectar con Pymio. Comprueba que el servidor esté activo e inténtalo nuevamente.'
+    : error?.message||'No se pudo completar el acceso. Inténtalo nuevamente.';
   const googleAuth=document.getElementById('google-auth'),googleStatus=document.getElementById('google-auth-status');
   const authSwitch=document.getElementById('auth-switch'),authDivider=document.getElementById('auth-divider'),loginHint=document.getElementById('login-hint');
   const googleAccount=document.getElementById('google-account'),googleSetupCancel=document.getElementById('google-setup-cancel');
@@ -128,7 +131,7 @@ async function cargarSecciones() {
   loginForm.reset();
   ['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');
   let authMode='login',googleNeedsPassword=false;
-  const authUrl=new URL(location.href),authError=authUrl.searchParams.get('auth_error'),googleSetupRequested=authUrl.searchParams.get('google_setup')==='1';
+  const authUrl=new URL(location.href),authError=authUrl.searchParams.get('auth_error');
   if(authError){loginError.textContent=authError;loginError.style.display='block';const clean=new URL(location.href);clean.searchParams.delete('auth_error');history.replaceState(null,'',clean);}
   const googleButtonLabel=googleAuth.querySelector('span');
   async function googleProviderEnabled(){
@@ -145,7 +148,7 @@ async function cargarSecciones() {
       const returnTo=new URL('piloto.html',location.href);
       location.assign(apiUrl+'/api/auth/google/start?return_to='+encodeURIComponent(returnTo.href));
     }catch(error){
-      googleStatus.textContent=error.message||'No pudimos abrir el acceso con Google. Revisa tu conexión e inténtalo nuevamente.';
+      googleStatus.textContent=accessErrorMessage(error);
       googleStatus.hidden=false;googleAuth.disabled=false;googleAuth.removeAttribute('aria-busy');googleAuth.dataset.loading='false';googleButtonLabel.textContent='Continuar con Google';
     }
   };
@@ -203,7 +206,9 @@ async function cargarSecciones() {
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
     const storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
-    import('./inventario.js?v=101').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
+    document.getElementById('profile-password-btn').hidden=session.demo;
+    if(session.requiresBusinessName)openBusinessSetup();
+    import('./inventario.js?v=130').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
       console.error('No se pudo iniciar el inventario:',error);const tabla=document.getElementById('inv-table');tabla.replaceChildren();const celda=tabla.insertRow().insertCell();celda.colSpan=10;celda.textContent='No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
     });
   }
@@ -216,13 +221,49 @@ async function cargarSecciones() {
     const body=authMode==='google-setup'?{...profile,...(googleNeedsPassword?{password:passwordValue}:{})}:authMode==='register'?{email:identifier,password:passwordValue,...profile}:{identifier,password:passwordValue};
     const endpoint=authMode==='google-setup'?'google/complete':authMode;
     try { const response=await fetch(apiUrl+'/api/auth/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo completar el acceso.');if(authMode==='google-setup'){const clean=new URL(location.href);clean.searchParams.delete('google_setup');history.replaceState(null,'',clean);}await enterApp(result.session); }
-    catch(error){loginError.textContent=error.message;loginError.style.display='block';}
+    catch(error){loginError.textContent=accessErrorMessage(error);loginError.style.display='block';}
     finally{submit.disabled=false;submit.removeAttribute('aria-busy');}
   });
 
 
 
   document.getElementById('logout-btn').addEventListener('click', async () => {stopOffline();sessionStorage.removeItem('pymio:last-tab');await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
+
+  const profileMenuButton=document.getElementById('profile-menu-btn'),profileMenu=document.getElementById('profile-menu');
+  const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');
+  const businessSetupInput=document.getElementById('business-setup-name'),businessSetupError=document.getElementById('business-setup-error');
+  const passwordDialog=document.getElementById('password-dialog'),passwordForm=document.getElementById('password-form'),passwordError=document.getElementById('password-form-error');
+  function openBusinessSetup(){
+    businessSetupInput.value=currentSession?.businessName||'';businessSetupError.hidden=true;
+    if(!businessSetupDialog.open)businessSetupDialog.showModal();
+    requestAnimationFrame(()=>businessSetupInput.focus());
+  }
+  profileMenuButton.addEventListener('click',()=>{
+    const opening=profileMenu.hidden;profileMenu.hidden=!opening;profileMenuButton.setAttribute('aria-expanded',String(opening));
+  });
+  document.addEventListener('click',event=>{
+    if(!profileMenu.hidden&&!profileMenu.contains(event.target)&&!profileMenuButton.contains(event.target)){profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');}
+  });
+  document.getElementById('profile-password-btn').addEventListener('click',()=>{
+    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');passwordForm.reset();passwordError.hidden=true;passwordDialog.showModal();
+  });
+  document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
+  businessSetupDialog.addEventListener('cancel',event=>event.preventDefault());
+  businessSetupForm.addEventListener('submit',async event=>{
+    event.preventDefault();const submit=businessSetupForm.querySelector('[type="submit"]');submit.disabled=true;businessSetupError.hidden=true;
+    try{
+      const response=await fetch(apiUrl+'/api/auth/google/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({businessName:businessSetupInput.value.trim()})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo guardar el nombre del negocio.');
+      currentSession=result.session;businessSetupDialog.close();location.reload();
+    }catch(error){businessSetupError.textContent=error.message;businessSetupError.hidden=false;}finally{submit.disabled=false;}
+  });
+  passwordForm.addEventListener('submit',async event=>{
+    event.preventDefault();const value=document.getElementById('profile-password').value,confirmation=document.getElementById('profile-password-confirm').value,submit=passwordForm.querySelector('[type="submit"]');
+    passwordError.hidden=true;if(value!==confirmation){passwordError.textContent='Las contraseñas no coinciden.';passwordError.hidden=false;return;}
+    submit.disabled=true;
+    try{const response=await fetch(apiUrl+'/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo guardar la contraseña.');passwordDialog.close();}
+    catch(error){passwordError.textContent=error.message;passwordError.hidden=false;}finally{submit.disabled=false;}
+  });
 
   // ---------- NAV TABS ----------
   const tabTitles = {inicio:'Inicio', dashboard:'Dashboard', diagnostico:'Diagnóstico', movimientos:'Movimientos', inventario:'Inventario', ecosistema:'RED Pymio'};
@@ -423,15 +464,10 @@ async function cargarSecciones() {
 
   async function initializeAuth(){
     try{
-      if(googleSetupRequested){
-        const response=await fetch(apiUrl+'/api/auth/google/setup',{cache:'no-store'}),setup=await response.json();
-        if(!response.ok)throw new Error(setup.error||'No pudimos preparar tu cuenta de Google.');
-        setAuthMode('google-setup',setup);document.getElementById('login-screen').style.display='flex';businessName.focus();return;
-      }
       const response=await fetch(apiUrl+'/api/auth/session');
       if(response.ok){const result=await response.json();await enterApp(result.session);return;}
       document.getElementById('login-screen').style.display='flex';
-    }catch(error){document.getElementById('login-screen').style.display='flex';loginError.textContent=error.message;loginError.style.display='block';setAuthMode('login');}
+    }catch(error){document.getElementById('login-screen').style.display='flex';loginError.textContent=accessErrorMessage(error);loginError.style.display='block';setAuthMode('login');}
     finally{document.documentElement.classList.remove('auth-pending');}
   }
   initializeAuth();

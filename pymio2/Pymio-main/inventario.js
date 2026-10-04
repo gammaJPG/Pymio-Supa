@@ -102,7 +102,9 @@ export async function iniciarInventario({
       const source=imagenProducto(producto);
       if(source){const image=document.createElement('img');image.src=source;image.alt=producto.name;image.loading='lazy';image.decoding='async';image.onerror=placeholder;media.appendChild(image);}else placeholder();
       const price=document.createElement('p'); price.className='inventario-card-price'; price.append('Precio: ',Object.assign(document.createElement('strong'),{textContent:clp.format(producto.price)}));
-      card.append(header,media,price); simpleView.appendChild(card);
+      const action=document.createElement('button');action.type='button';action.className='inventario-card-action';action.textContent='Ver y editar';
+      action.onclick=event=>{event.stopPropagation();productFormController?.abrirModificar(producto.id);};
+      card.append(header,media,price,action); simpleView.appendChild(card);
     }
     if (!productos.length) {
       const message=document.createElement('p');message.className='inventario-simple-mensaje';message.textContent='No disponible';simpleView.appendChild(message);

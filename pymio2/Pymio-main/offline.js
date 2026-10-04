@@ -193,7 +193,7 @@ export function setupOfflineUI() {
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkConnection().then(()=>synchronize()).catch(()=>{});});
   setInterval(()=>{if(active)checkConnection().then(()=>synchronize()).catch(()=>{});},30000);
   render();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=109').then(()=>navigator.serviceWorker.ready).then(()=>{
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=130').then(()=>navigator.serviceWorker.ready).then(()=>{
     document.documentElement.dataset.offlineReady='true'; ready.textContent='Disponible para trabajar sin conexión.';
   }).catch(()=>{ready.textContent='No se pudo preparar la apertura sin conexión. Reintenta con conexión.';});
   else ready.textContent='Para abrir sin conexión e instalar, utiliza HTTPS o localhost.';

@@ -96,19 +96,21 @@ export function createInventoryServer(pool, origins, options = {}) {
           if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
           const data=await jsonBody(req);
           const businessName=String(data.businessName||'').trim();
-          const ownerName=String(setup.googleName||data.ownerName||'').trim(),password=String(data.password||'');
+          const ownerName=String(setup.googleName||'').trim();
           if(!businessName || businessName.length>120 || ownerName.length>120)return send(400,{error:'Ingresa un nombre de negocio válido.'});
-          if(setup.needsPassword===true && password.length<8){
-            return send(400,{error:'La contraseña debe tener al menos 8 caracteres.'});
-          }
-          if(setup.needsPassword===true){
-            await pool.updateAuthUserPassword(setup.userId,password);
-          }
-          const account=setup.mode==='update'
-            ? await pool.updateAccount(setup.userId,businessName,ownerName)
-            : await pool.registerAccount(setup.userId,setup.email,businessName,ownerName);
+          const account=await pool.updateAccount(setup.userId,businessName,ownerName);
+          await pool.markAuthBusinessNameSet(setup.userId);
           const session={userId:setup.userId,email:setup.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};
           setSession(session);clearCookie('pymio_google_setup','/api/auth/google');return send(201,{session});
+        }
+        if(url.pathname==='/api/auth/password' && req.method==='POST'){
+          const session=decodeSession(cookieValue(req),sessionSecret);
+          if(!session || session.demo)return send(401,{error:'Inicia sesión para modificar tu contraseña.'});
+          if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
+          const data=await jsonBody(req),newPassword=String(data.password||'');
+          if(newPassword.length<8)return send(400,{error:'La contraseña debe tener al menos 8 caracteres.'});
+          await pool.updateAuthUserPassword(session.userId,newPassword);
+          return send(200,{updated:true});
         }
         if(url.pathname==='/api/auth/google/start' && req.method==='GET'){
           const returnTo=url.searchParams.get('return_to'),target=returnTo&&new URL(returnTo);
@@ -131,29 +133,25 @@ export function createInventoryServer(pool, origins, options = {}) {
           if(!user?.id || !user.email)return returnWithError(returnTo,'Google no proporcionó un correo válido para crear la sesión.');
           const googleName=String(user.user_metadata?.full_name||user.user_metadata?.name||'').trim().slice(0,120);
           const previousDefault=String(user.user_metadata?.business_name||googleName||user.email.split('@')[0]||'Mi negocio').trim().slice(0,120);
-          const providers=new Set([
-            ...(Array.isArray(user.app_metadata?.providers)?user.app_metadata.providers:[]),
-            ...(Array.isArray(user.identities)?user.identities.map(identity=>identity.provider):[])
-          ]);
-          const needsPassword=!providers.has('email')&&user.app_metadata?.pymio_password_set!==true;
-          let account,needsSetup=needsPassword;
+          let account,needsSetup=user.app_metadata?.pymio_business_name_set!==true;
           try {
             account=await pool.accountForUser(user.id);
-            needsSetup=needsSetup||(account.business_name===previousDefault && String(account.owner_name||'')===googleName);
+            needsSetup=needsSetup&&(account.business_name===previousDefault && String(account.owner_name||'')===googleName);
           }
           catch(error){
             if(error.status!==404)throw error;
             needsSetup=true;
+            account=await pool.registerAccount(user.id,user.email,previousDefault,googleName);
           }
           if(needsSetup){
             const setupToken=encodeSession({
-              mode:account?'update':'create',userId:user.id,email:user.email,
-              businessName:account?.business_name||'',ownerName:account?.owner_name||googleName,googleName,
-              needsPassword,exp:Date.now()+15*60*1000
+              userId:user.id,email:user.email,businessName:account.business_name,
+              ownerName:account.owner_name||googleName,googleName,exp:Date.now()+15*60*1000
             },sessionSecret);
             res.appendHeader('Set-Cookie',`pymio_google_setup=${setupToken}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=900${secureCookie?'; Secure':''}`);
             clearCookie('pymio_oauth','/api/auth/google');
-            const target=new URL(returnTo);target.searchParams.set('google_setup','1');return redirect(target.href);
+            const session={userId:user.id,email:user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,requiresBusinessName:true};
+            setSession(session);return redirect(returnTo);
           }
           const session={userId:user.id,email:user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};
           setSession(session);
@@ -196,7 +194,7 @@ export function createInventoryServer(pool, origins, options = {}) {
     }
     if(url.pathname.startsWith('/api/network/')){
       if(session?.demo)return send(403,{error:'La cuenta piloto conserva la vista de demostración de RED Pymio.'});
-      return atenderRedPymio(req,pool,companyId,send,url);
+      return atenderRedPymio(req,pool,companyId,send,url,res);
     }
     const categoryId = /^\/api\/categories\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
     const categoryRoute = url.pathname === '/api/categories' || Boolean(categoryId);
