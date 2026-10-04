@@ -12,10 +12,11 @@
 <title>Pymio — Gestión inteligente para pymes</title>
 <link rel="stylesheet" href="style.css" type="text/css">
 <link rel="stylesheet" href="ecosistema.css?v=98" type="text/css">
-<link rel="stylesheet" href="pymio.css" type="text/css">
+<link rel="stylesheet" href="pymio.css?v=122" type="text/css">
 <link rel="stylesheet" href="dashboard.css">
 <link rel="stylesheet" href="inicio.css">
 <link rel="stylesheet" href="pymium.css">
+<link rel="stylesheet" href="mobile.css?v=121">
 </head>
 <body>
 <a class="skip-link" href="#login-form">Saltar al contenido</a>
@@ -75,6 +76,37 @@
     </form>
   </div>
 </div>
+
+<!-- Navegación y acciones diseñadas específicamente para teléfonos. -->
+<nav class="mobile-nav" aria-label="Navegación móvil">
+  <button class="nav-item active" data-tab="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 10 9-7 9 7M5 8.5V20h5v-7h4v7h5V8.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Inicio</span></button>
+  <button class="nav-item" data-tab="movimientos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16l-4-4M20 17H4l4 4" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Actividad</span></button>
+  <button class="mobile-create" type="button" aria-label="Registrar" aria-haspopup="dialog" aria-controls="mobile-create-sheet"><span aria-hidden="true">+</span><small aria-hidden="true">Registrar</small></button>
+  <button class="nav-item" data-tab="inventario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4Z" stroke-linejoin="round"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9" stroke-linejoin="round"/></svg><span>Inventario</span></button>
+  <button class="mobile-network" type="button" data-mobile-tab="ecosistema" data-mobile-network="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="8" cy="7" r="3"/><circle cx="17" cy="8" r="3"/><circle cx="12" cy="17" r="3"/><path d="m9 10 2 4m5-3-3 3M11 7h3"/></svg><span>RED</span></button>
+</nav>
+
+<div class="mobile-sheet-backdrop" data-mobile-sheet-close hidden></div>
+<section class="mobile-sheet" id="mobile-create-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-create-title" hidden>
+  <div class="mobile-sheet-handle" aria-hidden="true"></div><div class="mobile-sheet-head"><div><h2 id="mobile-create-title">¿Qué quieres registrar?</h2><p>Guarda lo que ocurrió en pocos pasos.</p></div><button type="button" data-mobile-sheet-close aria-label="Cerrar">×</button></div>
+  <div class="mobile-action-grid">
+    <button type="button" data-mobile-action="sale"><span class="mobile-action-icon sale" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 19 19 5m-8 0h8v8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Venta</strong><small>Descuenta stock</small></button>
+    <button type="button" data-mobile-action="purchase"><span class="mobile-action-icon purchase" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 5 5 19m8 0H5v-8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Compra</strong><small>Aumenta stock</small></button>
+    <button type="button" data-mobile-action="movement"><span class="mobile-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16l-4-4M20 17H4l4 4" stroke-linecap="round" stroke-linejoin="round"/></svg></span><strong>Otro movimiento</strong><small>Merma, consumo u otro</small></button>
+    <button type="button" data-mobile-action="product"><span class="mobile-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4Z" stroke-linejoin="round"/><path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9" stroke-linejoin="round"/></svg></span><strong>Producto</strong><small>Agrega al inventario</small></button>
+  </div>
+</section>
+
+<section class="mobile-sheet mobile-more-sheet" id="mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="mobile-more-title" hidden>
+  <div class="mobile-sheet-handle" aria-hidden="true"></div><div class="mobile-sheet-head"><div><h2 id="mobile-more-title">Tu espacio Pymio</h2><p>Datos, decisiones y comunidad.</p></div><button type="button" data-mobile-sheet-close aria-label="Cerrar">×</button></div>
+  <div class="mobile-more-grid">
+    <button type="button" data-mobile-tab="dashboard"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><div><strong>Dashboard</strong><small>Indicadores y tendencias</small></div></button>
+    <button type="button" data-mobile-tab="diagnostico"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2 7 4-14 2 7h6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><strong>Diagnóstico</strong><small>Alertas y oportunidades</small></div></button>
+    <button type="button" data-mobile-tab="ecosistema" data-mobile-network="overview"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="7" r="3"/><circle cx="17" cy="8" r="3"/><circle cx="12" cy="17" r="3"/><path d="m9 10 2 4m5-3-3 3M11 7h3"/></svg></span><div><strong>RED Pymio</strong><small>Recursos y conexiones</small></div></button>
+    <button type="button" data-mobile-pymium><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2L12 3Z" stroke-linejoin="round"/></svg></span><div><strong>Hazte Pymium</strong><small>Beneficios para tu pyme</small></div></button>
+  </div>
+  <div class="mobile-account-row"><div class="avatar" data-mobile-avatar>PY</div><div><strong data-mobile-business>Tu negocio</strong><small data-mobile-role>Cuenta Pymio</small></div><button type="button" data-mobile-logout>Cerrar sesión</button></div>
+</section>
 
 <!-- ================= APP ================= -->
 <div id="app-screen">
@@ -190,6 +222,7 @@
 
 
 
-<script type="module" src="app.js?v=98"></script>
+<script type="module" src="app.js?v=99"></script>
+<script type="module" src="mobile.js?v=121"></script>
 </body>
 </html>

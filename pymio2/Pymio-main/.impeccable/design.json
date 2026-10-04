@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T18:00:00-03:00",
+  "title": "Design System: Pymio",
+  "extensions": {
+    "colorMeta": {
+      "honey": {"role":"primary","displayName":"Miel Pymio","canonical":"#f1cf54","tonalRamp":["#2d260b","#5c4e16","#8a7521","#b89c2c","#f1cf54","#f6df86","#faedb9","#fff9e8"]},
+      "forest-ink": {"role":"neutral","displayName":"Verde tinta","canonical":"#20251c","tonalRamp":["#161914","#20251c","#3c4434","#59634d","#778267","#9ba48d","#c3c9b9","#f2f4ed"]},
+      "warm-canvas": {"role":"neutral","displayName":"Papel cálido","canonical":"#f7f6ef","tonalRamp":["#28271f","#504e40","#777562","#9e9c85","#c5c3a9","#dedcc6","#eeecdd","#f7f6ef"]}
+    },
+    "typographyMeta": {
+      "display": {"displayName":"Título Pymio","purpose":"Encabezados de vista y decisiones principales."},
+      "body": {"displayName":"Lectura operativa","purpose":"Datos, formularios y explicaciones."}
+    },
+    "shadows": [
+      {"name":"mobile-card","value":"0 8px 28px rgba(32,37,28,.07)","purpose":"Separar tarjetas del lienzo cálido."},
+      {"name":"bottom-sheet","value":"0 -24px 64px rgba(20,24,17,.2)","purpose":"Elevar acciones temporales sobre la tarea actual."}
+    ],
+    "motion": [
+      {"name":"mobile-standard","value":"180ms cubic-bezier(.2,.8,.2,1)","purpose":"Cambio breve entre vistas y estados."}
+    ],
+    "breakpoints": [
+      {"name":"phone","value":"767px"},
+      {"name":"phone-landscape","value":"950px × 500px"}
+    ]
+  },
+  "components": [
+    {"name":"Primary Button","kind":"button","refersTo":"button-primary","description":"Acción principal táctil.","html":"<button class=\"ds-primary\">Registrar venta</button>","css":".ds-primary{min-height:46px;padding:0 16px;border:0;border-radius:12px;background:#f1cf54;color:#20251c;font:650 14px 'IBM Plex Sans',sans-serif}.ds-primary:hover{background:#e3c364}.ds-primary:focus-visible{outline:3px solid #b58c12;outline-offset:3px}.ds-primary:active{transform:scale(.98)}"},
+    {"name":"Mobile Card","kind":"card","refersTo":"card","description":"Superficie operativa sobre papel cálido.","html":"<article class=\"ds-card\"><strong>Venta</strong><span>$24.900</span><small>Hoy · Tarjeta</small></article>","css":".ds-card{display:grid;gap:6px;padding:18px;border-radius:15px;background:#fff;color:#20251c;box-shadow:0 8px 28px rgba(32,37,28,.07);font-family:'IBM Plex Sans',sans-serif}.ds-card span{font:700 20px 'Space Grotesk',sans-serif}.ds-card small{color:#676c5d}"},
+    {"name":"Text Field","kind":"input","description":"Campo táctil cómodo y legible.","html":"<label class=\"ds-field\">Producto<input placeholder=\"Buscar producto o SKU\"></label>","css":".ds-field{display:grid;gap:7px;color:#676c5d;font:600 12px 'IBM Plex Sans',sans-serif}.ds-field input{min-height:48px;padding:0 14px;border:1px solid #dedfd4;border-radius:13px;background:#fff;color:#20251c;font:16px 'IBM Plex Sans',sans-serif}.ds-field input:focus-visible{outline:3px solid #b58c12;outline-offset:2px}"}
+  ],
+  "narrative": {
+    "northStar": "La libreta inteligente de una pyme",
+    "overview": "Pymio combina la confianza de una herramienta de trabajo con la calidez de un negocio atendido por personas. En móvil se comporta como una aplicación con navegación al alcance del pulgar, acciones progresivas y tareas largas a pantalla completa.",
+    "keyCharacteristics": ["Jerarquía inmediata","Superficies cálidas","Controles táctiles amplios","Datos convertidos en recorridos verticales"],
+    "rules": [
+      {"name":"Honey Action Rule","body":"El amarillo identifica acciones principales, selección y momentos de marca.","section":"colors"},
+      {"name":"Immediate Meaning Rule","body":"Un título explica la tarea o el dato sin una etiqueta decorativa anterior.","section":"typography"},
+      {"name":"Quiet Surface Rule","body":"Una superficie elige borde o sombra según su función.","section":"elevation"}
+    ],
+    "dos": ["Priorizar la acción más útil","Convertir tablas en listas","Mantener targets de 44px","Respetar safe areas"],
+    "donts": ["Encoger tablas de escritorio","Ocultar capacidades críticas","Saturar con amarillo","Usar emoji como iconos"]
+  }
+}

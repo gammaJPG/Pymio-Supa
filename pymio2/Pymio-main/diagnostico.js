@@ -74,7 +74,10 @@ export function renderAlerts(alerts=currentAlerts) {
     const top=document.createElement('div');top.className='alert-top';
     const topLeft=document.createElement('div');topLeft.className='alert-top-left';
     const pill=document.createElement('span');pill.className=`pill ${alert.sev==='critical'?'out':'low'}`;pill.textContent=alert.tag;
-    const title=document.createElement('span');title.className='alert-title';title.textContent=alert.title;
+    const title=document.createElement('span');title.className='alert-title';
+    const titleMatch=alert.title.match(/^(Sin stock|Stock bajo):\s*(.*)$/i);
+    if(titleMatch){const prefix=document.createElement('span');prefix.className='alert-title-prefix';prefix.textContent=`${titleMatch[1]}: `;title.append(prefix,document.createTextNode(titleMatch[2]));}
+    else title.textContent=alert.title;
     const detailId=`${alert.alertId}-extra`;
     const button=document.createElement('button');button.type='button';button.className='expand-btn';button.textContent='Ver detalle';button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls',detailId);
     const description=document.createElement('div');description.className='alert-desc';description.textContent=alert.desc;

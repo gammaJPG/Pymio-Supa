@@ -54,15 +54,34 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     const row = table.insertRow();
     row.className = 'movimiento-resumen';
     row.dataset.movementCode = movement.code;
+    const movementKind = String(movement.operation_detail ?? movement.operation ?? 'otros')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    row.dataset.movementKind = movementKind.includes('venta') ? 'venta' : movementKind.includes('compra') ? 'compra' : 'otro';
     const dateCell = row.insertCell();
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'movimiento-toggle';
-    toggle.textContent = `▸ ${fechaMovimiento(movement.occurred_at)}`;
+    const toggleIndicator = document.createElement('span');
+    toggleIndicator.className = 'movimiento-toggle-indicator';
+    toggleIndicator.setAttribute('aria-hidden', 'true');
+    toggleIndicator.textContent = '▸';
+    const toggleLabel = document.createElement('span');
+    toggleLabel.textContent = fechaMovimiento(movement.occurred_at);
+    toggle.append(toggleIndicator, toggleLabel);
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-controls', `movimiento-detalle-${index}`);
     dateCell.appendChild(toggle);
-    for (const value of [movement.operation_detail ?? 'Otros', movement.channel ?? '-', movement.payment_method ?? '-', moneda(movement.total)]) row.insertCell().textContent = value;
+    const summaryValues = [
+      ['Operación', movement.operation_detail ?? 'Otros'],
+      ['Canal', movement.channel ?? '-'],
+      ['Pago', movement.payment_method ?? '-'],
+      ['Total', moneda(movement.total)]
+    ];
+    for (const [label, value] of summaryValues) {
+      const summaryCell = row.insertCell();
+      summaryCell.dataset.label = label;
+      summaryCell.textContent = value;
+    }
     const detail = table.insertRow();
     detail.id = `movimiento-detalle-${index}`;
     detail.hidden = true;
@@ -99,16 +118,25 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
       const th = document.createElement('th'); th.scope = 'col'; th.textContent = title; headers.appendChild(th);
     }
     const body = nested.createTBody();
+    const productLabels = ['Producto', isPurchase ? 'Costo unitario' : 'Precio unitario', 'Subtotal', 'Descuento', 'Total', 'Stock inicial', unitsTitle, 'Stock final', 'SKU'];
     for (const product of movement.products) {
       const productRow = body.insertRow();
       const values = [product.name, moneda(product.unit_price), moneda(product.total), Number(product.discount_amount ?? 0) === 0 ? '-' : product.discount_type === 'percentage' ? product.discount_value + '% (' + moneda(product.discount_amount) + ')' : moneda(product.discount_amount ?? 0), moneda(product.net_total ?? product.total), product.initial_qty];
-      for (const value of values) productRow.insertCell().textContent = value;
+      values.forEach((value, valueIndex) => {
+        const productCell = productRow.insertCell();
+        productCell.dataset.label = productLabels[valueIndex];
+        productCell.textContent = value;
+      });
       const units = productRow.insertCell();
       const signedUnits = movement.operation === 'Egreso' ? -Math.abs(Number(product.units)) : Math.abs(Number(product.units));
+      units.dataset.label = productLabels[6];
       units.textContent = `${signedUnits >= 0 ? '+' : '−'}${Math.abs(signedUnits)}`;
       units.className = signedUnits >= 0 ? 'movimiento-unidades-positivas' : 'movimiento-unidades-negativas';
-      productRow.insertCell().textContent = product.final_qty;
+      const finalStockCell = productRow.insertCell();
+      finalStockCell.dataset.label = productLabels[7];
+      finalStockCell.textContent = product.final_qty;
       const skuCell = productRow.insertCell(), sku = document.createElement('a');
+      skuCell.dataset.label = productLabels[8];
       sku.href = '#tab-inventario'; sku.textContent = product.sku; sku.className = 'movimiento-sku-link';
       sku.onclick = event => {
         event.preventDefault();
@@ -128,7 +156,7 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     row.onclick = () => {
       detail.hidden = !detail.hidden;
       toggle.setAttribute('aria-expanded', String(!detail.hidden));
-      toggle.textContent = `${detail.hidden ? '▸' : '▾'} ${fechaMovimiento(movement.occurred_at)}`;
+      toggleIndicator.textContent = detail.hidden ? '▸' : '▾';
     };
   }
   if (!movements.length) {

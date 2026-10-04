@@ -98,8 +98,14 @@ export async function iniciarInventario({
       const placeholder=()=>{media.replaceChildren();const empty=document.createElement('div');empty.className='inventario-card-placeholder';empty.setAttribute('aria-label',`${producto.name}, sin imagen`);empty.innerHTML='<span aria-hidden="true">◇</span><small>Sin imagen</small>';media.appendChild(empty);};
       const source=imagenProducto(producto);
       if(source){const image=document.createElement('img');image.src=source;image.alt=producto.name;image.loading='lazy';image.decoding='async';image.onerror=placeholder;media.appendChild(image);}else placeholder();
+      const copy=document.createElement('div');copy.className='inventario-card-copy';
+      const category=document.createElement('small');category.textContent=producto.category||'Sin categoría';
+      const name=document.createElement('strong');name.textContent=producto.name;
+      copy.append(category,name);
       const price=document.createElement('p'); price.className='inventario-card-price'; price.append('Precio: ',Object.assign(document.createElement('strong'),{textContent:clp.format(producto.price)}));
-      card.append(stock,media,price); simpleView.appendChild(card);
+      const action=document.createElement('button');action.type='button';action.className='inventario-card-action';action.textContent='Ver y editar';
+      action.onclick=()=>productFormController?.abrirModificar(producto.id);
+      card.append(media,copy,stock,price,action); simpleView.appendChild(card);
     }
     if (!productos.length) {
       const message=document.createElement('p');message.className='inventario-simple-mensaje';message.textContent='No se encontraron productos.';simpleView.appendChild(message);
