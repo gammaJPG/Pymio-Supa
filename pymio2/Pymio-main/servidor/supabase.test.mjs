@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { createSupabase } from './supabase.mjs';
 import { createInventoryServer } from './server.mjs';
 import { createWebServer } from './dev.mjs';
@@ -31,12 +32,22 @@ test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del
 });
 
 test('Supabase Auth: crea una contraseña para una cuenta originada en Google',async()=>{
-  let sent;
-  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{sent={url,options};return Response.json({id:'google-user'});}});
+  const calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});return Response.json({id:'google-user'});}});
   await client.updateAuthUserPassword('google-user','segura123');
-  assert.equal(sent.url.pathname,'/auth/v1/admin/users/google-user');
-  assert.equal(sent.options.method,'PUT');
-  assert.deepEqual(JSON.parse(sent.options.body),{password:'segura123',app_metadata:{pymio_password_set:true}});
+  assert.equal(calls[0].url.pathname,'/auth/v1/admin/users/google-user');
+  assert.equal(calls[0].options.method,'PUT');
+  assert.deepEqual(JSON.parse(calls[0].options.body),{password:'segura123',app_metadata:{pymio_password_set:true}});
+  await client.markAuthBusinessNameSet('google-user');
+  assert.deepEqual(JSON.parse(calls[1].options.body),{app_metadata:{pymio_business_name_set:true}});
+});
+
+test('Supabase Auth: la actualización de Google califica parámetros y columnas sin ambigüedad',async()=>{
+  const migration=await readFile(new URL('../supabase/migrations/017_fix_google_account_ambiguity.sql',import.meta.url),'utf8');
+  assert.match(migration,/btrim\(pymio_update_account\.business_name\)/);
+  assert.match(migration,/SET business_name=btrim\(pymio_update_account\.business_name\)/);
+  assert.match(migration,/WHERE ua\.user_id=pymio_update_account\.auth_user/);
+  assert.doesNotMatch(migration,/SET business_name=btrim\(business_name\)/);
 });
 
 test('Supabase Auth: prepara Google con PKCE e intercambia el código en el servidor',async()=>{
@@ -63,15 +74,17 @@ test('Supabase RED Pymio: usa la función protegida y mantiene el alcance empres
   assert.deepEqual(JSON.parse(update.options.body),{kind:'event',title:'Nuevo título'});
 });
 
-test('HTTP Auth: Google pide los datos del negocio antes de crear el espacio',async()=>{
-  const registrations=[],passwordUpdates=[];
+test('HTTP Auth: Google entra a la plataforma y completa dentro solo el nombre del negocio',async()=>{
+  const registrations=[],updates=[],passwordUpdates=[],marked=[];
   const pool={
     authProviders:async()=>({google:true}),
     googleAuthorizeUrl:(redirect,state,challenge)=>`https://auth.example/authorize?redirect_to=${encodeURIComponent(redirect)}&state=${state}&challenge=${challenge}`,
     exchangeOAuthCode:async()=>({user:{id:'google-user',email:'ana@example.com',user_metadata:{full_name:'Ana Pérez'}}}),
     accountForUser:async()=>{throw Object.assign(new Error('sin cuenta'),{status:404});},
     updateAuthUserPassword:async(userId,password)=>{passwordUpdates.push({userId,password});},
-    registerAccount:async(userId,email,businessName,ownerName)=>{registrations.push({userId,email,businessName,ownerName});return {company_id:12,business_name:businessName,owner_name:ownerName};}
+    markAuthBusinessNameSet:async userId=>marked.push(userId),
+    registerAccount:async(userId,email,businessName,ownerName)=>{registrations.push({userId,email,businessName,ownerName});return {company_id:12,business_name:businessName,owner_name:ownerName};},
+    updateAccount:async(userId,businessName,ownerName)=>{updates.push({userId,businessName,ownerName});return {company_id:12,business_name:businessName,owner_name:ownerName};}
   };
   const server=createInventoryServer(pool,['http://localhost:5500'],{sessionSecret:'test-secret'}),base=await listen(server);
   try{
@@ -79,18 +92,21 @@ test('HTTP Auth: Google pide los datos del negocio antes de crear el espacio',as
     assert.equal(start.status,302);const oauthCookie=start.headers.get('set-cookie').split(';')[0],authorize=new URL(start.headers.get('location'));
     const callback=new URL(authorize.searchParams.get('redirect_to'));callback.searchParams.set('state',authorize.searchParams.get('state'));callback.searchParams.set('code','code-1');
     const result=await fetch(callback,{headers:{Cookie:oauthCookie},redirect:'manual'});
-    assert.equal(result.status,302);assert.equal(new URL(result.headers.get('location')).searchParams.get('google_setup'),'1');
+    assert.equal(result.status,302);assert.equal(result.headers.get('location'),'http://localhost:5500/piloto.html');
     const setupCookie=result.headers.getSetCookie().find(value=>value.startsWith('pymio_google_setup=')).split(';')[0];
+    const initialSessionCookie=result.headers.getSetCookie().find(value=>value.startsWith('pymio_session=')).split(';')[0];
+    const initialSession=await fetch(base+'/api/auth/session',{headers:{Cookie:initialSessionCookie}});
+    assert.equal(initialSession.status,200);assert.equal((await initialSession.json()).session.requiresBusinessName,true);
     const setupResponse=await fetch(base+'/api/auth/google/setup',{headers:{Cookie:setupCookie}}),setup=await setupResponse.json();
-    assert.equal(setupResponse.status,200);assert.deepEqual(setup,{email:'ana@example.com',businessName:'',ownerName:'Ana Pérez',needsPassword:true});assert.equal(registrations.length,0);
-    const shortPassword=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes',ownerName:'Anita',password:'corta'})});
-    assert.equal(shortPassword.status,400);assert.equal(passwordUpdates.length,0);
-    const complete=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes',ownerName:'Anita',password:'segura123'})});
-    assert.equal(complete.status,201);assert.deepEqual(registrations,[{userId:'google-user',email:'ana@example.com',businessName:'Café Los Andes',ownerName:'Ana Pérez'}]);
-    assert.deepEqual(passwordUpdates,[{userId:'google-user',password:'segura123'}]);
+    assert.equal(setupResponse.status,200);assert.deepEqual(setup,{email:'ana@example.com',businessName:'Ana Pérez',ownerName:'Ana Pérez',needsPassword:false});
+    assert.deepEqual(registrations,[{userId:'google-user',email:'ana@example.com',businessName:'Ana Pérez',ownerName:'Ana Pérez'}]);
+    const complete=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes'})});
+    assert.equal(complete.status,201);assert.deepEqual(updates,[{userId:'google-user',businessName:'Café Los Andes',ownerName:'Ana Pérez'}]);assert.deepEqual(marked,['google-user']);
     const sessionCookie=complete.headers.getSetCookie().find(value=>value.startsWith('pymio_session=')).split(';')[0];
     const response=await fetch(base+'/api/auth/session',{headers:{Cookie:sessionCookie}}),session=(await response.json()).session;
     assert.equal(response.status,200);assert.equal(session.userId,'google-user');assert.equal(session.email,'ana@example.com');assert.equal(session.companyId,'12');assert.equal(session.businessName,'Café Los Andes');assert.equal(session.ownerName,'Ana Pérez');assert.equal(session.demo,false);
+    const passwordResponse=await fetch(base+'/api/auth/password',{method:'POST',headers:{Cookie:sessionCookie,'Content-Type':'application/json'},body:JSON.stringify({password:'segura123'})});
+    assert.equal(passwordResponse.status,200);assert.deepEqual(passwordUpdates,[{userId:'google-user',password:'segura123'}]);
   } finally {await close(server);}
 });
 

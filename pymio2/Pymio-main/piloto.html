@@ -177,12 +177,15 @@
             <div class="notif-head"><h3>Notificaciones</h3><button id="mark-read-btn">Marcar todo como leído</button></div>
             <div class="notif-list" id="notif-list"></div>
           </div>
-          <div class="user-chip">
+          <button type="button" class="user-chip" id="profile-menu-btn" aria-haspopup="menu" aria-expanded="false">
             <div class="avatar" id="account-avatar">DA</div>
             <div>
               <div class="u-name" id="account-name">Distribuidora Andes Ltda.</div>
               <div class="u-role" id="account-role">Cuenta piloto</div>
             </div>
+          </button>
+          <div class="profile-menu" id="profile-menu" role="menu" hidden>
+            <button type="button" id="profile-password-btn" role="menuitem">Establecer o modificar contraseña</button>
           </div>
         </div>
       </header>
@@ -219,6 +222,33 @@
   </div>
 </div>
 
+<dialog class="account-dialog" id="business-setup-dialog">
+  <form id="business-setup-form">
+    <button type="button" class="account-dialog-close" aria-label="Cerrar" hidden>×</button>
+    <span class="eyebrow">Completa tu perfil</span>
+    <h2>¿Cómo se llama tu negocio?</h2>
+    <p>Este será el nombre que verán los demás usuarios dentro de Pymio.</p>
+    <label for="business-setup-name">Nombre de tu negocio</label>
+    <input id="business-setup-name" maxlength="120" autocomplete="organization" required placeholder="Ej. Almacén Los Alerces">
+    <p class="form-error" id="business-setup-error" role="alert" hidden></p>
+    <button type="submit" class="primary-btn">Guardar y continuar</button>
+  </form>
+</dialog>
+
+<dialog class="account-dialog" id="password-dialog">
+  <form id="password-form">
+    <button type="button" class="account-dialog-close" id="password-dialog-close" aria-label="Cerrar">×</button>
+    <span class="eyebrow">Seguridad de tu cuenta</span>
+    <h2>Establecer o modificar contraseña</h2>
+    <p>Podrás usar esta contraseña junto con el correo asociado a tu cuenta.</p>
+    <label for="profile-password">Nueva contraseña</label>
+    <input type="password" id="profile-password" minlength="8" autocomplete="new-password" required placeholder="Mínimo 8 caracteres">
+    <label for="profile-password-confirm">Confirmar contraseña</label>
+    <input type="password" id="profile-password-confirm" minlength="8" autocomplete="new-password" required placeholder="Repite la contraseña">
+    <p class="form-error" id="password-form-error" role="alert" hidden></p>
+    <button type="submit" class="primary-btn">Guardar contraseña</button>
+  </form>
+</dialog>
 
 
 

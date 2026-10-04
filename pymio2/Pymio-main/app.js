@@ -129,7 +129,7 @@ async function cargarSecciones() {
   loginForm.reset();
   ['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');
   let authMode='login',googleNeedsPassword=false;
-  const authUrl=new URL(location.href),authError=authUrl.searchParams.get('auth_error'),googleSetupRequested=authUrl.searchParams.get('google_setup')==='1';
+  const authUrl=new URL(location.href),authError=authUrl.searchParams.get('auth_error');
   if(authError){loginError.textContent=authError;loginError.style.display='block';const clean=new URL(location.href);clean.searchParams.delete('auth_error');history.replaceState(null,'',clean);}
   const googleButtonLabel=googleAuth.querySelector('span');
   async function googleProviderEnabled(){
@@ -204,6 +204,8 @@ async function cargarSecciones() {
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
     const storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
+    document.getElementById('profile-password-btn').hidden=session.demo;
+    if(session.requiresBusinessName)openBusinessSetup();
     import('./inventario.js').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
       console.error('No se pudo iniciar el inventario:',error);const tabla=document.getElementById('inv-table');tabla.replaceChildren();const celda=tabla.insertRow().insertCell();celda.colSpan=10;celda.textContent='No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
     });
@@ -224,6 +226,42 @@ async function cargarSecciones() {
 
 
   document.getElementById('logout-btn').addEventListener('click', async () => {stopOffline();sessionStorage.removeItem('pymio:last-tab');await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
+
+  const profileMenuButton=document.getElementById('profile-menu-btn'),profileMenu=document.getElementById('profile-menu');
+  const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');
+  const businessSetupInput=document.getElementById('business-setup-name'),businessSetupError=document.getElementById('business-setup-error');
+  const passwordDialog=document.getElementById('password-dialog'),passwordForm=document.getElementById('password-form'),passwordError=document.getElementById('password-form-error');
+  function openBusinessSetup(){
+    businessSetupInput.value=currentSession?.businessName||'';businessSetupError.hidden=true;
+    if(!businessSetupDialog.open)businessSetupDialog.showModal();
+    requestAnimationFrame(()=>businessSetupInput.focus());
+  }
+  profileMenuButton.addEventListener('click',()=>{
+    const opening=profileMenu.hidden;profileMenu.hidden=!opening;profileMenuButton.setAttribute('aria-expanded',String(opening));
+  });
+  document.addEventListener('click',event=>{
+    if(!profileMenu.hidden&&!profileMenu.contains(event.target)&&!profileMenuButton.contains(event.target)){profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');}
+  });
+  document.getElementById('profile-password-btn').addEventListener('click',()=>{
+    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');passwordForm.reset();passwordError.hidden=true;passwordDialog.showModal();
+  });
+  document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
+  businessSetupDialog.addEventListener('cancel',event=>event.preventDefault());
+  businessSetupForm.addEventListener('submit',async event=>{
+    event.preventDefault();const submit=businessSetupForm.querySelector('[type="submit"]');submit.disabled=true;businessSetupError.hidden=true;
+    try{
+      const response=await fetch(apiUrl+'/api/auth/google/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({businessName:businessSetupInput.value.trim()})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo guardar el nombre del negocio.');
+      currentSession=result.session;businessSetupDialog.close();location.reload();
+    }catch(error){businessSetupError.textContent=error.message;businessSetupError.hidden=false;}finally{submit.disabled=false;}
+  });
+  passwordForm.addEventListener('submit',async event=>{
+    event.preventDefault();const value=document.getElementById('profile-password').value,confirmation=document.getElementById('profile-password-confirm').value,submit=passwordForm.querySelector('[type="submit"]');
+    passwordError.hidden=true;if(value!==confirmation){passwordError.textContent='Las contraseñas no coinciden.';passwordError.hidden=false;return;}
+    submit.disabled=true;
+    try{const response=await fetch(apiUrl+'/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo guardar la contraseña.');passwordDialog.close();}
+    catch(error){passwordError.textContent=error.message;passwordError.hidden=false;}finally{submit.disabled=false;}
+  });
 
   // ---------- NAV TABS ----------
   const tabTitles = {inicio:'Inicio', dashboard:'Dashboard', diagnostico:'Diagnóstico', movimientos:'Movimientos', inventario:'Inventario', ecosistema:'RED Pymio'};
@@ -381,11 +419,6 @@ async function cargarSecciones() {
 
   async function initializeAuth(){
     try{
-      if(googleSetupRequested){
-        const response=await fetch(apiUrl+'/api/auth/google/setup',{cache:'no-store'}),setup=await response.json();
-        if(!response.ok)throw new Error(setup.error||'No pudimos preparar tu cuenta de Google.');
-        setAuthMode('google-setup',setup);document.getElementById('login-screen').style.display='flex';businessName.focus();return;
-      }
       const response=await fetch(apiUrl+'/api/auth/session');
       if(response.ok){const result=await response.json();await enterApp(result.session);return;}
       document.getElementById('login-screen').style.display='flex';

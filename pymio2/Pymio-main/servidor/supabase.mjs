@@ -51,6 +51,16 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     if (!response.ok) throw Object.assign(new Error('La imagen no está disponible.'), {status:response.status === 404 ? 404 : 502});
     return Buffer.from(await response.arrayBuffer());
   };
+  const uploadStorageFile = async (bucket,path,body) => {
+    const response=await fetchImpl(new URL(`/storage/v1/object/${bucket}/${path}`,base),{method:'POST',headers:{...headers,'Content-Type':'application/octet-stream','x-upsert':'false'},body,signal:AbortSignal.timeout(20000)});
+    if(!response.ok){const detail=await response.json().catch(()=>({}));throw Object.assign(new Error(detail.message||'No se pudo guardar el archivo.'),{status:response.status});}
+    return {path};
+  };
+  const getStorageFile = async (bucket,path) => {
+    const response=await fetchImpl(new URL(`/storage/v1/object/${bucket}/${path}`,base),{headers,signal:AbortSignal.timeout(20000)});
+    if(!response.ok)throw Object.assign(new Error('No se pudo descargar un archivo del formulario.'),{status:response.status});
+    return Buffer.from(await response.arrayBuffer());
+  };
   return {
     async authProviders() {
       const settings=await requestJson('/auth/v1/settings', {headers}, 'No se pudo consultar la configuración de acceso.');
@@ -94,6 +104,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         body: JSON.stringify({ password, app_metadata: { pymio_password_set: true } }),
       }, 'No se pudo crear la contraseña de la cuenta.');
     },
+    async markAuthBusinessNameSet(id) {
+      return requestJson('/auth/v1/admin/users/' + encodeURIComponent(id), {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ app_metadata: { pymio_business_name_set: true } }),
+      }, 'No se pudo confirmar el nombre del negocio.');
+    },
     async registerAccount(userId, email, businessName, ownerName) {
       return requestJson('/rest/v1/rpc/pymio_register_account', {
         method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
@@ -128,6 +144,11 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ operation, company: String(companyId), payload: data }),
       }, 'No se pudo consultar RED Pymio. Revisa la configuración de la red.');
+    },
+    async community(operation,companyId,data={}){
+      return requestJson('/rest/v1/rpc/pymio_community',{
+        method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
+      },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.');
     },
     async rpc(operation, companyId, data = {}) {
       let response;
@@ -165,5 +186,8 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async getProfileImage(path) {
       return getStorageImage('profile-images',path);
     },
+    async uploadCommunityFile(path,body){return uploadStorageFile('community-form-files',path,body);},
+    async getCommunityFile(path){return getStorageFile('community-form-files',path);},
+    async deleteCommunityFile(path){return deleteStorageImage('community-form-files',path);},
   };
 }
