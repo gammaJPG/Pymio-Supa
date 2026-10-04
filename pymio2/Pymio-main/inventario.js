@@ -29,6 +29,24 @@ export async function iniciarInventario({
   let inventory = [];
   let dashboardProductIds = null;
   let productFormController = null;
+  let simpleDetailDialog = panel.querySelector('#inventario-simple-detalle');
+  if (!simpleDetailDialog) {
+    simpleDetailDialog = document.createElement('dialog');
+    simpleDetailDialog.id = 'inventario-simple-detalle';
+    simpleDetailDialog.className = 'inventario-simple-detalle-dialog';
+    simpleDetailDialog.setAttribute('aria-labelledby','inventario-simple-detalle-titulo');
+    simpleDetailDialog.innerHTML = '<div class="inventario-simple-detalle-shell"><header><h2 id="inventario-simple-detalle-titulo"></h2><button type="button" data-close-simple-detail aria-label="Cerrar detalle">&times;</button></header><div class="inventario-simple-detalle-body"></div></div>';
+    panel.appendChild(simpleDetailDialog);
+  }
+  const simpleDetailTitle = simpleDetailDialog.querySelector('#inventario-simple-detalle-titulo');
+  const simpleDetailBody = simpleDetailDialog.querySelector('.inventario-simple-detalle-body');
+  simpleDetailDialog.querySelector('[data-close-simple-detail]').onclick = () => simpleDetailDialog.close();
+  simpleDetailDialog.onclick = event => { if (event.target === simpleDetailDialog) simpleDetailDialog.close(); };
+  simpleDetailDialog.onclose = () => simpleDetailBody.replaceChildren();
+  document.addEventListener('abrir-producto', event => {
+    const producto = inventory.find(item => String(item.id) === String(event.detail?.id));
+    if (producto) abrirDetalleSimple(producto);
+  });
   const viewKey = 'pymio-inventory-view';
   let currentView;
   try { currentView = sessionStorage.getItem(viewKey); } catch {}
@@ -69,7 +87,10 @@ export async function iniciarInventario({
     simpleView.replaceChildren();
     for (const producto of productos) {
       const card=document.createElement('article'); card.className='inventario-producto-card';
-      card.setAttribute('aria-label',`${producto.name}. Stock: ${numero.format(producto.qty)}. Precio: ${clp.format(producto.price)}.`);
+      card.tabIndex=0; card.setAttribute('role','button'); card.setAttribute('aria-haspopup','dialog');
+      card.setAttribute('aria-label',`${producto.name}. Stock: ${numero.format(producto.qty)}. Precio: ${clp.format(producto.price)}. Ver detalle.`);
+      card.onclick=()=>abrirDetalleSimple(producto);
+      card.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDetalleSimple(producto);}};
       const stock=document.createElement('p'); stock.className='inventario-card-stock';
       if (Number(producto.qty) === 0 || Number(producto.qty) < Number(producto.low_qty)) stock.classList.add('critico');
       stock.append('Stock: ',Object.assign(document.createElement('strong'),{textContent:numero.format(producto.qty)}));
@@ -116,6 +137,32 @@ export async function iniciarInventario({
     await actualizar();
     return true;
   }
+  function abrirDetalleSimple(producto) {
+    if (simpleDetailDialog.open) simpleDetailDialog.close();
+    simpleDetailTitle.textContent = producto.name;
+    const table = document.createElement('table'); table.className = 'inventario-simple-detalle-table';
+    const body = table.createTBody();
+    const summary = body.insertRow(); summary.hidden = true; summary.insertCell();
+    simpleDetailBody.replaceChildren(table);
+    prepararDetalleInventario(summary, producto, {
+      companyId,
+      apiUrl,
+      onToggleStatus: async (item, estadoDestino) => {
+        const changed = await cambiarEstadoProducto(item, estadoDestino);
+        if (changed && simpleDetailDialog.open) simpleDetailDialog.close();
+        return changed;
+      },
+      onEditProduct: item => {
+        simpleDetailDialog.close();
+        productFormController?.abrirModificar(item.id);
+      }
+    });
+    const detail = summary.nextElementSibling;
+    if (detail) detail.id = `inventario-simple-detalle-${producto.id}`;
+    simpleDetailDialog.showModal();
+    summary.onclick();
+  }
+
   function render() {
     if (cargando) return;
     const filtro = normalizar(search.value.trim());

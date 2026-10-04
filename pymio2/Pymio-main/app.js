@@ -122,9 +122,10 @@ async function cargarSecciones() {
   const googleAccount=document.getElementById('google-account'),googleSetupCancel=document.getElementById('google-setup-cancel');
   const credentialFields=[...document.querySelectorAll('.credential-field')],username=document.getElementById('username'),password=document.getElementById('password');
   const businessName=document.getElementById('business-name'),ownerName=document.getElementById('owner-name');
+  const ownerNameField=ownerName.closest('.field');
   loginForm.reset();
   ['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');
-  let authMode='login';
+  let authMode='login',googleNeedsPassword=false;
   const authUrl=new URL(location.href),authError=authUrl.searchParams.get('auth_error'),googleSetupRequested=authUrl.searchParams.get('google_setup')==='1';
   if(authError){loginError.textContent=authError;loginError.style.display='block';const clean=new URL(location.href);clean.searchParams.delete('auth_error');history.replaceState(null,'',clean);}
   const googleButtonLabel=googleAuth.querySelector('span');
@@ -153,12 +154,14 @@ async function cargarSecciones() {
   }).catch(()=>{if(authMode==='google-setup')return;googleStatus.hidden=true;});
   function setAuthMode(mode,setup={}){
     authMode=mode;const isRegister=mode==='register',isGoogleSetup=mode==='google-setup';
+    googleNeedsPassword=isGoogleSetup&&setup.needsPassword===true;
     document.querySelectorAll('[data-auth-mode]').forEach(option=>{const active=option.dataset.authMode===mode;option.classList.toggle('active',active);option.setAttribute('aria-selected',String(active));});
     document.querySelectorAll('.signup-field').forEach(field=>field.hidden=!(isRegister||isGoogleSetup));
-    credentialFields.forEach(field=>field.hidden=isGoogleSetup);authSwitch.hidden=isGoogleSetup;authDivider.hidden=isGoogleSetup;googleAuth.hidden=isGoogleSetup;googleStatus.hidden=isGoogleSetup||googleStatus.hidden;loginHint.hidden=isGoogleSetup;
+    ownerNameField.hidden=isGoogleSetup||!(isRegister||isGoogleSetup);
+    credentialFields.forEach((field,index)=>field.hidden=isGoogleSetup&&(index===0||!googleNeedsPassword));authSwitch.hidden=isGoogleSetup;authDivider.hidden=isGoogleSetup;googleAuth.hidden=isGoogleSetup;googleStatus.hidden=isGoogleSetup||googleStatus.hidden;loginHint.hidden=isGoogleSetup;
     googleAccount.hidden=!isGoogleSetup;googleSetupCancel.hidden=!isGoogleSetup;
-    businessName.required=isRegister||isGoogleSetup;username.required=!isGoogleSetup;password.required=!isGoogleSetup;
-    document.getElementById('username-label').textContent=isRegister?'Correo electrónico':'Correo o usuario';username.placeholder=isRegister?'tu@empresa.cl':'correo@empresa.cl o pilotodepruebas';username.autocomplete=isRegister?'email':'username';password.autocomplete=isRegister?'new-password':'current-password';
+    businessName.required=isRegister||isGoogleSetup;username.required=!isGoogleSetup;password.required=!isGoogleSetup||googleNeedsPassword;
+    document.getElementById('username-label').textContent=isRegister?'Correo electrónico':'Correo o usuario';username.placeholder=isRegister?'tu@empresa.cl':'correo@empresa.cl o pilotodepruebas';username.autocomplete=isRegister?'email':'username';password.autocomplete=isRegister||googleNeedsPassword?'new-password':'current-password';
     document.querySelector('[data-auth-submit]').textContent=isGoogleSetup?'Guardar y continuar':isRegister?'Crear mi espacio':'Entrar a Pymio';
     document.getElementById('auth-title').innerHTML=isGoogleSetup?'Cuéntanos sobre<br>tu negocio.':isRegister?'Tu negocio,<br>en un espacio propio.':'Todo comienza<br>con una buena mirada.';
     document.getElementById('auth-description').textContent=isGoogleSetup?'Personaliza el espacio que usarás en Pymio.':isRegister?'Crea una cuenta y empieza con un espacio limpio para tu pyme.':'Entra a Pymio y encuentra lo importante de tu negocio.';
@@ -208,7 +211,7 @@ async function cargarSecciones() {
     const submit=loginForm.querySelector('[type="submit"]');submit.disabled=true;submit.setAttribute('aria-busy','true');loginError.style.display='none';
     const identifier=username.value.trim(),passwordValue=password.value;
     const profile={businessName:businessName.value.trim(),ownerName:ownerName.value.trim()};
-    const body=authMode==='google-setup'?profile:authMode==='register'?{email:identifier,password:passwordValue,...profile}:{identifier,password:passwordValue};
+    const body=authMode==='google-setup'?{...profile,...(googleNeedsPassword?{password:passwordValue}:{})}:authMode==='register'?{email:identifier,password:passwordValue,...profile}:{identifier,password:passwordValue};
     const endpoint=authMode==='google-setup'?'google/complete':authMode;
     try { const response=await fetch(apiUrl+'/api/auth/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo completar el acceso.');if(authMode==='google-setup'){const clean=new URL(location.href);clean.searchParams.delete('google_setup');history.replaceState(null,'',clean);}await enterApp(result.session); }
     catch(error){loginError.textContent=error.message;loginError.style.display='block';}

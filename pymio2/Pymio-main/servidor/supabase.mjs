@@ -88,6 +88,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         method: 'DELETE', headers,
       }, 'No se pudo revertir la cuenta incompleta.');
     },
+    async updateAuthUserPassword(id, password) {
+      return requestJson('/auth/v1/admin/users/' + encodeURIComponent(id), {
+        method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, app_metadata: { pymio_password_set: true } }),
+      }, 'No se pudo crear la contraseña de la cuenta.');
+    },
     async registerAccount(userId, email, businessName, ownerName) {
       return requestJson('/rest/v1/rpc/pymio_register_account', {
         method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },

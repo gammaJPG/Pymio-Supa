@@ -93,13 +93,29 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     const wrap = document.createElement('div'); wrap.className = 'table-scroll';
     const nested = document.createElement('table');
     const headers = nested.createTHead().insertRow();
-    for (const title of ['SKU','Nombre Producto','Precio unitario','Subtotal','Descuento','Total producto','Stock Inicial','Unidades','Stock Final']) {
+    const isPurchase = movement.operation === 'Ingreso' && movement.operation_detail === 'Compra';
+    const unitsTitle = movement.operation === 'Egreso' ? 'Unidades (Egresadas)' : 'Unidades (Ingresadas)';
+    for (const title of ['Nombre Producto',isPurchase ? 'Costo Unitario' : 'Precio Unitario','Subtotal','Descuento','Total','Stock Inicial',unitsTitle,'Stock Final','SKU']) {
       const th = document.createElement('th'); th.scope = 'col'; th.textContent = title; headers.appendChild(th);
     }
     const body = nested.createTBody();
     for (const product of movement.products) {
       const productRow = body.insertRow();
-      for (const value of [product.sku, product.name, moneda(product.unit_price), moneda(product.total), Number(product.discount_amount ?? 0) === 0 ? '-' : product.discount_type === 'percentage' ? product.discount_value + '% (' + moneda(product.discount_amount) + ')' : moneda(product.discount_amount ?? 0), moneda(product.net_total ?? product.total), product.initial_qty, product.units, product.final_qty]) productRow.insertCell().textContent = value;
+      const values = [product.name, moneda(product.unit_price), moneda(product.total), Number(product.discount_amount ?? 0) === 0 ? '-' : product.discount_type === 'percentage' ? product.discount_value + '% (' + moneda(product.discount_amount) + ')' : moneda(product.discount_amount ?? 0), moneda(product.net_total ?? product.total), product.initial_qty];
+      for (const value of values) productRow.insertCell().textContent = value;
+      const units = productRow.insertCell();
+      const signedUnits = movement.operation === 'Egreso' ? -Math.abs(Number(product.units)) : Math.abs(Number(product.units));
+      units.textContent = `${signedUnits >= 0 ? '+' : '−'}${Math.abs(signedUnits)}`;
+      units.className = signedUnits >= 0 ? 'movimiento-unidades-positivas' : 'movimiento-unidades-negativas';
+      productRow.insertCell().textContent = product.final_qty;
+      const skuCell = productRow.insertCell(), sku = document.createElement('a');
+      sku.href = '#tab-inventario'; sku.textContent = product.sku; sku.className = 'movimiento-sku-link';
+      sku.onclick = event => {
+        event.preventDefault();
+        document.querySelector('[data-tab="inventario"]')?.click();
+        document.dispatchEvent(new CustomEvent('abrir-producto', {detail:{id:String(product.product_id)}}));
+      };
+      skuCell.appendChild(sku);
     }
     wrap.appendChild(nested); cell.appendChild(wrap);
     const summary = document.createElement('div'); summary.className = 'movimiento-detalle-resumen';

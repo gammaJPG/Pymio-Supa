@@ -83,14 +83,27 @@ export function createInventoryServer(pool, origins, options = {}) {
         if(url.pathname==='/api/auth/google/setup' && req.method==='GET'){
           const setup=decodeSession(namedCookie(req,'pymio_google_setup'),sessionSecret);
           if(!setup)return send(401,{error:'La configuración con Google venció. Inicia sesión nuevamente.'});
-          return send(200,{email:setup.email,businessName:setup.businessName||'',ownerName:setup.ownerName||''});
+          return send(200,{
+            email:setup.email,
+            businessName:setup.businessName||'',
+            ownerName:setup.ownerName||'',
+            needsPassword:setup.needsPassword===true
+          });
         }
         if(url.pathname==='/api/auth/google/complete' && req.method==='POST'){
           const setup=decodeSession(namedCookie(req,'pymio_google_setup'),sessionSecret);
           if(!setup)return send(401,{error:'La configuración con Google venció. Inicia sesión nuevamente.'});
           if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
-          const data=await jsonBody(req),businessName=String(data.businessName||'').trim(),ownerName=String(data.ownerName||'').trim();
+          const data=await jsonBody(req);
+          const businessName=String(data.businessName||'').trim();
+          const ownerName=String(setup.googleName||data.ownerName||'').trim(),password=String(data.password||'');
           if(!businessName || businessName.length>120 || ownerName.length>120)return send(400,{error:'Ingresa un nombre de negocio válido.'});
+          if(setup.needsPassword===true && password.length<8){
+            return send(400,{error:'La contraseña debe tener al menos 8 caracteres.'});
+          }
+          if(setup.needsPassword===true){
+            await pool.updateAuthUserPassword(setup.userId,password);
+          }
           const account=setup.mode==='update'
             ? await pool.updateAccount(setup.userId,businessName,ownerName)
             : await pool.registerAccount(setup.userId,setup.email,businessName,ownerName);
@@ -118,14 +131,26 @@ export function createInventoryServer(pool, origins, options = {}) {
           if(!user?.id || !user.email)return returnWithError(returnTo,'Google no proporcionó un correo válido para crear la sesión.');
           const googleName=String(user.user_metadata?.full_name||user.user_metadata?.name||'').trim().slice(0,120);
           const previousDefault=String(user.user_metadata?.business_name||googleName||user.email.split('@')[0]||'Mi negocio').trim().slice(0,120);
-          let account,needsSetup=false;
-          try {account=await pool.accountForUser(user.id);needsSetup=account.business_name===previousDefault && String(account.owner_name||'')===googleName;}
+          const providers=new Set([
+            ...(Array.isArray(user.app_metadata?.providers)?user.app_metadata.providers:[]),
+            ...(Array.isArray(user.identities)?user.identities.map(identity=>identity.provider):[])
+          ]);
+          const needsPassword=!providers.has('email')&&user.app_metadata?.pymio_password_set!==true;
+          let account,needsSetup=needsPassword;
+          try {
+            account=await pool.accountForUser(user.id);
+            needsSetup=needsSetup||(account.business_name===previousDefault && String(account.owner_name||'')===googleName);
+          }
           catch(error){
             if(error.status!==404)throw error;
             needsSetup=true;
           }
           if(needsSetup){
-            const setupToken=encodeSession({mode:account?'update':'create',userId:user.id,email:user.email,businessName:account?.business_name||'',ownerName:account?.owner_name||googleName,exp:Date.now()+15*60*1000},sessionSecret);
+            const setupToken=encodeSession({
+              mode:account?'update':'create',userId:user.id,email:user.email,
+              businessName:account?.business_name||'',ownerName:account?.owner_name||googleName,googleName,
+              needsPassword,exp:Date.now()+15*60*1000
+            },sessionSecret);
             res.appendHeader('Set-Cookie',`pymio_google_setup=${setupToken}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=900${secureCookie?'; Secure':''}`);
             clearCookie('pymio_oauth','/api/auth/google');
             const target=new URL(returnTo);target.searchParams.set('google_setup','1');return redirect(target.href);

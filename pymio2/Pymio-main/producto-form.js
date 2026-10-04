@@ -46,8 +46,6 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
           <div class="field"><label for="producto-cost">Costo Unitario (CLP)</label><input id="producto-cost" name="cost" type="number" min="0" max="2147483647" step="1" required></div>
           <div class="field"><label for="producto-price">Precio Unitario (CLP)</label><input id="producto-price" name="price" type="number" min="0" max="2147483647" step="1" required></div>
           <div class="field"><label for="producto-low">Stock Bajo</label><input id="producto-low" name="low_qty" type="number" min="1" max="2147483647" step="1" required></div>
-          <div class="field"><label for="producto-created">Creado</label><input id="producto-created" name="created_at" type="datetime-local" required></div>
-          <div class="field" data-updated-field><label for="producto-updated">Actualizado</label><input id="producto-updated" name="updated_at" type="datetime-local" required></div>
         </div>
         <div class="field producto-imagen" data-image-field>
           <label for="producto-image">Foto del producto</label>
@@ -81,10 +79,6 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
   const selector = form.querySelector('#producto-selector');
   const categorySelect = form.elements.category;
   const campos = [...form.querySelectorAll('.producto-campos input, .producto-campos select')];
-  const fechaLocal = valor => {
-    const fecha = new Date(valor);
-    return new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  };
   const mostrarError = texto => { error.textContent = texto; error.hidden = false; };
   const limpiarPreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -101,7 +95,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       imageBlob = optimized.blob; previewUrl = URL.createObjectURL(imageBlob);
       previewImage.src = previewUrl; imagePreview.hidden = false;
       const size = Math.ceil(imageBlob.size / 1024);
-      imageStatus.textContent = `WebP · ${optimized.width} × ${optimized.height} px · ${size} KB · calidad ${optimized.quality.toFixed(2)}`;
+      imageStatus.textContent = `WebP · ${optimized.width} × ${optimized.height} px · ${size} KB`;
     } catch (err) {
       imageInput.value = ''; mostrarError(err.message);
     } finally { if (job === imageJob) guardar.disabled = modo !== 'agregar' && !selector.value; }
@@ -123,9 +117,6 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     selector.required = tipo !== 'agregar';
     selector.disabled = tipo === 'agregar';
     campos.forEach(campo => { campo.disabled = tipo !== 'agregar'; });
-    form.querySelector('[data-updated-field]').hidden = tipo === 'agregar';
-    form.elements.updated_at.disabled = tipo !== 'modificar';
-    form.elements.updated_at.required = tipo !== 'agregar';
     form.querySelector('[data-sku-field]').hidden = tipo === 'agregar';
     form.elements.sku.disabled = tipo === 'agregar' || tipo === 'borrar';
     form.elements.sku.required = tipo !== 'agregar';
@@ -138,10 +129,6 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     form.querySelector('[data-descripcion]').textContent = tipo === 'borrar' ? 'Selecciona el producto que deseas eliminar definitivamente de la base de datos.' : tipo === 'modificar'
       ? 'Selecciona un producto de tu empresa y edita sus datos. La fecha de actualización se registra automáticamente al guardar.'
       : '';
-    const ahora = new Date();
-    const local = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    form.elements.created_at.value = local;
-    form.elements.updated_at.value = local;
     dialogo.showModal();
   }
   async function cargarCategorias(solicitud,seleccionada='') {
@@ -219,8 +206,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     error.hidden = true;
     campos.forEach(campo => {
       campo.disabled = !producto || modo === 'borrar';
-      campo.value = !producto ? '' : ['created_at', 'updated_at'].includes(campo.name)
-        ? fechaLocal(producto[campo.name]) : producto[campo.name];
+      campo.value = !producto ? '' : producto[campo.name];
     });
     imageBlob = null; imageInput.value = ''; limpiarPreview();
     currentImagePath = producto?.image_path ?? null;
@@ -246,12 +232,9 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     for (const campo of ['qty', 'cost', 'price', 'low_qty']) datos[campo] = Number(datos[campo]);
     if (!datos.name || !datos.category) return mostrarError('Completa el producto y la categoría.');
     const original = productos.find(p => String(p.id) === productoId);
-    if (modo === 'agregar') datos.updated_at = datos.created_at;
-    for (const campo of ['created_at', 'updated_at']) {
-      datos[campo] = original && datos[campo] === fechaLocal(original[campo])
-        ? original[campo] : new Date(datos[campo]).toISOString();
-    }
-    if (Date.parse(datos.updated_at) < Date.parse(datos.created_at)) return mostrarError('La fecha de actualización no puede ser anterior a la de creación.');
+    const ahora = new Date().toISOString();
+    datos.created_at = original?.created_at ?? ahora;
+    datos.updated_at = ahora;
     }
     guardando = true;
     guardar.disabled = cancelar.disabled = true;

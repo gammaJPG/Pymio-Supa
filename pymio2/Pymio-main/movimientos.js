@@ -81,7 +81,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const hourFrom = $('#mov-filter-hour-from'), hourTo = $('#mov-filter-hour-to');
   let dashboardMovementCodes = null;
   const clearDashboardFilter = () => { dashboardMovementCodes = null; };
-  for (const input of [hourFrom, hourTo]) input.onchange = () => { clearDashboardFilter(); status.textContent = ''; refresh(); };
+  const filterStatus = $('#mov-filter-status'), filterChannel = $('#mov-filter-channel'), filterPayment = $('#mov-filter-payment');
+  for (const input of [hourFrom, hourTo, filterStatus, filterChannel, filterPayment]) input.onchange = () => { clearDashboardFilter(); status.textContent = ''; refresh(); };
   const localDate = date => [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
   function applyPeriod() {
     if (filterPeriod.value === 'custom') return;
@@ -144,7 +145,11 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   let refreshVersion = 0;
   async function refresh(targetCode = null) {
     const current = ++refreshVersion;
-    if (targetCode) { filterPeriod.value = 'all'; hourFrom.value = hourTo.value = ''; applyPeriod(); }
+    if (targetCode) {
+      filterPeriod.value = 'all'; hourFrom.value = hourTo.value = '';
+      filterStatus.value = filterChannel.value = filterPayment.value = '';
+      applyPeriod();
+    }
     else applyPeriod();
     filterTo.setCustomValidity(filterFrom.value && filterTo.value && filterFrom.value > filterTo.value ? 'La fecha Hasta debe ser igual o posterior a Desde.' : '');
     if (!filterFrom.reportValidity() || !filterTo.reportValidity()) {
@@ -169,7 +174,11 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         data.unshift(detail);
       }
       if (current !== refreshVersion) return;
-      displayedMovements = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value) && (!dashboardMovementCodes || dashboardMovementCodes.has(m.code)));
+      displayedMovements = data.filter(m => dentroDelRangoHorario(m.occurred_at, hourFrom.value, hourTo.value)
+        && (!filterStatus.value || (m.Estado ?? 'Pagado') === filterStatus.value)
+        && (!filterChannel.value || m.channel === filterChannel.value)
+        && (!filterPayment.value || m.payment_method === filterPayment.value)
+        && (!dashboardMovementCodes || dashboardMovementCodes.has(m.code)));
       renderMovementList();
       if (targetCode) {
         const row = [...panel.querySelectorAll('[data-movement-code]')].find(r => r.dataset.movementCode === targetCode);
