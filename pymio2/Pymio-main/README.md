@@ -267,3 +267,16 @@ Antes de publicar una actualización también se debe comprobar que:
 - Se conservaron el Dashboard conectado a Supabase, sus filtros históricos y los accesos directos a ventas por cobrar y stock bajo.
 - Las migraciones `012_remove_critical_stock.sql`, `013_product_status.sql`, `014_network_connections_and_private_communities.sql` y `015_network_post_editing.sql` representan la secuencia final integrada.
 - La suite automatizada cubre clientes, Dashboard, diagnóstico, movimientos, inventario, RED Pymio, Supabase, autenticación, almacenamiento y seguridad HTTP.
+
+## Iteración de inventario, notificaciones y descuentos
+
+- La vista simple de Inventario muestra el nombre del producto junto al stock y mantiene una búsqueda inmediata por nombre o SKU con estado `No disponible`.
+- Los campos monetarios y de cantidades formatean separadores de miles mientras se escribe, tanto en Inventario como en RED Pymio.
+- La campana utiliza notificaciones dinámicas: azul para actividad de inventario, naranjo para stock bajo, rojo para alertas críticas, verde para movimientos confirmados y gris para sincronizaciones pendientes.
+- Las alertas de stock permanecen en el contador hasta corregirse; al resolverse generan una notificación informativa y desaparecen del diagnóstico activo.
+- Las tarjetas de Diagnóstico permiten abrir el producto correspondiente directamente en el formulario de modificación.
+- Las notificaciones de productos detallan los campos modificados y las de movimientos incluyen operación, pago, estado y código.
+- El detalle de Movimientos distribuye visualmente el descuento global entre cada producto, mostrando porcentaje, monto descontado y total neto.
+- Las tablas de Movimientos e Inventario comparten la tipografía `IBM Plex Sans` para una lectura consistente.
+- El service worker usa la versión de caché `v108` para entregar todos los recursos actualizados.
+- La suite automatizada contiene 36 pruebas, incluida la verificación del desglose de descuentos globales.

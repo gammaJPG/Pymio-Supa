@@ -1,4 +1,20 @@
 const moneda = valor => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Number(valor));
+export function datosDescuentoFila(movement, product) {
+  const subtotal=Number(product.total)||0;
+  let amount=Number(product.discount_amount)||0;
+  let type=product.discount_type;
+  let value=Number(product.discount_value)||0;
+  if(!amount&&movement.discount_scope!=='product'&&movement.discount_type){
+    type=movement.discount_type;value=Number(movement.discount_value)||0;
+    if(type==='percentage')amount=subtotal*value/100;
+    else if(type==='fixed'){
+      const gross=(movement.products||[]).reduce((sum,item)=>sum+(Number(item.total)||0),0);
+      amount=gross?Number(movement.discount_amount||0)*subtotal/gross:0;
+    }
+  }
+  const net=product.net_total==null?subtotal-amount:Number(product.net_total);
+  return {amount,net,label:amount<=0?'-':type==='percentage'?`${value}% (${moneda(amount)})`:moneda(amount)};
+}
 export function fechaMovimiento(value) {
   const date = new Date(value);
   const fecha = date.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' });
@@ -99,7 +115,8 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     const body = nested.createTBody();
     for (const product of movement.products) {
       const productRow = body.insertRow();
-      for (const value of [product.sku, product.name, moneda(product.unit_price), moneda(product.total), Number(product.discount_amount ?? 0) === 0 ? '-' : product.discount_type === 'percentage' ? product.discount_value + '% (' + moneda(product.discount_amount) + ')' : moneda(product.discount_amount ?? 0), moneda(product.net_total ?? product.total), product.initial_qty, product.units, product.final_qty]) productRow.insertCell().textContent = value;
+      const discount=datosDescuentoFila(movement,product);
+      for (const value of [product.sku, product.name, moneda(product.unit_price), moneda(product.total), discount.label, moneda(discount.net), product.initial_qty, product.units, product.final_qty]) productRow.insertCell().textContent = value;
     }
     wrap.appendChild(nested); cell.appendChild(wrap);
     const summary = document.createElement('div'); summary.className = 'movimiento-detalle-resumen';

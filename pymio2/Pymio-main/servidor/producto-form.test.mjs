@@ -43,7 +43,15 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
     }
   });
   // El formulario usa offlineFetch; esta prueba aporta su doble mediante context.fetch.
-  vm.runInContext(source.replace("import { offlineFetch as fetch } from './offline.js';", '').replace('export function', 'function'), context);
+  vm.runInContext(source
+    .replace("import { offlineFetch as fetch } from './offline.js';", '')
+    .replace("import { configureIntegerInput, parseFormattedInteger } from './number-format.js';", `
+      const parseFormattedInteger = value => Number(String(value).replace(/\\D/g,''));
+      const configureIntegerInput = input => ({
+        get: () => parseFormattedInteger(input.value),
+        set: value => { input.value = value === '' || value == null ? '' : String(value); }
+      });`)
+    .replace('export function', 'function'), context);
   const controller=context.prepararFormularioProducto({ panel, companyId: 2, apiUrl: 'http://localhost:3001', alGuardar: async () => { recargas++; }, crearCategoria: async()=>{nuevaCategoria=true;return 'Nueva categoría';} });
   await controller.abrirModificar('81');
   assert.equal(selector.value,'81');
@@ -57,7 +65,7 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   selector.value = '81';
   selector.onchange();
   assert.equal(form.elements.name.value, producto.name);
-  assert.equal(form.elements.low_qty.value, 6);
+  assert.equal(form.elements.low_qty.value, '6');
   assert.ok(campos.every(c => !c.disabled));
   form.elements.name.value = 'Nombre editado';
   form.elements.qty.value = '8';

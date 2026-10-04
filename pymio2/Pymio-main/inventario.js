@@ -73,15 +73,18 @@ export async function iniciarInventario({
       const stock=document.createElement('p'); stock.className='inventario-card-stock';
       if (Number(producto.qty) === 0 || Number(producto.qty) < Number(producto.low_qty)) stock.classList.add('critico');
       stock.append('Stock: ',Object.assign(document.createElement('strong'),{textContent:numero.format(producto.qty)}));
+      const name=document.createElement('h3'); name.className='inventario-card-name'; name.textContent=producto.name;
+      name.title=producto.name;
+      const header=document.createElement('div'); header.className='inventario-card-header'; header.append(stock,name);
       const media=document.createElement('div'); media.className='inventario-card-media';
       const placeholder=()=>{media.replaceChildren();const empty=document.createElement('div');empty.className='inventario-card-placeholder';empty.setAttribute('aria-label',`${producto.name}, sin imagen`);empty.innerHTML='<span aria-hidden="true">◇</span><small>Sin imagen</small>';media.appendChild(empty);};
       const source=imagenProducto(producto);
       if(source){const image=document.createElement('img');image.src=source;image.alt=producto.name;image.loading='lazy';image.decoding='async';image.onerror=placeholder;media.appendChild(image);}else placeholder();
       const price=document.createElement('p'); price.className='inventario-card-price'; price.append('Precio: ',Object.assign(document.createElement('strong'),{textContent:clp.format(producto.price)}));
-      card.append(stock,media,price); simpleView.appendChild(card);
+      card.append(header,media,price); simpleView.appendChild(card);
     }
     if (!productos.length) {
-      const message=document.createElement('p');message.className='inventario-simple-mensaje';message.textContent='No se encontraron productos.';simpleView.appendChild(message);
+      const message=document.createElement('p');message.className='inventario-simple-mensaje';message.textContent='No disponible';simpleView.appendChild(message);
     }
   }
   function actualizarCategorias() {
@@ -170,7 +173,7 @@ export async function iniciarInventario({
     renderSimple(visibles);
     if (!visibles.length) {
       tbody.replaceChildren();
-      celda(tbody.insertRow(), 'No se encontraron productos.').colSpan = 8;
+      celda(tbody.insertRow(), 'No disponible').colSpan = 8;
     }
   }
 
@@ -285,13 +288,26 @@ export async function iniciarInventario({
     await actualizar();
     return true;
   } });
-  search.oninput = () => { dashboardProductIds = null; render(); };
+  search.oninput = () => {
+    dashboardProductIds = null;
+    // Una búsqueda escrita por el usuario tiene prioridad sobre filtros previos.
+    if (search.value.trim()) categoria.value = '';
+    render();
+  };
   categoria.onchange = () => { dashboardProductIds = null; render(); };
   document.addEventListener('abrir-inventario-filtrado', event => {
     dashboardProductIds = new Set((event.detail?.ids ?? []).map(String));
     search.value = ''; categoria.value = '';
     document.querySelector('[data-tab="inventario"]').click();
     render();
+  });
+  document.addEventListener('abrir-inventario-producto', event => {
+    const id=String(event.detail?.id||'');
+    dashboardProductIds=id?new Set([id]):null;
+    search.value='';categoria.value='';
+    document.querySelector('[data-tab="inventario"]').click();
+    render();
+    if(event.detail?.edit&&id)requestAnimationFrame(()=>productFormController?.abrirModificar(id));
   });
   encabezados.forEach(boton => {
     boton.closest('th').setAttribute('aria-sort', 'none');

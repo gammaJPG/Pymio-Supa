@@ -1,4 +1,5 @@
 import { revealView } from './motion.js';
+import { configureIntegerInput, parseFormattedInteger } from './number-format.js';
 
 let initialized=false,currentView='overview',selectViewImpl=null;
 const views=new Set(['overview','pymio','red','explorar','eventos']);
@@ -201,8 +202,15 @@ export function iniciarEcosistema({session,apiUrl}={}){
   root.querySelector('[data-open-own-profile]').addEventListener('click',()=>openPublicProfile(state.profile||{}));
 
   const productDialog=get('store-product-dialog'),productForm=root.querySelector('[data-store-product-form]');
+  const productNumbers=new Map([
+    ['qty',configureIntegerInput(productForm.elements.qty,{min:0})],
+    ['cost',configureIntegerInput(productForm.elements.cost,{min:0})],
+    ['price',configureIntegerInput(productForm.elements.price,{min:0})],
+    ['crit_qty',configureIntegerInput(productForm.elements.crit_qty,{min:0})],
+    ['low_qty',configureIntegerInput(productForm.elements.low_qty,{min:1})]
+  ]);
   async function openProductDialog(){
-    productForm.reset();productForm.elements.qty.value='0';productForm.elements.crit_qty.value='0';productForm.elements.low_qty.value='1';
+    productForm.reset();productNumbers.forEach(controller=>controller?.set(''));productNumbers.get('qty')?.set(0);productNumbers.get('crit_qty')?.set(0);productNumbers.get('low_qty')?.set(1);
     const error=productForm.querySelector('.form-error'),category=productForm.elements.category;error.hidden=true;category.disabled=true;category.innerHTML='<option value="">Cargando categorías…</option>';openDialog(productDialog);
     if(demo){category.innerHTML='<option value="Sin Clasificar">Sin Clasificar</option><option value="Abarrotes">Abarrotes</option><option value="Bebidas">Bebidas</option>';category.disabled=false;return;}
     try{const categories=await request(`/api/categories?company_id=${encodeURIComponent(session.companyId)}`);category.innerHTML='<option value="">Selecciona una categoría</option>'+categories.map(item=>`<option value="${escapeHTML(item.name)}">${escapeHTML(item.name)}</option>`).join('');category.value=categories.some(item=>item.name==='Sin Clasificar')?'Sin Clasificar':'';category.disabled=false;}
@@ -213,7 +221,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     event.preventDefault();if(!productForm.reportValidity())return;
     const button=productForm.querySelector('[type="submit"]'),error=productForm.querySelector('.form-error'),formData=new FormData(productForm),image=formData.get('image');
     const data={name:String(formData.get('name')||'').trim(),category:String(formData.get('category')||'').trim()};
-    for(const field of ['qty','cost','price','crit_qty','low_qty'])data[field]=Number(formData.get(field));
+    for(const field of ['qty','cost','price','crit_qty','low_qty'])data[field]=parseFormattedInteger(formData.get(field));
     if(data.low_qty<=data.crit_qty){error.textContent='El stock bajo debe ser mayor que el stock crítico.';error.hidden=false;return;}
     error.hidden=true;setBusy(button,true,'Guardando…');let uploadedPath='';
     try{

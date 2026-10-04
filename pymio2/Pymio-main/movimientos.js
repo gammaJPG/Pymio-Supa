@@ -440,10 +440,18 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         if (response.status < 500) pending = null;
         throw new Error(result.error || 'No se pudo guardar el movimiento.');
       }
+      const submitted = pending;
+      const movementCode = result.code || selected?.code || submitted?.code || '';
+      const movementKind = selected?.operation_detail || submitted?.operation_detail || 'Movimiento';
+      const movementPayment = selected?.payment_method || submitted?.payment_method || '';
+      const movementStatus = selected?.Estado || submitted?.Estado || '';
+      const movementAction = result.queued ? 'queued' : mode === 'add' ? 'created' : mode === 'delete' ? 'deleted' : 'updated';
+      const movementDescription = [movementKind,movementPayment,movementStatus,movementCode && `Código ${movementCode}`].filter(Boolean).join(' · ');
       pending = null;
       dialog.close();
       status.textContent = result.queued ? (result.conflict ? 'Guardado en el dispositivo. Requiere revisión en el panel de sincronización.' : 'Guardado en el dispositivo. Pendiente de sincronizar; el stock se confirmará al conectar.') : mode === 'add' ? '' : `Movimiento ${result.code} ${mode === 'delete' ? 'eliminado' : 'guardado'}.`;
       document.dispatchEvent(new CustomEvent('inventario-actualizado'));
+      document.dispatchEvent(new CustomEvent('movimiento-guardado',{detail:{action:movementAction,description:movementDescription,productIds:(submitted?.items||selected?.products||[]).map(item=>String(item.product_id))}}));
       await refresh();
     } catch (err) {
       showError(pending ? 'Si no hay espacio de almacenamiento, libera espacio y reintenta. No se pudo confirmar el guardado. Pulsa Reintentar para consultar o guardar el mismo movimiento sin duplicarlo.' : err.message);

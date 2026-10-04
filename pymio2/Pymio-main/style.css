@@ -316,12 +316,14 @@
   .dot.critical{background:var(--critical);}
   .dot.warn{background:var(--warn);}
   .dot.info{background:var(--info);}
+  .dot.success{background:#4d8a61;}
+  .dot.neutral{background:#899083;}
   .notif-item .n-title{font-size:13px;font-weight:500;color:var(--ink);}
   .notif-item .n-desc{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45;}
   .notif-item .n-time{font-size:11px;color:var(--muted-2);margin-top:4px;}
   .notif-action{margin-top:9px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit;font-size:11px;cursor:pointer;}
   .notif-action:hover{border-color:var(--critical);color:var(--critical);}
-  .notif-item.read{opacity:0.55;}
+  .diagnostic-product-action{margin-top:12px;}
 
   .content{flex:1;overflow-y:auto;padding:28px 32px 60px;}
   .tab-panel{display:none;}

@@ -217,6 +217,8 @@ dialog.producto-dialogo::backdrop{background:#1e231b80;backdrop-filter:blur(4px)
 .alert-desc{margin:19px 0;line-height:1.8;font-size:13px;max-width:80ch;}
 .alert-metric{font-size:13px;padding:15px 18px;background:#f6f4ed;border-radius:8px;}
 .alert-extra{font-size:13px;line-height:1.8;margin-top:20px;}
+.alert-extra p{margin:0;}
+.diagnostic-product-action{margin-top:13px;}
 .expand-btn{border-radius:7px;font-size:11px;padding:10px 14px;min-height:40px;}
 .diagnostic-note{display:flex;gap:23px;max-width:640px;padding:32px 0;}
 .diagnostic-note>span{font-size:36px;color:#aaa98b;}
@@ -310,8 +312,11 @@ dialog.producto-dialogo::backdrop{background:#1e231b80;backdrop-filter:blur(4px)
 .notif-panel.open{visibility:visible;opacity:1;transform:none;pointer-events:auto;}
 .notif-head{padding:18px;gap:12px;}
 .notif-head h3{font-size:14px;}
-.notif-head button{font-size:10px;color:#86743d;}
+.notif-read-hint{font-size:10px;color:#86743d;text-align:right;}
 .notif-item{padding:16px 18px;}
+.notif-item:is(button){width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;text-align:left;font:inherit;color:inherit;cursor:pointer;appearance:none;}
+.notif-item:is(button):hover,.notif-item:is(button):focus-visible{background:var(--paper);outline:none;}
+.notif-item:is(button):last-child{border-bottom:0;}
 .notif-item .n-title{font-size:12px;}
 .notif-item .n-desc{font-size:11px;line-height:1.7;}
 .notif-item .n-time{font-size:10px;}
@@ -524,6 +529,11 @@ table{font-size:11px;}
 .movimiento-filtros input,.movimiento-filtros select{width:100%;min-width:0;}
 #tab-movimientos [data-movement-menu]{font-size:11px;min-width:0;}
 #tab-inventario table th,#tab-inventario table td{font-size:11px;}
+#tab-inventario .inventario-vista-detallada table,
+#tab-inventario .inventario-vista-detallada th,
+#tab-inventario .inventario-vista-detallada td,
+#tab-inventario .inventario-vista-detallada td.num,
+#tab-inventario .inventario-vista-detallada th.num{font-family:'IBM Plex Sans',system-ui,sans-serif;}
 .diagnostic-summary{gap:13px;flex-wrap:wrap;}
 .diagnostic-label{font-size:9px;}
 .diagnostic-number{font-size:37px;}
@@ -745,9 +755,11 @@ button{min-height:44px;}
 .inventario-vista-control select{min-height:36px;padding:7px 30px 7px 10px;border-radius:8px;font-size:11px;background:#fff;}
 .inventario-simple-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:16px;min-width:0;}
 .inventario-producto-card{display:flex;flex-direction:column;min-width:0;min-height:290px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden;}
+.inventario-card-header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:12px;min-width:0;}
 .inventario-card-stock,.inventario-card-price{margin:0;color:var(--ink);font-size:12px;line-height:1.4;}
 .inventario-card-stock.critico{color:#b25942;}
 .inventario-card-stock strong,.inventario-card-price strong{font-weight:600;font-variant-numeric:tabular-nums;}
+.inventario-card-name{min-width:0;margin:0;color:var(--ink);font-size:12px;font-weight:600;line-height:1.4;text-align:right;overflow-wrap:anywhere;}
 .inventario-card-media{display:grid;place-items:center;width:100%;height:200px;margin:10px 0;min-width:0;overflow:hidden;}
 .inventario-card-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;}
 .inventario-card-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;width:100%;height:100%;border-radius:10px;background:#f7f8f2;color:#929684;}

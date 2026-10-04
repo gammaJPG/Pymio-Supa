@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=98';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=100';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=50';
@@ -87,17 +87,19 @@ async function cargarSecciones() {
   ];
   let diagnosticNotifications=[];
   let syncNotifications=[];
-  let inventoryNotifications=[];
+  let activityNotifications=[];
   const readNotificationIds=new Set();
 
-  function inventoryNotificationKey(){return `pymio:inventory-notifications:${currentSession?.companyId||'unknown'}`;}
+  function activityNotificationKey(){return `pymio:activity-notifications:${currentSession?.companyId||'unknown'}`;}
+  function legacyInventoryNotificationKey(){return `pymio:inventory-notifications:${currentSession?.companyId||'unknown'}`;}
   function readNotificationKey(){return `pymio:read-notifications:${currentSession?.companyId||'unknown'}`;}
   function loadInventoryNotifications(){
-    if(currentSession?.demo){inventoryNotifications=[];return;}
+    if(currentSession?.demo){activityNotifications=[];return;}
     try{
-      const saved=JSON.parse(localStorage.getItem(inventoryNotificationKey())||'[]');
-      inventoryNotifications=Array.isArray(saved)?saved.slice(0,25):[];
-    }catch{inventoryNotifications=[];}
+      const raw=localStorage.getItem(activityNotificationKey())||localStorage.getItem(legacyInventoryNotificationKey())||'[]';
+      const saved=JSON.parse(raw);
+      activityNotifications=Array.isArray(saved)?saved.slice(0,40):[];
+    }catch{activityNotifications=[];}
   }
   function loadReadNotifications(){
     readNotificationIds.clear();
@@ -108,7 +110,7 @@ async function cargarSecciones() {
   }
   function saveInventoryNotifications(){
     if(currentSession?.demo)return;
-    try{localStorage.setItem(inventoryNotificationKey(),JSON.stringify(inventoryNotifications.slice(0,25)));}catch{}
+    try{localStorage.setItem(activityNotificationKey(),JSON.stringify(activityNotifications.slice(0,40)));}catch{}
   }
   function saveReadNotifications(){
     try{localStorage.setItem(readNotificationKey(),JSON.stringify([...readNotificationIds].slice(-100)));}catch{}
@@ -198,7 +200,7 @@ async function cargarSecciones() {
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
     const storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
-    import('./inventario.js').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
+    import('./inventario.js?v=101').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
       console.error('No se pudo iniciar el inventario:',error);const tabla=document.getElementById('inv-table');tabla.replaceChildren();const celda=tabla.insertRow().insertCell();celda.colSpan=10;celda.textContent='No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
     });
   }
@@ -284,20 +286,41 @@ async function cargarSecciones() {
   bellBtn.setAttribute('aria-expanded', 'false');
   bellBtn.setAttribute('aria-controls', 'notif-panel');
 
+  function currentNotifications(){
+    return [...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
+  }
+  function markCurrentNotificationsRead(){
+    for(const notification of currentNotifications())if(!notification.requiresResolution)readNotificationIds.add(notification.id);
+    saveReadNotifications();
+  }
+  function closeNotifications({markRead=true}={}){
+    if(!notifPanel.classList.contains('open'))return;
+    if(markRead)markCurrentNotificationsRead();
+    notifPanel.classList.remove('open');
+    bellBtn.setAttribute('aria-expanded','false');
+    renderNotifications();
+  }
+
   function renderNotifications(){
     const list = document.getElementById('notif-list');
-    const visible=[...inventoryNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
+    const visible=currentNotifications();
     list.replaceChildren();
     if(!visible.length){const empty=document.createElement('div');empty.className='notif-empty';empty.textContent='Aún no tienes notificaciones.';list.append(empty);}
     for(const notification of visible){
-      const item=document.createElement(notification.alertId?'button':'div');item.className=`notif-item${notification.alertId?' notif-diagnostic':''}`;
-      if(notification.alertId)item.type='button';
-      if(readNotificationIds.has(notification.id))item.classList.add('read');
+      const actionable=Boolean(notification.alertId||notification.destination);
+      const item=document.createElement(actionable?'button':'div');item.className=`notif-item${notification.alertId?' notif-diagnostic':''}`;
+      if(actionable)item.type='button';
       const dot=document.createElement('div');dot.className=`dot ${notification.sev}`;
       const content=document.createElement('div'),title=document.createElement('div');
       title.className='n-title';title.textContent=notification.title;content.append(title);
-      if(!notification.alertId){const description=document.createElement('div'),time=document.createElement('div');description.className='n-desc';time.className='n-time';description.textContent=notification.desc;time.textContent=notification.time;content.append(description,time);}
-      if(notification.alertId)item.onclick=()=>{readNotificationIds.add(notification.id);saveReadNotifications();notifPanel.classList.remove('open');bellBtn.setAttribute('aria-expanded','false');navigateTo('diagnostico',false,true);renderNotifications();requestAnimationFrame(()=>{const alert=document.getElementById(notification.alertId);if(!alert)return;alert.classList.add('notification-target');alert.tabIndex=-1;alert.focus({preventScroll:true});alert.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>alert.classList.remove('notification-target'),1800);});};
+      if(notification.desc){const description=document.createElement('div');description.className='n-desc';description.textContent=notification.desc;content.append(description);}
+      if(notification.time){const time=document.createElement('div');time.className='n-time';time.textContent=notification.time;content.append(time);}
+      if(notification.alertId)item.onclick=()=>{closeNotifications();navigateTo('diagnostico',false,true);requestAnimationFrame(()=>{const alert=document.getElementById(notification.alertId);if(!alert)return;alert.classList.add('notification-target');alert.tabIndex=-1;alert.focus({preventScroll:true});alert.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>alert.classList.remove('notification-target'),1800);});};
+      else if(notification.destination)item.onclick=()=>{
+        closeNotifications();
+        if(notification.destination==='inventario'&&notification.productId)document.dispatchEvent(new CustomEvent('abrir-inventario-producto',{detail:{id:notification.productId}}));
+        else navigateTo(notification.destination,false,true);
+      };
       if(notification.issueId){
         const action=document.createElement('button');action.type='button';action.className='notif-action';action.textContent='Descartar intento';
         action.onclick=async()=>{if(!confirm('Este movimiento fue rechazado y no se aplicó al inventario. ¿Quieres descartarlo de las notificaciones?'))return;action.disabled=true;await discardSyncIssue(notification.issueId);};
@@ -305,61 +328,83 @@ async function cargarSecciones() {
       }
       item.append(dot,content);list.append(item);
     }
-    const unread=visible.filter(notification=>!readNotificationIds.has(notification.id)).length;
-    notifBadge.style.display = unread ? 'flex' : 'none';
+    const unread=visible.filter(notification=>notification.requiresResolution||!readNotificationIds.has(notification.id)).length;
+    notifBadge.style.display = unread && !notifPanel.classList.contains('open') ? 'flex' : 'none';
     notifBadge.textContent = unread;
   }
   async function refreshSyncNotifications(){
-    try { syncNotifications=(await getSyncIssues()).map(issue=>({id:'sync-'+issue.id,issueId:issue.id,sev:issue.severity,title:issue.title,desc:issue.description,time:issue.time})); }
+    try { syncNotifications=(await getSyncIssues()).map(issue=>({id:'sync-'+issue.id,issueId:issue.id,sev:issue.severity,title:issue.title,desc:issue.description,time:issue.time,requiresResolution:true})); }
     catch { syncNotifications=[]; }
     renderNotifications();
   }
   window.addEventListener('swc-offline-change',refreshSyncNotifications);
-  document.addEventListener('producto-guardado',event=>{
+  document.addEventListener('producto-guardado',async event=>{
     if(currentSession?.demo)return;
-    const detail=event.detail||{},created=detail.action==='created';
+    const detail=event.detail||{},action=detail.action||'updated';
     const name=String(detail.name||'Producto').trim(),sku=String(detail.sku||'').trim();
-    inventoryNotifications.unshift({
+    const productId=String(detail.productId||'');
+    const priorAlert=diagnosticNotifications.find(notification=>String(notification.productId)===productId);
+    const titles={created:'Producto creado',updated:'Producto actualizado',deleted:'Producto eliminado'};
+    const activity={
       id:`inventory-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       sev:'info',
-      title:created?'Producto creado':'Producto actualizado',
-      desc:`${name}${sku?` · ${sku}`:''}`,
-      time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'})
-    });
-    inventoryNotifications=inventoryNotifications.slice(0,25);
+      title:titles[action]||'Producto actualizado',
+      desc:detail.description||`${name}${sku?` · ${sku}`:''}`,
+      time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),
+      destination:'inventario',productId:action==='deleted'?'':productId
+    };
+    activityNotifications.unshift(activity);
+    activityNotifications=activityNotifications.slice(0,40);
     saveInventoryNotifications();
     renderNotifications();
+    await refreshDiagnosticAlerts();
+    if(action==='updated'&&priorAlert&&!diagnosticNotifications.some(notification=>String(notification.productId)===productId)){
+      activity.title='Problema de inventario resuelto';
+      activity.desc=`${name}${sku?` · ${sku}`:''} volvió a un nivel de stock normal.`;
+      saveInventoryNotifications();renderNotifications();
+    }
+  });
+  document.addEventListener('movimiento-guardado',async event=>{
+    if(currentSession?.demo)return;
+    const detail=event.detail||{};
+    const affectedIds=new Set((detail.productIds||[]).map(String));
+    const priorAlerts=diagnosticNotifications.filter(notification=>affectedIds.has(String(notification.productId)));
+    const titles={created:'Movimiento registrado',updated:'Movimiento actualizado',deleted:'Movimiento eliminado',queued:'Movimiento pendiente de sincronizar'};
+    activityNotifications.unshift({
+      id:`movement-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      sev:detail.action==='queued'?'neutral':'success',
+      title:titles[detail.action]||'Movimiento registrado',
+      desc:detail.description||'Se actualizó la actividad del negocio.',
+      time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),
+      destination:'movimientos'
+    });
+    activityNotifications=activityNotifications.slice(0,40);
+    saveInventoryNotifications();
+    renderNotifications();
+    if(priorAlerts.length){
+      await refreshDiagnosticAlerts();
+      for(const resolved of priorAlerts.filter(prior=>!diagnosticNotifications.some(current=>current.id===prior.id))){
+        activityNotifications.unshift({id:`resolved-${resolved.id}-${Date.now()}`,sev:'info',title:'Problema de inventario resuelto',desc:`${resolved.title.replace(/^(Stock bajo|Sin stock):\s*/,'')} volvió a un nivel de stock normal.`,time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),destination:'inventario',productId:resolved.productId});
+      }
+      activityNotifications=activityNotifications.slice(0,40);saveInventoryNotifications();renderNotifications();
+    }
   });
   document.addEventListener('diagnostico-actualizado',event=>{diagnosticNotifications=event.detail?.alerts||[];renderNotifications();});
   document.addEventListener('inventario-actualizado',()=>refreshDiagnosticAlerts());
 
   bellBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    notifPanel.classList.toggle('open');
-    const opened=notifPanel.classList.contains('open');
-    bellBtn.setAttribute('aria-expanded', String(opened));
-    if(opened){
-      for(const notification of [...inventoryNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications])readNotificationIds.add(notification.id);
-      saveReadNotifications();
-      renderNotifications();
-    }
-  });
-  document.addEventListener('click', (e) => {
-    if(!notifPanel.contains(e.target) && e.target !== bellBtn){
-      notifPanel.classList.remove('open');
-      bellBtn.setAttribute('aria-expanded', 'false');
-    }
-  });
-  document.getElementById('mark-read-btn').addEventListener('click', () => {
-    for(const notification of [...inventoryNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications])readNotificationIds.add(notification.id);
-    saveReadNotifications();
+    if(notifPanel.classList.contains('open'))return closeNotifications();
+    notifPanel.classList.add('open');
+    bellBtn.setAttribute('aria-expanded','true');
     renderNotifications();
   });
-
+  document.addEventListener('click', (e) => {
+    if(!notifPanel.contains(e.target) && e.target !== bellBtn)closeNotifications();
+  });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && notifPanel.classList.contains('open')) {
-      notifPanel.classList.remove('open');
-      bellBtn.setAttribute('aria-expanded', 'false');
+      closeNotifications();
       bellBtn.focus();
     }
   });

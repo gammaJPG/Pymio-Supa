@@ -1,7 +1,29 @@
 import { offlineFetch as fetch } from './offline.js';
+import { configureIntegerInput, parseFormattedInteger } from './number-format.js';
 const IMAGE_TYPES = new Set(['image/jpeg','image/png','image/webp']);
 const MAX_ORIGINAL_IMAGE = 10 * 1024 * 1024;
 const MAX_PRODUCT_IMAGE = 250 * 1024;
+const formatoEntero = new Intl.NumberFormat('es-CL', {maximumFractionDigits:0});
+const formatoMoneda = new Intl.NumberFormat('es-CL', {style:'currency',currency:'CLP',maximumFractionDigits:0});
+
+function descripcionProductoCreado(producto) {
+  return `${producto.name}${producto.sku ? ` · ${producto.sku}` : ''} · Stock ${formatoEntero.format(producto.qty)} · Precio ${formatoMoneda.format(producto.price)}`;
+}
+
+function descripcionCambiosProducto(anterior, actual, fotoCambiada) {
+  const campos = [
+    ['name','Nombre',value=>String(value)],
+    ['category','Categoría',value=>String(value)],
+    ['qty','Stock',value=>formatoEntero.format(Number(value))],
+    ['cost','Costo',value=>formatoMoneda.format(Number(value))],
+    ['price','Precio',value=>formatoMoneda.format(Number(value))],
+    ['low_qty','Umbral de stock bajo',value=>formatoEntero.format(Number(value))]
+  ];
+  const cambios = campos.flatMap(([campo,etiqueta,formatear]) => String(anterior?.[campo] ?? '') === String(actual?.[campo] ?? '')
+    ? [] : [`${etiqueta}: ${formatear(anterior?.[campo] ?? 0)} → ${formatear(actual?.[campo] ?? 0)}`]);
+  if (fotoCambiada) cambios.push('Foto actualizada');
+  return cambios.length ? cambios.join(' · ') : 'Se guardó el producto sin cambios visibles.';
+}
 
 async function optimizarImagenProducto(file) {
   if (!IMAGE_TYPES.has(file.type)) throw new Error('Selecciona una imagen JPG, JPEG, PNG o WebP.');
@@ -42,10 +64,10 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
           <div class="field"><label for="producto-name">Producto</label><input id="producto-name" name="name" required></div>
           <div class="field" data-sku-field><label for="producto-sku">SKU</label><input id="producto-sku" name="sku" maxlength="32" title="Letras mayúsculas y números, separados opcionalmente por guiones. Ejemplo: AND-0021" required></div>
           <div class="field"><label for="producto-category">Categoría</label><select id="producto-category" name="category" required></select></div>
-          <div class="field"><label for="producto-qty">Cantidad</label><input id="producto-qty" name="qty" type="number" min="0" max="2147483647" step="1" value="0" required></div>
-          <div class="field"><label for="producto-cost">Costo Unitario (CLP)</label><input id="producto-cost" name="cost" type="number" min="0" max="2147483647" step="1" required></div>
-          <div class="field"><label for="producto-price">Precio Unitario (CLP)</label><input id="producto-price" name="price" type="number" min="0" max="2147483647" step="1" required></div>
-          <div class="field"><label for="producto-low">Stock Bajo</label><input id="producto-low" name="low_qty" type="number" min="1" max="2147483647" step="1" required></div>
+          <div class="field"><label for="producto-qty">Cantidad</label><input id="producto-qty" name="qty" type="text" inputmode="numeric" value="0" required></div>
+          <div class="field"><label for="producto-cost">Costo Unitario (CLP)</label><input id="producto-cost" name="cost" type="text" inputmode="numeric" required></div>
+          <div class="field"><label for="producto-price">Precio Unitario (CLP)</label><input id="producto-price" name="price" type="text" inputmode="numeric" required></div>
+          <div class="field"><label for="producto-low">Stock Bajo</label><input id="producto-low" name="low_qty" type="text" inputmode="numeric" required></div>
           <div class="field"><label for="producto-created">Creado</label><input id="producto-created" name="created_at" type="datetime-local" required></div>
           <div class="field" data-updated-field><label for="producto-updated">Actualizado</label><input id="producto-updated" name="updated_at" type="datetime-local" required></div>
         </div>
@@ -81,6 +103,12 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
   const selector = form.querySelector('#producto-selector');
   const categorySelect = form.elements.category;
   const campos = [...form.querySelectorAll('.producto-campos input, .producto-campos select')];
+  const numericInputs = new Map([
+    ['qty', configureIntegerInput(form.elements.qty, { min: 0 })],
+    ['cost', configureIntegerInput(form.elements.cost, { min: 0 })],
+    ['price', configureIntegerInput(form.elements.price, { min: 0 })],
+    ['low_qty', configureIntegerInput(form.elements.low_qty, { min: 1 })]
+  ]);
   const fechaLocal = valor => {
     const fecha = new Date(valor);
     return new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -117,6 +145,8 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     panel.querySelector('#opciones-inventario').hidden = true;
     panel.querySelector('[data-add-modify-inventory]').setAttribute('aria-expanded', 'false');
     form.reset();
+    numericInputs.forEach(controller => controller?.set(''));
+    numericInputs.get('qty')?.set(0);
     imageJob++; imageBlob = null; currentImagePath = null; limpiarPreview();
     error.hidden = true;
     form.querySelector('[data-selector]').hidden = tipo === 'agregar';
@@ -222,6 +252,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       campo.value = !producto ? '' : ['created_at', 'updated_at'].includes(campo.name)
         ? fechaLocal(producto[campo.name]) : producto[campo.name];
     });
+    numericInputs.forEach((controller, name) => controller?.set(producto?.[name] ?? ''));
     imageBlob = null; imageInput.value = ''; limpiarPreview();
     currentImagePath = producto?.image_path ?? null;
     if (producto && currentImagePath) { imagePreview.hidden = false; imageStatus.textContent = 'Este producto ya tiene una foto guardada. Selecciona otra para reemplazarla.'; }
@@ -243,7 +274,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     if (modo === 'agregar') delete datos.sku;
     datos.name = datos.name.trim();
     datos.category = datos.category.trim();
-    for (const campo of ['qty', 'cost', 'price', 'low_qty']) datos[campo] = Number(datos[campo]);
+    for (const campo of ['qty', 'cost', 'price', 'low_qty']) datos[campo] = parseFormattedInteger(datos[campo]);
     if (!datos.name || !datos.category) return mostrarError('Completa el producto y la categoría.');
     const original = productos.find(p => String(p.id) === productoId);
     if (modo === 'agregar') datos.updated_at = datos.created_at;
@@ -288,13 +319,18 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       uploadedPath = null;
       dialogo.close();
       await alGuardar();
-      if (modo === 'agregar' || modo === 'modificar') {
-        document.dispatchEvent(new CustomEvent('producto-guardado', {detail: {
-          action: modo === 'agregar' ? 'created' : 'updated',
-          name: resultado?.name || datos.name,
-          sku: resultado?.sku || seleccionado?.sku || datos.sku || ''
-        }}));
-      }
+      const productoFinal = modo === 'borrar' ? seleccionado : {...datos,...resultado};
+      const action = modo === 'agregar' ? 'created' : modo === 'modificar' ? 'updated' : 'deleted';
+      const description = action === 'created' ? descripcionProductoCreado(productoFinal)
+        : action === 'updated' ? descripcionCambiosProducto(seleccionado, productoFinal, Boolean(imageBlob))
+        : `${seleccionado.name}${seleccionado.sku ? ` · ${seleccionado.sku}` : ''}`;
+      document.dispatchEvent(new CustomEvent('producto-guardado', {detail: {
+        action,
+        productId: String(productoFinal?.id || seleccionado?.id || ''),
+        name: productoFinal?.name || seleccionado?.name || 'Producto',
+        sku: productoFinal?.sku || seleccionado?.sku || '',
+        description
+      }}));
     } catch (err) {
       if (!productRequestStarted) await eliminarImagen(uploadedPath);
       mostrarError(err instanceof TypeError ? 'No se pudo confirmar el guardado. Revisa la conexión y actualiza el inventario antes de reintentar.' : err.message);

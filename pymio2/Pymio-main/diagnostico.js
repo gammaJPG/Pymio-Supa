@@ -79,14 +79,18 @@ export function renderAlerts(alerts=currentAlerts) {
     const button=document.createElement('button');button.type='button';button.className='expand-btn';button.textContent='Ver detalle';button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls',detailId);
     const description=document.createElement('div');description.className='alert-desc';description.textContent=alert.desc;
     const metric=document.createElement('div');metric.className='alert-metric';metric.textContent=alert.metric;
-    const extra=document.createElement('div');extra.className='alert-extra';extra.id=detailId;extra.textContent=alert.extra;
+    const extra=document.createElement('div');extra.className='alert-extra';extra.id=detailId;
+    const extraText=document.createElement('p');extraText.textContent=alert.extra;
+    const editButton=document.createElement('button');editButton.type='button';editButton.className='btn-secondary diagnostic-product-action';editButton.textContent='Modificar producto';
+    editButton.onclick=()=>document.dispatchEvent(new CustomEvent('abrir-inventario-producto',{detail:{id:alert.productId,edit:true}}));
+    extra.append(extraText,editButton);
     button.onclick=()=>{const open=card.classList.toggle('open');button.setAttribute('aria-expanded',String(open));button.textContent=open?'Ocultar detalle':'Ver detalle';};
     topLeft.append(pill,title);top.append(topLeft,button);card.append(top,description,metric,extra);list.append(card);
   }
 }
 
 function publish(alerts) {
-  document.dispatchEvent(new CustomEvent('diagnostico-actualizado',{detail:{alerts:alerts.map(({id,alertId,sev,title})=>({id,alertId,sev,title}))}}));
+  document.dispatchEvent(new CustomEvent('diagnostico-actualizado',{detail:{alerts:alerts.map(({id,alertId,productId,sev,title,desc})=>({id,alertId,productId,sev,title,desc,requiresResolution:true}))}}));
 }
 
 export async function refreshDiagnosticAlerts() {
