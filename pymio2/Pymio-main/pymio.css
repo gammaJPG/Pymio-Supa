@@ -7,6 +7,7 @@
 .movement-filter-menu{margin:0;}
 .movement-filter-menu .movimiento-filtros{margin:0;width:min(520px,calc(100vw - 24px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
 .movement-filter-menu .movimiento-filtros label:first-child{grid-column:1/-1;}
+.movement-filter-menu .movimiento-filtros .movement-filter-full{grid-column:1/-1;}
 #tab-inventario [data-category-toggle]{width:auto;min-width:0;min-height:42px;padding:10px 16px;background:var(--accent);color:#34301e;border:1px solid #e3c65f;border-radius:8px;font-size:12px;font-weight:600;}
 #tab-inventario [data-category-toggle]:hover{background:#e3c364;color:#34301e;}
 #tab-inventario .inventario-detalle-grid{align-items:stretch;}
@@ -219,6 +220,10 @@ dialog.producto-dialogo::backdrop{background:#1e231b80;backdrop-filter:blur(4px)
 .alert-extra{font-size:13px;line-height:1.8;margin-top:20px;}
 .alert-extra p{margin:0;}
 .diagnostic-product-action{margin-top:13px;}
+.diagnostic-receivable-actions{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:13px;}
+.diagnostic-postpone-field{display:flex;flex-direction:column;gap:6px;font-weight:600;color:var(--ink-soft);}
+.diagnostic-postpone-field input{width:120px;min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;}
+.diagnostic-action-feedback{min-height:20px;margin-top:8px!important;color:var(--critical);}
 .expand-btn{border-radius:7px;font-size:11px;padding:10px 14px;min-height:40px;}
 .diagnostic-note{display:flex;gap:23px;max-width:640px;padding:32px 0;}
 .diagnostic-note>span{font-size:36px;color:#aaa98b;}
@@ -525,6 +530,7 @@ table{font-size:11px;}
 .chip-card .kpi-value{font-size:23px;}
 .movimiento-filtros{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px;}
 .movimiento-filtros label:first-child{grid-column:1/-1;}
+.movimiento-filtros .movement-filter-full{grid-column:1/-1;}
 .movimiento-filtros label{min-width:0;}
 .movimiento-filtros input,.movimiento-filtros select{width:100%;min-width:0;}
 #tab-movimientos [data-movement-menu]{font-size:11px;min-width:0;}
@@ -597,8 +603,9 @@ button{min-height:44px;}
 
 /* New movement controls inherit the current Pymio theme. */
 .movimiento-botones{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.movimiento-detalle-resumen{display:flex;flex-wrap:wrap;gap:12px 28px;padding:16px 0;color:var(--muted);font-size:12px;}
-.movimiento-detalle-resumen p{margin:0;}
+.movimiento-detalle-resumen{display:flex;flex-wrap:wrap;gap:10px;padding:12px 0 2px;color:var(--muted);font-size:12px;}
+.movimiento-detalle-resumen p{display:flex;align-items:center;min-height:42px;box-sizing:border-box;margin:0;padding:10px 13px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 1px 2px #3034210a;}
+.movimiento-detalle-resumen strong{color:var(--ink);margin-right:4px;}
 .movimiento-detalle-acciones{display:flex;justify-content:flex-end;margin:0 0 8px;}
 .movimiento-marcar-pagado{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:9px 13px;border:1px solid #a9d8b1;border-radius:8px;background:#dff2e2;color:#245c31;font-size:11px;font-weight:600;box-shadow:0 1px 2px #245c3112;}
 .movimiento-marcar-pagado span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#63a873;color:#fff;font-size:12px;line-height:1;}
@@ -629,12 +636,21 @@ button{min-height:44px;}
 #tab-movimientos .movimiento-resumen>td{text-align:center;}
 #tab-movimientos .movimiento-toggle{display:inline-flex;align-items:center;justify-content:center;max-width:100%;text-align:center;}
 #tab-movimientos .movimiento-resumen:hover{background:#f4f5f0;}
-#tab-movimientos .movimiento-detalle>td{padding:12px;background:#f4f5f0;text-align:left;}
+#tab-movimientos .movimiento-detalle>td{padding:14px;background:#f4f5f0;text-align:left;}
 #tab-movimientos .movimiento-detalle .table-scroll{border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 1px 2px #3034210a;}
 #tab-movimientos .movimiento-detalle table{background:#fff;font-size:13px;line-height:1.5;color:var(--muted);}
 #tab-movimientos .movimiento-detalle table{width:100%;table-layout:fixed;}
-#tab-movimientos .movimiento-detalle table th,#tab-movimientos .movimiento-detalle table td{padding:7px 8px;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;color:var(--ink);}
-#tab-movimientos .movimiento-detalle table th{background:#f1cf54;font-size:10px;font-weight:500;}
+#tab-movimientos .movimiento-detalle table th,#tab-movimientos .movimiento-detalle table td{padding:13px 12px;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;color:var(--ink);}
+#tab-movimientos .movimiento-detalle table th{padding-top:10px;padding-bottom:10px;background:#f1cf54;font-size:10px;font-weight:500;}
+#tab-movimientos .movimiento-productos-table th:nth-child(1){width:14%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(2){width:12%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(3){width:10%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(4){width:14%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(5){width:10%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(6){width:10%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(7){width:14%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(8){width:8%;}
+#tab-movimientos .movimiento-productos-table th:nth-child(9){width:8%;}
 #tab-movimientos .movimiento-unidades-positivas{color:#287a3f!important;font-weight:700;}
 #tab-movimientos .movimiento-unidades-negativas{color:#b34435!important;font-weight:700;}
 #tab-movimientos .movimiento-sku-link{color:#405f91;text-decoration:underline;text-underline-offset:2px;font-weight:600;}
@@ -719,6 +735,18 @@ button{min-height:44px;}
   :is(#movimiento-form .producto-campos, #movimiento-form .movimiento-cliente, #tab-dashboard .filter-group) select option::checkmark{display:none;}
   #movimiento-form .producto-campos select option[value=""]{display:none;}
   :is(#movimiento-form .producto-campos, #movimiento-form .movimiento-cliente, #tab-dashboard .filter-group) select::picker-icon{color:var(--ink);}
+}
+
+/* Movement filters use the same field and picker language as the sale form. */
+#movement-filters :is(input,select){box-sizing:border-box;width:100%;min-width:0;min-height:46px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background-color:#fff;color:var(--ink);font:inherit;font-size:14px;line-height:1.4;color-scheme:light;}
+@supports (appearance:base-select){
+  #movement-filters select,#movement-filters select::picker(select){appearance:base-select;}
+  #movement-filters select::picker(select){max-height:230px;margin-top:8px;padding:6px;overflow-y:auto;border:1px solid #343434;border-radius:8px;background:#1f1f1f;color:#f5f5f5;box-shadow:0 3px 8px #0005;scrollbar-width:thin;scrollbar-color:#909090 #1f1f1f;}
+  #movement-filters select option{min-height:38px;padding:10px 12px;border-radius:4px;background:#1f1f1f;color:#f5f5f5;font:inherit;font-size:13px;font-weight:500;line-height:1.4;cursor:pointer;}
+  #movement-filters select option:hover,#movement-filters select option:focus{background:#383838;color:#fff;outline:none;}
+  #movement-filters select option:checked{background:#303030;}
+  #movement-filters select option::checkmark{display:none;}
+  #movement-filters select::picker-icon{color:var(--ink);}
 }
 
 #tab-inventario #inv-table .inventario-detalle>td,#tab-inventario .inventario-simple-detalle-dialog .inventario-detalle>td{padding:12px;background-color:#f1cf54;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='72' viewBox='0 0 84 72'%3E%3Cg fill='none' stroke='%239a7918' stroke-opacity='.22' stroke-width='1'%3E%3Cpath d='M21 1l20 11v23L21 46 1 35V12zM63 1l20 11v23L63 46 43 35V12zM42 37l20 11v23L42 82 22 71V48zM0 37l20 11v23L0 82-20 71V48zM84 37l20 11v23L84 82 64 71V48z'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat;text-align:left;}

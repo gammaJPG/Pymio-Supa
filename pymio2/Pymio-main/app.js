@@ -434,6 +434,18 @@ async function cargarSecciones() {
     }
   });
   document.addEventListener('diagnostico-actualizado',event=>{diagnosticNotifications=event.detail?.alerts||[];renderNotifications();});
+  document.addEventListener('diagnostico-actividad',event=>{
+    if(currentSession?.demo)return;
+    const detail=event.detail||{};
+    activityNotifications.unshift({id:`diagnostic-activity-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,sev:'info',title:detail.title||'Diagnóstico actualizado',desc:detail.description||'',time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),destination:detail.destination||'diagnostico'});
+    activityNotifications=activityNotifications.slice(0,40);saveInventoryNotifications();renderNotifications();
+  });
+  document.addEventListener('venta-cerrada',event=>{
+    if(currentSession?.demo)return;
+    const detail=event.detail||{},customer=String(detail.customer||'').trim();
+    activityNotifications.unshift({id:`closed-sale-${detail.code||Date.now()}-${Date.now()}`,sev:'success',title:'Venta cerrada',desc:`La venta ${detail.code||''}${customer?` de ${customer}`:''} fue marcada como pagada${detail.queued?' y se sincronizará al recuperar la conexión':''}.`,time:new Date().toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),destination:'movimientos'});
+    activityNotifications=activityNotifications.slice(0,40);saveInventoryNotifications();renderNotifications();
+  });
   document.addEventListener('inventario-actualizado',()=>refreshDiagnosticAlerts());
 
   bellBtn.addEventListener('click', (e) => {

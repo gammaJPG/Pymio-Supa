@@ -23,7 +23,7 @@ test('Pago: marcar pagado conserva los datos del movimiento',()=>{
  assert.deepEqual(data,{action_id:action,revision:3,operation:'Egreso',operation_detail:'Venta',channel:'Online',payment_method:'Tarjeta',Estado:'Pagado',customer_id:'9',occurred_at:'2026-09-27T16:10:00.000Z',discount:{scope:'product'},items:[{product_id:'4',units:2,discount:{type:'percentage',value:10}}]});
 });
 test('Detalle: distribuye el descuento global en cada producto',()=>{
- const movement={discount_scope:'global',discount_type:'percentage',discount_value:20,discount_amount:21000,products:[{total:5000},{total:100000}]};
+ const movement={discount_scope:'global',discount_type:'percentage',discount_value:20,discount_amount:21000,products:[{total:5000,net_total:5000},{total:100000,net_total:100000}]};
  assert.deepEqual(datosDescuentoFila(movement,movement.products[0]),{amount:1000,net:4000,label:'20% ($1.000)'});
  assert.deepEqual(datosDescuentoFila(movement,movement.products[1]),{amount:20000,net:80000,label:'20% ($20.000)'});
 });

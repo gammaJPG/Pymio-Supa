@@ -98,7 +98,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   let displayedMovements = [], movementOrder = null;
   function renderMovementList(openCode = null) {
     const ordered=ordenarMovimientos(displayedMovements,movementOrder);
-    renderMovimientos($('#movimientos-table'),ordered,{onMarkPaid:markMovementPaid});
+    renderMovimientos($('#movimientos-table'),ordered,{onMarkPaid:markMovementPaid,onEdit:movement=>open('edit',null,movement)});
     if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent='No hay movimientos para el período seleccionado.';
     if (openCode) panel.querySelector(`[data-movement-code="${openCode}"] .movimiento-toggle`)?.click();
   }
@@ -123,6 +123,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     if (result.revision) movement.revision = result.revision;
     status.textContent = result.queued ? 'Cambio guardado en el dispositivo. Se marcará como pagado al recuperar la conexión.' : 'Movimiento marcado como pagado.';
     renderMovementList(movement.code);
+    document.dispatchEvent(new CustomEvent('venta-cerrada',{detail:{code:String(movement.code),customer:String(movement.customer_name||movement.customer?.name||'').trim(),total:Number(movement.total)||0,queued:Boolean(result.queued)}}));
   }
   sortHeaders.forEach(header => {
     const sort=()=>{
@@ -366,7 +367,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       if (mode === 'edit' || preset?.detail === 'Venta') { customers = results.at(-1); renderCustomers(); }
       if (mode === 'add') {
         if (!products.length) throw new Error('No hay productos disponibles para esta empresa.');
-        addLine(); fields.disabled = save.disabled = false;
+        addLine(preset?.productId ? {product_id:String(preset.productId),units:1} : undefined); fields.disabled = save.disabled = false;
       } else {
         movements = mode === 'edit' ? results[1] : results[0];
         if (targetMovement && !movements.some(m => m.code === targetMovement.code)) movements.unshift(targetMovement);
@@ -384,6 +385,11 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   $('[data-movement-add]').onclick = () => open('add');
   $('[data-sale-add]').onclick = () => open('add', { operation: 'Egreso', detail: 'Venta' });
   $('[data-purchase-add]').onclick = () => open('add', { operation: 'Ingreso', detail: 'Compra' });
+  document.addEventListener('realizar-compra-producto',event=>{
+    const productId=String(event.detail?.id||'');
+    document.querySelector('[data-tab="movimientos"]')?.click();
+    open('add',{operation:'Ingreso',detail:'Compra',productId});
+  });
   $('[data-movement-edit]').onclick = () => open('edit');
   $('[data-movement-delete]').onclick = () => open('delete');
   cancel.onclick = () => { version++; dialog.close(); };

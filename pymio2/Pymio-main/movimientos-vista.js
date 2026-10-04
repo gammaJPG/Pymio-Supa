@@ -12,7 +12,8 @@ export function datosDescuentoFila(movement, product) {
       amount=gross?Number(movement.discount_amount||0)*subtotal/gross:0;
     }
   }
-  const net=product.net_total==null?subtotal-amount:Number(product.net_total);
+  const globalDiscount=movement.discount_scope!=='product'&&Boolean(movement.discount_type);
+  const net=globalDiscount||product.net_total==null?subtotal-amount:Number(product.net_total);
   return {amount,net,label:amount<=0?'-':type==='percentage'?`${value}% (${moneda(amount)})`:moneda(amount)};
 }
 export function fechaMovimiento(value) {
@@ -126,7 +127,7 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
       cell.appendChild(actions);
     }
     const wrap = document.createElement('div'); wrap.className = 'table-scroll';
-    const nested = document.createElement('table');
+    const nested = document.createElement('table');nested.className='movimiento-productos-table';
     const headers = nested.createTHead().insertRow();
     const isPurchase = movement.operation === 'Ingreso' && movement.operation_detail === 'Compra';
     const unitsTitle = movement.operation === 'Egreso' ? 'Unidades (Egresadas)' : 'Unidades (Ingresadas)';

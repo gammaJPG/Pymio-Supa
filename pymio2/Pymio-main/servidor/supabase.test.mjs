@@ -194,7 +194,9 @@ test('HTTP: validation, company scope, CORS, CRUD routing and Supabase failures'
   const product={name:'Prueba',category:'Cat',qty:5,cost:10,price:20,low_qty:2,created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z'};
   const send=(url,method,data)=>fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   try {
-    assert.equal((await fetch(url,{method:'OPTIONS',headers:{Origin:'http://localhost:5500'}})).status,204);
+    const preflight=await fetch(url,{method:'OPTIONS',headers:{Origin:'http://localhost:5500','Access-Control-Request-Headers':'content-type,x-file-name'}});
+    assert.equal(preflight.status,204);
+    assert.match(preflight.headers.get('access-control-allow-headers'),/X-File-Name/i);
     assert.equal((await fetch(url,{headers:{Origin:'https://other.test'}})).status,403);
     assert.equal((await send(url,'POST',{...product,company_id:999})).status,201);
     assert.equal(calls.at(-1).operation,'product.create'); assert.equal(calls.at(-1).company,'2');
