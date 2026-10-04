@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
+import { readFile } from 'node:fs/promises';
 import { atenderRedPymio } from './red-pymio.mjs';
 
 function request(path,method='GET',body){
@@ -58,4 +59,9 @@ test('RED Pymio: conecta empresas y permite responder solicitudes privadas',asyn
   assert.equal((await call(`/api/network/communities/${communityId}/requests/${requestId}`,'POST',{decision:'otro'})).response.status,400);
   const approved=await call(`/api/network/communities/${communityId}/requests/${requestId}`,'POST',{decision:'approve'});
   assert.equal(approved.response.status,200);assert.deepEqual(approved.calls[0].payload,{community_id:communityId,request_id:requestId,decision:'approve'});
+});
+
+test('RED Pymio: al unirse reemplaza el botón por Miembro - Usuario',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  assert.match(source,/item\.joined\?[\s\S]*Miembro - Usuario[\s\S]*data-community-join/);
 });

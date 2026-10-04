@@ -13,7 +13,7 @@
 #tab-inventario .inventario-historial th,#tab-inventario .inventario-historial td{padding:7px 8px;text-align:left;color:var(--ink);}
 #tab-inventario .inventario-historial th{color:var(--ink);}
 #tab-inventario .inventario-historial td a{color:#0866c2;}
-#tab-movimientos .card table th,#tab-movimientos .card table td{text-align:left;}
+#tab-movimientos .card table th,#tab-movimientos .card table td{text-align:center;vertical-align:middle;}
 #tab-movimientos .card table th{color:var(--ink);}
 .topbar-sync{min-height:32px!important;padding:6px 10px!important;white-space:nowrap;font-size:10px!important;}
 .connection-indicator{position:relative;display:grid;place-items:center;flex:0 0 22px;width:22px;height:32px;cursor:help;}
@@ -632,8 +632,12 @@ button{min-height:44px;}
 #tab-movimientos .movimiento-detalle>td{padding:12px;background:#f4f5f0;text-align:left;}
 #tab-movimientos .movimiento-detalle .table-scroll{border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 1px 2px #3034210a;}
 #tab-movimientos .movimiento-detalle table{background:#fff;font-size:13px;line-height:1.5;color:var(--muted);}
-#tab-movimientos .movimiento-detalle table th,#tab-movimientos .movimiento-detalle table td{padding:7px 8px;text-align:left;white-space:nowrap;color:var(--ink);}
+#tab-movimientos .movimiento-detalle table{width:100%;table-layout:fixed;}
+#tab-movimientos .movimiento-detalle table th,#tab-movimientos .movimiento-detalle table td{padding:7px 8px;text-align:center;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;color:var(--ink);}
 #tab-movimientos .movimiento-detalle table th{background:#f1cf54;font-size:10px;font-weight:500;}
+#tab-movimientos .movimiento-unidades-positivas{color:#287a3f!important;font-weight:700;}
+#tab-movimientos .movimiento-unidades-negativas{color:#b34435!important;font-weight:700;}
+#tab-movimientos .movimiento-sku-link{color:#405f91;text-decoration:underline;text-underline-offset:2px;font-weight:600;}
 /* Shared alignment for sale, purchase and movement dialogs. */
 #movimiento-form > [data-movement-fields]{min-width:0;margin:0;padding:0;border:0;}
 #movimiento-form [data-operation-fields] > div{display:contents;}
@@ -717,7 +721,7 @@ button{min-height:44px;}
   :is(#movimiento-form .producto-campos, #movimiento-form .movimiento-cliente, #tab-dashboard .filter-group) select::picker-icon{color:var(--ink);}
 }
 
-#tab-inventario #inv-table .inventario-detalle>td{padding:12px;background-color:#f1cf54;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='72' viewBox='0 0 84 72'%3E%3Cg fill='none' stroke='%239a7918' stroke-opacity='.22' stroke-width='1'%3E%3Cpath d='M21 1l20 11v23L21 46 1 35V12zM63 1l20 11v23L63 46 43 35V12zM42 37l20 11v23L42 82 22 71V48zM0 37l20 11v23L0 82-20 71V48zM84 37l20 11v23L84 82 64 71V48z'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat;text-align:left;}
+#tab-inventario #inv-table .inventario-detalle>td,#tab-inventario .inventario-simple-detalle-dialog .inventario-detalle>td{padding:12px;background-color:#f1cf54;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='72' viewBox='0 0 84 72'%3E%3Cg fill='none' stroke='%239a7918' stroke-opacity='.22' stroke-width='1'%3E%3Cpath d='M21 1l20 11v23L21 46 1 35V12zM63 1l20 11v23L63 46 43 35V12zM42 37l20 11v23L42 82 22 71V48zM0 37l20 11v23L0 82-20 71V48zM84 37l20 11v23L84 82 64 71V48z'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat;text-align:left;}
 #tab-inventario #inv-table .inventario-detalle>td:before{content:none;}
 #tab-inventario .inventario-detalle-grid{align-items:stretch;}
 #tab-inventario .inventario-detalle-card{padding:14px;}
@@ -754,8 +758,20 @@ button{min-height:44px;}
 .inventario-vista-control label{font-size:11px;font-weight:500;color:var(--muted);}
 .inventario-vista-control select{min-height:36px;padding:7px 30px 7px 10px;border-radius:8px;font-size:11px;background:#fff;}
 .inventario-simple-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:16px;min-width:0;}
-.inventario-producto-card{display:flex;flex-direction:column;min-width:0;min-height:290px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden;}
+.inventario-producto-card{display:flex;flex-direction:column;min-width:0;min-height:290px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden;cursor:pointer;transition:border-color 180ms ease,box-shadow 180ms ease,transform 180ms ease;}
 .inventario-card-header{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:12px;min-width:0;}
+.inventario-producto-card:hover{border-color:#c9bd82;box-shadow:0 8px 24px #66521818;transform:translateY(-1px);}
+.inventario-producto-card:focus-visible{outline:3px solid #d5ac3066;outline-offset:3px;}
+.inventario-simple-detalle-dialog{width:min(1080px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;border:1px solid #d5ac30;border-radius:14px;background:transparent;box-shadow:0 22px 60px #20221d40;overflow:hidden;}
+.inventario-simple-detalle-dialog::backdrop{background:#20221d80;backdrop-filter:blur(3px);}
+.inventario-simple-detalle-shell{display:flex;flex-direction:column;max-height:calc(100dvh - 34px);background:#f1cf54;}
+.inventario-simple-detalle-shell>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:#fff;border-bottom:1px solid #d9bc50;}
+.inventario-simple-detalle-shell>header h2{min-width:0;margin:0;font-size:18px;line-height:1.3;overflow-wrap:anywhere;}
+.inventario-simple-detalle-shell>header button{display:grid;place-items:center;width:36px;height:36px;min-height:36px;flex:0 0 36px;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font-size:24px;line-height:1;cursor:pointer;}
+.inventario-simple-detalle-body{min-width:0;overflow:auto;}
+.inventario-simple-detalle-table{width:100%;border-collapse:collapse;background:transparent;}
+.inventario-simple-detalle-dialog .inventario-detalle>td{border-bottom:0;}
+@media(max-width:600px){.inventario-simple-detalle-dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}.inventario-simple-detalle-shell{max-height:calc(100dvh - 22px)}.inventario-simple-detalle-shell>header{padding:12px}.inventario-simple-detalle-shell>header h2{font-size:16px}.inventario-simple-detalle-dialog .inventario-detalle>td{padding:10px}}
 .inventario-card-stock,.inventario-card-price{margin:0;color:var(--ink);font-size:12px;line-height:1.4;}
 .inventario-card-stock.critico{color:#b25942;}
 .inventario-card-stock strong,.inventario-card-price strong{font-weight:600;font-variant-numeric:tabular-nums;}

@@ -55,7 +55,7 @@ BEGIN
    END IF;
    UPDATE public.movement_lines l SET initial_qty=l.initial_qty+delta,final_qty=l.final_qty+delta FROM public.movements later
      WHERE later.code=l.movement_code AND later.company_id=company AND later.deleted_at IS NULL AND l.product_id=p.id AND (later.created_at,later.code)>(m.created_at,m.code);
-   price:=coalesce(old.unit_price,p.price);
+   price:=coalesce(old.unit_price,CASE WHEN req->>'operation'='Ingreso' AND req->>'operation_detail'='Compra' THEN p.cost ELSE p.price END);
    discount:=CASE WHEN item#>>'{discount,type}'='percentage' THEN price*abs(units)*(item#>>'{discount,value}')::numeric/100 ELSE coalesce((item#>>'{discount,value}')::numeric,0) END;
    IF discount>price*abs(units) THEN RAISE SQLSTATE 'PT400' USING MESSAGE='El descuento no puede superar el subtotal del producto.'; END IF;
    IF item IS NOT NULL AND old.id IS NOT NULL THEN
@@ -63,7 +63,7 @@ BEGIN
        discount_type=item#>>'{discount,type}',discount_value=coalesce((item#>>'{discount,value}')::numeric,0) WHERE id=old.id;
    ELSIF item IS NOT NULL THEN
      INSERT INTO public.movement_lines(movement_code,company_id,product_id,sku,units,occurred_at,initial_qty,final_qty,product_name,unit_price,discount_type,discount_value)
-       VALUES(move_id,company,p.id,p.sku,units,(req->>'occurred_at')::timestamptz,initial,initial+units,p.name,p.price,item#>>'{discount,type}',coalesce((item#>>'{discount,value}')::numeric,0));
+       VALUES(move_id,company,p.id,p.sku,units,(req->>'occurred_at')::timestamptz,initial,initial+units,p.name,price,item#>>'{discount,type}',coalesce((item#>>'{discount,value}')::numeric,0));
    ELSIF old.id IS NOT NULL AND req IS NOT NULL THEN
      DELETE FROM public.movement_lines WHERE id=old.id;
    END IF;

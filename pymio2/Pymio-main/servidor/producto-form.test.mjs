@@ -78,6 +78,7 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   assert.equal(datos.name, 'Nombre editado');
   assert.equal(datos.qty, 8);
   assert.equal(datos.created_at, producto.created_at);
+  assert.ok(Date.parse(datos.updated_at) >= Date.parse(producto.updated_at));
   assert.equal(recargas, 1);
   assert.equal(dialogo.open, false);
   await agregar.onclick();
@@ -104,4 +105,12 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   assert.equal(llamadas.at(-1).url.searchParams.get('company_id'), '2');
   assert.equal(recargas, 2);
   assert.equal(dialogo.open, false);
+});
+
+test('Formulario: fechas automáticas e imagen sin informar la calidad interna', async () => {
+  const source = await readFile(new URL('../producto-form.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /name="created_at"|name="updated_at"/);
+  assert.doesNotMatch(source, /calidad \$\{/);
+  assert.match(source, /datos\.created_at = original\?\.created_at \?\? ahora/);
+  assert.match(source, /datos\.updated_at = ahora/);
 });

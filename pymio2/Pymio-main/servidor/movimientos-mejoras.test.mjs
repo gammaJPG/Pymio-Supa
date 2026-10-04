@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 
 import {validarMovimiento,guardarMovimiento,cambiarMovimiento,listarMovimientos} from './movimientos.mjs';
 import {dentroDelRangoHorario,datosMovimientoPagado,datosDescuentoFila} from '../movimientos-vista.js';
@@ -25,5 +26,19 @@ test('Detalle: distribuye el descuento global en cada producto',()=>{
  const movement={discount_scope:'global',discount_type:'percentage',discount_value:20,discount_amount:21000,products:[{total:5000},{total:100000}]};
  assert.deepEqual(datosDescuentoFila(movement,movement.products[0]),{amount:1000,net:4000,label:'20% ($1.000)'});
  assert.deepEqual(datosDescuentoFila(movement,movement.products[1]),{amount:20000,net:80000,label:'20% ($20.000)'});
+});
+test('Movimientos: expone filtros y presenta costos, signos y enlaces en el detalle',async()=>{
+ const [html,view,migration]=await Promise.all([
+  readFile(new URL('../movimientos.html',import.meta.url),'utf8'),
+  readFile(new URL('../movimientos-vista.js',import.meta.url),'utf8'),
+  readFile(new URL('../supabase/migrations/014_purchase_unit_cost.sql',import.meta.url),'utf8')
+ ]);
+ for(const id of ['mov-filter-status','mov-filter-channel','mov-filter-payment'])assert.match(html,new RegExp(`id="${id}"`));
+ assert.match(view,/isPurchase \? 'Costo Unitario' : 'Precio Unitario'/);
+ assert.match(view,/Unidades \(Egresadas\)/);
+ assert.match(view,/movimiento-unidades-positivas/);
+ assert.match(view,/movimiento-unidades-negativas/);
+ assert.match(view,/CustomEvent\('abrir-producto'/);
+ assert.match(migration,/movement_operation = 'Ingreso' AND movement_detail = 'Compra'/);
 });
 

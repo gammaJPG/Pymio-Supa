@@ -30,6 +30,15 @@ test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del
   assert.equal(calls[0].url.pathname,'/auth/v1/admin/users');assert.equal(calls[1].url.pathname,'/rest/v1/rpc/pymio_register_account');
 });
 
+test('Supabase Auth: crea una contraseña para una cuenta originada en Google',async()=>{
+  let sent;
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{sent={url,options};return Response.json({id:'google-user'});}});
+  await client.updateAuthUserPassword('google-user','segura123');
+  assert.equal(sent.url.pathname,'/auth/v1/admin/users/google-user');
+  assert.equal(sent.options.method,'PUT');
+  assert.deepEqual(JSON.parse(sent.options.body),{password:'segura123',app_metadata:{pymio_password_set:true}});
+});
+
 test('Supabase Auth: prepara Google con PKCE e intercambia el código en el servidor',async()=>{
   const calls=[];
   const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});if(url.pathname.endsWith('/settings'))return Response.json({external:{google:true}});return Response.json({user:{id:'google-user',email:'ana@example.com'}});}});
@@ -55,12 +64,13 @@ test('Supabase RED Pymio: usa la función protegida y mantiene el alcance empres
 });
 
 test('HTTP Auth: Google pide los datos del negocio antes de crear el espacio',async()=>{
-  const registrations=[];
+  const registrations=[],passwordUpdates=[];
   const pool={
     authProviders:async()=>({google:true}),
     googleAuthorizeUrl:(redirect,state,challenge)=>`https://auth.example/authorize?redirect_to=${encodeURIComponent(redirect)}&state=${state}&challenge=${challenge}`,
     exchangeOAuthCode:async()=>({user:{id:'google-user',email:'ana@example.com',user_metadata:{full_name:'Ana Pérez'}}}),
     accountForUser:async()=>{throw Object.assign(new Error('sin cuenta'),{status:404});},
+    updateAuthUserPassword:async(userId,password)=>{passwordUpdates.push({userId,password});},
     registerAccount:async(userId,email,businessName,ownerName)=>{registrations.push({userId,email,businessName,ownerName});return {company_id:12,business_name:businessName,owner_name:ownerName};}
   };
   const server=createInventoryServer(pool,['http://localhost:5500'],{sessionSecret:'test-secret'}),base=await listen(server);
@@ -72,12 +82,15 @@ test('HTTP Auth: Google pide los datos del negocio antes de crear el espacio',as
     assert.equal(result.status,302);assert.equal(new URL(result.headers.get('location')).searchParams.get('google_setup'),'1');
     const setupCookie=result.headers.getSetCookie().find(value=>value.startsWith('pymio_google_setup=')).split(';')[0];
     const setupResponse=await fetch(base+'/api/auth/google/setup',{headers:{Cookie:setupCookie}}),setup=await setupResponse.json();
-    assert.equal(setupResponse.status,200);assert.deepEqual(setup,{email:'ana@example.com',businessName:'',ownerName:'Ana Pérez'});assert.equal(registrations.length,0);
-    const complete=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes',ownerName:'Anita'})});
-    assert.equal(complete.status,201);assert.deepEqual(registrations,[{userId:'google-user',email:'ana@example.com',businessName:'Café Los Andes',ownerName:'Anita'}]);
+    assert.equal(setupResponse.status,200);assert.deepEqual(setup,{email:'ana@example.com',businessName:'',ownerName:'Ana Pérez',needsPassword:true});assert.equal(registrations.length,0);
+    const shortPassword=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes',ownerName:'Anita',password:'corta'})});
+    assert.equal(shortPassword.status,400);assert.equal(passwordUpdates.length,0);
+    const complete=await fetch(base+'/api/auth/google/complete',{method:'POST',headers:{Cookie:setupCookie,'Content-Type':'application/json'},body:JSON.stringify({businessName:'Café Los Andes',ownerName:'Anita',password:'segura123'})});
+    assert.equal(complete.status,201);assert.deepEqual(registrations,[{userId:'google-user',email:'ana@example.com',businessName:'Café Los Andes',ownerName:'Ana Pérez'}]);
+    assert.deepEqual(passwordUpdates,[{userId:'google-user',password:'segura123'}]);
     const sessionCookie=complete.headers.getSetCookie().find(value=>value.startsWith('pymio_session=')).split(';')[0];
     const response=await fetch(base+'/api/auth/session',{headers:{Cookie:sessionCookie}}),session=(await response.json()).session;
-    assert.equal(response.status,200);assert.equal(session.userId,'google-user');assert.equal(session.email,'ana@example.com');assert.equal(session.companyId,'12');assert.equal(session.businessName,'Café Los Andes');assert.equal(session.ownerName,'Anita');assert.equal(session.demo,false);
+    assert.equal(response.status,200);assert.equal(session.userId,'google-user');assert.equal(session.email,'ana@example.com');assert.equal(session.companyId,'12');assert.equal(session.businessName,'Café Los Andes');assert.equal(session.ownerName,'Ana Pérez');assert.equal(session.demo,false);
   } finally {await close(server);}
 });
 

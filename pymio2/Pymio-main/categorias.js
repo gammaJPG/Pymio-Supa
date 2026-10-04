@@ -27,7 +27,7 @@ export function prepararCategorias({panel,companyId,apiUrl,alGuardar}) {
   form.reset();error.hidden=true;save.textContent=labels[mode];$('#categoria-titulo').textContent=labels[mode];
   $('[data-category-selector-wrap]').hidden=mode==='crear';selector.disabled=true;selector.required=mode!=='crear';
   $('[data-category-name-wrap]').hidden=mode==='eliminar';name.disabled=mode!=='crear';
-  info.textContent='La sigla y las fechas se generan automáticamente.';save.disabled=mode!=='crear';dialog.showModal();
+  info.textContent=mode==='crear'?'La sigla y las fechas se generan automáticamente.':'';save.disabled=mode!=='crear';dialog.showModal();
   if(mode==='crear')return;
   selector.replaceChildren(new Option('Cargando categorías…',''));
   try{
