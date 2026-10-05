@@ -32,16 +32,15 @@ export function createInventoryAlerts(products = []) {
       id:`stock-${safeId(product.id)}`,
       alertId:`diagnostico-producto-${safeId(product.id)}`,
       productId:String(product.id),
+      imagePath:String(product.image_path || ''),
+      category:String(product.category || 'Sin categoría'),
       sev:critical?'critical':'warn',
       tag:state,
       title:critical?`Sin stock: ${product.name}`:`Stock bajo: ${product.name}`,
       desc:critical
         ? `El producto "${product.name}" no tiene unidades disponibles.`
         : `El producto "${product.name}" tiene ${quantity.toLocaleString('es-CL')} unidades, por debajo de su límite de stock bajo (${lowQuantity.toLocaleString('es-CL')}).`,
-      metric:`Stock actual: ${quantity.toLocaleString('es-CL')} unidades`,
-      extra:critical
-        ? 'Revisa las próximas compras o registra un ingreso para recuperar disponibilidad.'
-        : 'Revisa la reposición de este producto antes de que se agote.'
+      metric:`Stock actual: ${quantity.toLocaleString('es-CL')} unidades`
     });
   }
   return alerts;
@@ -103,23 +102,30 @@ export function renderAlerts(alerts=currentAlerts) {
   list.replaceChildren();
   if (!alerts.length) return renderEmpty('El inventario está normal y no hay ventas vencidas por cobrar.');
   for (const alert of alerts) {
-    const card=document.createElement('article');card.className=`alert-card ${alert.sev}`;card.id=alert.alertId;
+    const card=document.createElement('article');card.className=`alert-card ${alert.sev}${alert.kind==='receivable'?' receivable-alert':' inventory-alert'}`;card.id=alert.alertId;
+    if (alert.kind!=='receivable') {
+      const media=document.createElement('div');media.className='diagnostic-product-media';
+      const match=alert.imagePath.match(new RegExp(`^${configuration.companyId}/([0-9a-f-]{36})\\.webp$`,'i'));
+      const placeholder=()=>{media.replaceChildren();const mark=document.createElement('span');mark.setAttribute('aria-hidden','true');mark.textContent='◇';media.append(mark);};
+      if(match){const image=document.createElement('img');const url=new URL(`/api/product-images/${match[1]}`,configuration.apiUrl);url.searchParams.set('company_id',configuration.companyId);image.src=url;image.alt=`Imagen de ${alert.title.replace(/^(Sin stock|Stock bajo):\s*/i,'')}`;image.loading='lazy';image.decoding='async';image.onerror=placeholder;media.append(image);}else placeholder();
+      card.append(media);
+    }
     const top=document.createElement('div');top.className='alert-top';
     const topLeft=document.createElement('div');topLeft.className='alert-top-left';
     const pill=document.createElement('span');pill.className=`pill ${alert.sev==='critical'?'out':'low'}`;pill.textContent=alert.tag;
     const title=document.createElement('span');title.className='alert-title';
     const titleMatch=alert.title.match(/^(Sin stock|Stock bajo):\s*(.*)$/i);
-    if(titleMatch){const prefix=document.createElement('span');prefix.className='alert-title-prefix';prefix.textContent=`${titleMatch[1]}: `;title.append(prefix,document.createTextNode(titleMatch[2]));}
+    if(titleMatch&&alert.kind!=='receivable')title.textContent=titleMatch[2];
+    else if(titleMatch){const prefix=document.createElement('span');prefix.className='alert-title-prefix';prefix.textContent=`${titleMatch[1]}: `;title.append(prefix,document.createTextNode(titleMatch[2]));}
     else title.textContent=alert.title;
-    const detailId=`${alert.alertId}-extra`;
-    const button=document.createElement('button');button.type='button';button.className='expand-btn';button.textContent='Ver detalle';button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls',detailId);
     const description=document.createElement('div');description.className='alert-desc';description.textContent=alert.desc;
     const metric=document.createElement('div');metric.className='alert-metric';metric.textContent=alert.metric;
-    const extra=document.createElement('div');extra.className='alert-extra';extra.id=detailId;
-    const extraText=document.createElement('p');extraText.textContent=alert.extra;
-    extra.append(extraText);
+    const content=document.createElement('div');content.className='diagnostic-alert-content';
+    if(alert.kind==='receivable')content.append(description);
+    content.append(metric);
+    const actions=document.createElement('div');actions.className='diagnostic-alert-actions';
     if (alert.kind==='receivable') {
-      const actions=document.createElement('div');actions.className='diagnostic-receivable-actions';
+      actions.classList.add('diagnostic-receivable-actions');
       const field=document.createElement('label');field.className='diagnostic-postpone-field';field.textContent='Días a posponer';
       const days=document.createElement('input');days.type='number';days.min='1';days.max='365';days.step='1';days.value='3';days.inputMode='numeric';field.append(days);
       const postpone=document.createElement('button');postpone.type='button';postpone.className='btn-secondary';postpone.textContent='Posponer';
@@ -144,13 +150,13 @@ export function renderAlerts(alerts=currentAlerts) {
           await refreshDiagnosticAlerts();
         } catch(error) { feedback.textContent=error.message;resolve.disabled=postpone.disabled=days.disabled=false; }
       };
-      actions.append(field,postpone,resolve);extra.append(actions,feedback);
-    } else {
-      const editButton=document.createElement('button');editButton.type='button';editButton.className='btn-secondary diagnostic-product-action';editButton.textContent='Realizar compra';
-      editButton.onclick=()=>document.dispatchEvent(new CustomEvent('realizar-compra-producto',{detail:{id:alert.productId}}));extra.append(editButton);
+      actions.append(field,postpone,resolve,feedback);
     }
-    button.onclick=()=>{const open=card.classList.toggle('open');button.setAttribute('aria-expanded',String(open));button.textContent=open?'Ocultar detalle':'Ver detalle';};
-    topLeft.append(pill,title);top.append(topLeft,button);card.append(top,description,metric,extra);list.append(card);
+    if(alert.kind!=='receivable'){
+      const category=document.createElement('span');category.className='diagnostic-product-category';category.textContent=alert.category;
+      topLeft.append(pill,category,title);
+    }else topLeft.append(pill,title);
+    top.append(topLeft);card.append(top,content);if(actions.childElementCount)card.append(actions);list.append(card);
   }
 }
 

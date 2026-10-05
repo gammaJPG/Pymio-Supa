@@ -116,18 +116,31 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(url.pathname==='/api/network/communities' && req.method==='POST'){
       requireJson(req);return send(201,await pool.network('community.create',companyId,cleanCommunity(await bodyJson(req))));
     }
-    if(communityDetail && req.method==='GET')return send(200,await pool.community('detail',companyId,{community_id:communityDetail[1]}));
+    if(communityDetail && req.method==='GET'){
+      const network=await pool.network('bootstrap',companyId,{}),community=(network.communities||[]).find(item=>String(item.id)===communityDetail[1]);
+      if(!community)return send(404,{error:'La comunidad ya no está disponible.'});
+      if(!community.joined&&!community.owned)return send(403,{error:'Debes unirte a la comunidad para ver su contenido.'});
+      return send(200,await pool.community('detail',companyId,{community_id:communityDetail[1]}));
+    }
     if(communityAdmin && req.method==='POST'){requireJson(req);const data=await bodyJson(req,1024);return send(200,await pool.community('admin.set',companyId,{community_id:communityAdmin[1],target_company_id:communityAdmin[2],is_admin:Boolean(data.isAdmin)}));}
     if(url.pathname==='/api/network/forms' && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024),questions=Array.isArray(data.questions)?data.questions:[];
       return send(201,await pool.community('form.create',companyId,{community_id:data.communityId,title:text(data.title,140),questions:questions.slice(0,20).map((question,index)=>({position:index+1,title:text(question.title,200),type:question.type,options:Array.isArray(question.options)?question.options.map(option=>text(option,120)).filter(Boolean).slice(0,50):[]}))}));
     }
     if(formClose && req.method==='POST')return send(200,await pool.community('form.close',companyId,{form_id:formClose[1]}));
+    if(formResponses && req.method==='GET'){
+      await pool.community('form.get',companyId,{form_id:formResponses[1]});
+      return send(200,{response:await pool.getCommunityFormResponse(formResponses[1],companyId)});
+    }
     if(formResponses && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024);if(!UUID.test(data.responseId||''))return send(400,{error:'La respuesta no es válida.'});
+      const detail=await pool.community('form.get',companyId,{form_id:formResponses[1]}),form=detail.forms?.[0];
+      if(form?.status!=='open')return send(403,{error:'Este formulario ya está cerrado y no admite cambios.'});
       const answers=(Array.isArray(data.answers)?data.answers:[]).map(answer=>({question_id:answer.questionId,text_value:text(answer.textValue,5000),option_value:text(answer.optionValue,120),file_path:text(answer.filePath,500),file_name:text(answer.fileName,180),mime_type:text(answer.mimeType,120),compressed:Boolean(answer.compressed)}));
       if(answers.some(answer=>!UUID.test(answer.question_id||'')||(answer.file_path&&!answer.file_path.startsWith(`${companyId}/${formResponses[1]}/${data.responseId}/${answer.question_id}/`))))return send(400,{error:'Las respuestas contienen archivos no válidos.'});
-      return send(201,await pool.community('form.submit',companyId,{form_id:formResponses[1],response_id:data.responseId,answers}));
+      const saved=await pool.saveCommunityFormResponse(formResponses[1],companyId,data.responseId,answers),activeFiles=new Set(answers.map(answer=>answer.file_path).filter(Boolean));
+      for(const oldPath of saved.previousFiles||[])if(!activeFiles.has(oldPath))await pool.deleteCommunityFile(oldPath).catch(()=>{});
+      return send(200,{response:{id:saved.id,submittedAt:saved.submittedAt,answers}});
     }
     if(formUpload && req.method==='POST'){
       const [,formId,responseId,questionId]=formUpload,detail=await pool.community('form.get',companyId,{form_id:formId});
@@ -140,8 +153,9 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       const path=`${companyId}/${formId}/${responseId}/${questionId}/${randomUUID()}.bin`;await pool.uploadCommunityFile(path,stored);return send(201,{filePath:path,fileName:originalName,mimeType:req.headers['content-type']||'application/octet-stream',compressed});
     }
     if(formZip && req.method==='GET'){
-      const detail=await pool.community('form.export',companyId,{form_id:formZip[1]}),files=[];
-      for(const file of detail.files||[]){const stored=await pool.getCommunityFile(file.path),body=file.compressed?inflateRawSync(stored):stored;files.push({name:`${safeName(file.question)}/${safeName(file.response_id+'-'+file.name)}`,body});}
+      const detail=await pool.community('form.export',companyId,{form_id:formZip[1]}),files=[],sourceFiles=detail.files||[];
+      const owners=await pool.getCommunityFormResponseOwners([...new Set(sourceFiles.map(file=>file.response_id))]),ownerByResponse=new Map(owners.map(owner=>[String(owner.id),String(owner.company_id)])),nameByCompany=new Map((detail.members||[]).map(member=>[String(member.company_id),member.name]));
+      for(const file of sourceFiles){const stored=await pool.getCommunityFile(file.path),body=file.compressed?inflateRawSync(stored):stored,companyName=nameByCompany.get(ownerByResponse.get(String(file.response_id)))||`Empresa ${ownerByResponse.get(String(file.response_id))||'sin identificar'}`;files.push({name:`${safeName(file.question)}/${safeName(companyName+' - '+file.name)}`,body});}
       const archive=zipFiles(files),downloadName=safeName(detail.forms?.[0]?.title||'formulario')+'.zip';res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="formulario.zip"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,'Content-Length':archive.length});return res.end(archive);
     }
     if(communityJoin && req.method==='POST'){
@@ -166,6 +180,7 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     }
     return send(404,{error:'Ruta no encontrada.'});
   }catch(error){
-    return send(error.status||500,{error:error.message||'No se pudo completar la acción en RED Pymio.'});
+    const duplicateResponse=error.code==='23505'||/community_form_responses_form_id_company_id_key|duplicate key/i.test(error.message||'');
+    return send(duplicateResponse?409:error.status||500,{error:duplicateResponse?'Este formulario ya fue respondido por tu empresa.':error.message||'No se pudo completar la acción en RED Pymio.'});
   }
 }

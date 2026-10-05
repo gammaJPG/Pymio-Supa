@@ -150,6 +150,28 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
       },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.');
     },
+    async getCommunityFormResponse(formId,companyId){
+      const query=`?form_id=eq.${encodeURIComponent(formId)}&company_id=eq.${encodeURIComponent(companyId)}&select=id,submitted_at`;
+      const responses=await requestJson('/rest/v1/community_form_responses'+query,{headers},'No se pudo consultar tu respuesta.');
+      const response=responses[0];if(!response)return null;
+      const answers=await requestJson(`/rest/v1/community_form_answers?response_id=eq.${encodeURIComponent(response.id)}&select=question_id,text_value,option_value,file_path,file_name,mime_type,compressed`,{headers},'No se pudieron consultar tus respuestas.');
+      return {id:response.id,submittedAt:response.submitted_at,answers};
+    },
+    async saveCommunityFormResponse(formId,companyId,responseId,answers){
+      const existing=await this.getCommunityFormResponse(formId,companyId),id=existing?.id||responseId,now=new Date().toISOString();
+      if(existing){
+        await requestJson(`/rest/v1/community_form_responses?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({submitted_at:now})},'No se pudo actualizar tu respuesta.');
+      }else{
+        await requestJson('/rest/v1/community_form_responses',{method:'POST',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({id,form_id:formId,company_id:String(companyId),submitted_at:now})},'No se pudo registrar tu respuesta.');
+      }
+      if(answers.length)await requestJson('/rest/v1/community_form_answers?on_conflict=response_id,question_id',{method:'POST',headers:{...headers,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(answers.map(answer=>({response_id:id,question_id:answer.question_id,text_value:answer.text_value||null,option_value:answer.option_value||null,file_path:answer.file_path||null,file_name:answer.file_name||null,mime_type:answer.mime_type||null,compressed:Boolean(answer.compressed)})))},'No se pudieron guardar tus respuestas.');
+      return {id,submittedAt:now,answers,previousFiles:(existing?.answers||[]).filter(answer=>answer.file_path).map(answer=>answer.file_path)};
+    },
+    async getCommunityFormResponseOwners(responseIds=[]){
+      if(!responseIds.length)return [];
+      const ids=responseIds.map(id=>`"${String(id).replaceAll('"','')}"`).join(',');
+      return requestJson(`/rest/v1/community_form_responses?id=in.(${encodeURIComponent(ids)})&select=id,company_id`,{headers},'No se pudieron identificar las empresas que respondieron.');
+    },
     async rpc(operation, companyId, data = {}) {
       let response;
       try {

@@ -9,8 +9,8 @@ function request(path,method='GET',body){
   req.method=method;req.headers=body?{'content-type':'application/json'}:{};
   return {req,url:new URL(path,'http://localhost')};
 }
-async function call(path,method,body){
-  const calls=[],result={profile:{},businesses:[],communities:[],posts:[]},pool={network:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;}};
+async function call(path,method,body,resultOverride){
+  const calls=[],result=resultOverride||{profile:{},businesses:[],communities:[{id:'10000000-0000-4000-8000-000000000001',joined:true}],posts:[]},pool={network:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;}};
   let response;const send=(status,data)=>(response={status,data});
   const input=request(path,method,body);await atenderRedPymio(input.req,pool,'7',send,input.url);
   return {calls,response};
@@ -69,10 +69,19 @@ test('RED Pymio: al unirse reemplaza el botón por Miembro - Usuario',async()=>{
 test('RED Pymio: consulta una comunidad y crea formularios de hasta 20 preguntas',async()=>{
   const id='10000000-0000-4000-8000-000000000001';
   const detail=await call(`/api/network/communities/${id}`,'GET');
-  assert.equal(detail.response.status,200);assert.deepEqual(detail.calls[0],{operation:'detail',company:'7',payload:{community_id:id}});
+  assert.equal(detail.response.status,200);assert.deepEqual(detail.calls.map(call=>call.operation),['bootstrap','detail']);
   const created=await call('/api/network/forms','POST',{communityId:id,title:'Registro de proveedores',questions:[{title:'Razón social',type:'text'},{title:'Documento',type:'file'}]});
   assert.equal(created.response.status,201);assert.equal(created.calls[0].operation,'form.create');assert.equal(created.calls[0].payload.questions.length,2);
   assert.deepEqual(created.calls[0].payload.questions.map(item=>item.position),[1,2]);
+});
+
+test('RED Pymio: exige membresía para ver incluso una comunidad abierta',async()=>{
+  const id='10000000-0000-4000-8000-000000000001';
+  const result={profile:{},businesses:[],communities:[{id,is_open:true,joined:false,owned:false}],posts:[]};
+  const detail=await call(`/api/network/communities/${id}`,'GET',undefined,result);
+  assert.equal(detail.response.status,403);
+  assert.match(detail.response.data.error,/Debes unirte/);
+  assert.deepEqual(detail.calls.map(item=>item.operation),['bootstrap']);
 });
 
 test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar el fondo',async()=>{
@@ -85,6 +94,10 @@ test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar
   assert.match(source,/accept="\.pdf,\.docx/);assert.match(server,/\['pdf','docx'/);
   assert.match(html,/Descargar archivos adjuntados por usuarios/);
   assert.match(source,/dialog\.id!==['"]community-form-builder['"]/);
+  assert.match(source,/Respuesta enviada · puedes editarla/);
+  assert.match(source,/Archivo actual:/);
+  assert.match(source,/activeResponse\?\.id\|\|crypto\.randomUUID/);
+  assert.match(server,/companyName\+' - '\+file\.name/);
 });
 
 test('RED Pymio: identifica claramente los roles en la lista de miembros',async()=>{

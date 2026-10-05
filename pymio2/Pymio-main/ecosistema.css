@@ -184,6 +184,7 @@
 .form-question .question-remove{display:block;margin:17px 0 0 auto}
 .form-question .form-file-field input[type=file],.form-answer input[type=file]{padding:9px;background:#fbfbf7}
 .form-answer{margin:18px 0;padding:18px;border:1px solid var(--line);border-radius:13px;background:#fff}
+.form-current-file{display:block;margin-top:7px;color:var(--ink-soft);line-height:1.5}
 .form-answer>span{margin-bottom:10px;font-size:12px}
 .form-answer textarea,.form-answer select,.form-answer input{width:100%;border:1px solid var(--line);border-radius:9px;background:#fff;padding:11px 12px;font:400 12px 'IBM Plex Sans',sans-serif}
 #tab-ecosistema #community-form-builder [data-question-add]{margin-top:2px}
