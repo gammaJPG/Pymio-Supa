@@ -107,9 +107,48 @@ test('RED Pymio: identifica claramente los roles en la lista de miembros',async(
   assert.match(source,/membersDialog\?\.open/);
 });
 
+test('RED Pymio: los administradores actualizan identidad, redes e imágenes de su comunidad',async()=>{
+  const id='10000000-0000-4000-8000-000000000001';
+  const avatar=`${id}/avatar/20000000-0000-4000-8000-000000000002.webp`;
+  const updated=await call(`/api/network/communities/${id}/profile`,'PUT',{
+    name:'  Comunidad Comercio Local  ',description:'Negocios que colaboran y crecen juntos.',industry:'Retail',isOpen:true,
+    avatarPath:avatar,bannerPath:'',website:'https://comercio.local',instagram:'https://instagram.com/comerciolocal',youtube:'',tiktok:'',facebook:'',linkedin:''
+  });
+  assert.equal(updated.response.status,200);assert.equal(updated.calls[0].operation,'profile.update');
+  assert.equal(updated.calls[0].payload.name,'Comunidad Comercio Local');
+  assert.equal(updated.calls[0].payload.avatar_path,avatar);assert.equal(updated.calls[0].payload.is_open,true);
+  assert.equal((await call(`/api/network/communities/${id}/profile`,'PUT',{name:'Comunidad',description:'Descripción',website:'ftp://archivo'})).response.status,400);
+  assert.equal((await call(`/api/network/communities/${id}/profile`,'PUT',{name:'Comunidad',description:'Descripción',avatarPath:'avatar.png'})).response.status,400);
+});
+
+test('RED Pymio: el centro de comunidad conserva recursos y añade gestión operativa',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  for(const label of ['Comunidad en RED Pymio','Resumen','Eventos','Formularios','Solicitudes','Gestionar miembros','Compartir invitación','Exportar miembros'])assert.match(html,new RegExp(label));
+  assert.match(source,/activeCommunityRequests/);assert.match(source,/respondCommunityRequest/);
+  assert.match(source,/openCommunityEventComposer/);assert.match(source,/exportCommunityMembers/);assert.match(source,/shareActiveCommunity/);
+  assert.match(source,/data-community-pane-jump/);assert.match(source,/data-community-request-count/);
+});
+
+test('RED Pymio: la comunidad permite editar marca, redes y administradores',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  for(const label of ['Editar comunidad','Foto de perfil','Banner de la comunidad','Sitio web','Instagram','YouTube','TikTok','Facebook','LinkedIn'])assert.match(html,new RegExp(label));
+  assert.match(html,/id="community-edit-dialog"/);assert.match(html,/data-community-edit-form/);
+  assert.match(source,/communityImageUrl/);assert.match(source,/uploadCommunityImage/);assert.match(source,/communities\/\$\{community\.id\}\/profile/);
+  assert.match(source,/canAdmin\(\)&&item\.role!==['"]owner['"]&&!isSelf/);
+});
+
 test('RED Pymio: migración define roles, formularios y almacenamiento privado',async()=>{
   const sql=await readFile(new URL('../supabase/migrations/016_community_forms.sql',import.meta.url),'utf8');
   assert.match(sql,/role IN \('owner','admin','member'\)/);
   assert.match(sql,/community_form_questions/);assert.match(sql,/BETWEEN 1 AND 20/);
   assert.match(sql,/community-form-files','community-form-files',false,2621440/);
+});
+
+test('RED Pymio: migración amplía identidad visual, redes y gestión delegada',async()=>{
+  const sql=await readFile(new URL('../supabase/migrations/017_community_identity_and_management.sql',import.meta.url),'utf8');
+  for(const field of ['avatar_path','banner_path','website','instagram','youtube','tiktok','facebook','linkedin'])assert.match(sql,new RegExp(field));
+  assert.match(sql,/community-profile-images','community-profile-images',false,524288/);
+  assert.match(sql,/role_name NOT IN \('owner','admin'\)/);assert.match(sql,/operation='profile\.update'/);
 });

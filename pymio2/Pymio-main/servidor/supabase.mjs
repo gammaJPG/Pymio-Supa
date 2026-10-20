@@ -208,6 +208,9 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async getProfileImage(path) {
       return getStorageImage('profile-images',path);
     },
+    async uploadCommunityImage(path,body){return uploadStorageImage('community-profile-images',path,body);},
+    async deleteCommunityImage(path){return deleteStorageImage('community-profile-images',path);},
+    async getCommunityImage(path){return getStorageImage('community-profile-images',path);},
     async uploadCommunityFile(path,body){return uploadStorageFile('community-form-files',path,body);},
     async getCommunityFile(path){return getStorageFile('community-form-files',path);},
     async deleteCommunityFile(path){return deleteStorageImage('community-form-files',path);},

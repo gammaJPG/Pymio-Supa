@@ -75,6 +75,13 @@ function cleanCommunity(data){
   return result;
 }
 
+function cleanCommunityProfile(data,communityId){
+  const optionalUrl=(value,label)=>{const normalized=text(value,240);if(normalized&&!/^https?:\/\/[^\s]+$/i.test(normalized))throw Object.assign(new Error(`${label} debe comenzar con http:// o https://.`),{status:400});return normalized;};
+  const imagePath=(value,kind)=>{const normalized=text(value,180);if(normalized&&!new RegExp(`^${communityId}/${kind}/[0-9a-f-]{36}\\.webp$`,'i').test(normalized))throw Object.assign(new Error('La imagen de la comunidad no es válida.'),{status:400});return normalized;};
+  const result={name:text(data.name,100),description:text(data.description,500),industry:text(data.industry,80),is_open:[true,'true','on','1'].includes(data.isOpen),avatar_path:imagePath(data.avatarPath,'avatar'),banner_path:imagePath(data.bannerPath,'banner'),website:optionalUrl(data.website,'El sitio web'),instagram:optionalUrl(data.instagram,'Instagram'),youtube:optionalUrl(data.youtube,'YouTube'),tiktok:optionalUrl(data.tiktok,'TikTok'),facebook:optionalUrl(data.facebook,'Facebook'),linkedin:optionalUrl(data.linkedin,'LinkedIn')};
+  if(!result.name||!result.description)throw Object.assign(new Error('Completa el nombre y la descripción de la comunidad.'),{status:400});return result;
+}
+
 function cleanPost(data){
   const kind=data.kind==='benefit'?'benefit':data.kind==='event'?'event':'';
   const dateValue=(value,message)=>{
@@ -102,6 +109,10 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const communityDecision=/^\/api\/network\/communities\/([0-9a-f-]{36})\/requests\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const connection=/^\/api\/network\/connections\/([1-9]\d{0,18})$/i.exec(url.pathname);
     const communityDetail=/^\/api\/network\/communities\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    const communityProfile=/^\/api\/network\/communities\/([0-9a-f-]{36})\/profile$/i.exec(url.pathname);
+    const communityImageUpload=/^\/api\/network\/communities\/([0-9a-f-]{36})\/images\/(avatar|banner)$/i.exec(url.pathname);
+    const communityImageOwn=/^\/api\/network\/communities\/([0-9a-f-]{36})\/images\/(avatar|banner)\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    const communityImagePublic=/^\/api\/network\/community-images\/([0-9a-f-]{36})\/(avatar|banner)\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityAdmin=/^\/api\/network\/communities\/([0-9a-f-]{36})\/members\/([1-9]\d{0,18})\/admin$/i.exec(url.pathname);
     const formClose=/^\/api\/network\/forms\/([0-9a-f-]{36})\/close$/i.exec(url.pathname);
     const formResponses=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses$/i.exec(url.pathname);
@@ -116,12 +127,23 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(url.pathname==='/api/network/communities' && req.method==='POST'){
       requireJson(req);return send(201,await pool.network('community.create',companyId,cleanCommunity(await bodyJson(req))));
     }
+    if(communityImagePublic&&req.method==='GET'){
+      const [,communityId,kind,id]=communityImagePublic,body=await pool.getCommunityImage(`${communityId}/${kind}/${id}.webp`);res.writeHead(200,{'Content-Type':'image/webp','Content-Length':body.length,'Cache-Control':'public, max-age=86400'});return res.end(body);
+    }
+    if(communityImageUpload&&req.method==='POST'){
+      const [,communityId,kind]=communityImageUpload,detail=await pool.community('detail',companyId,{community_id:communityId});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden cambiar la identidad de la comunidad.'});
+      if(req.headers['content-type']?.split(';')[0].trim()!=='image/webp')return send(415,{error:'La imagen debe estar comprimida en formato WebP.'});const limit=kind==='banner'?500*1024:250*1024,chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>limit)return send(413,{error:`La imagen comprimida supera el máximo de ${kind==='banner'?'500':'250'} KB.`});chunks.push(chunk);}const body=Buffer.concat(chunks);if(body.length<12||body.subarray(0,4).toString()!=='RIFF'||body.subarray(8,12).toString()!=='WEBP')return send(400,{error:'El archivo no es una imagen WebP válida.'});const id=randomUUID(),path=`${communityId}/${kind}/${id}.webp`;await pool.uploadCommunityImage(path,body);return send(201,{path});
+    }
+    if(communityImageOwn&&req.method==='DELETE'){
+      const [,communityId,kind,id]=communityImageOwn,detail=await pool.community('detail',companyId,{community_id:communityId});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden cambiar la identidad de la comunidad.'});await pool.deleteCommunityImage(`${communityId}/${kind}/${id}.webp`);return send(200,{deleted:true});
+    }
     if(communityDetail && req.method==='GET'){
       const network=await pool.network('bootstrap',companyId,{}),community=(network.communities||[]).find(item=>String(item.id)===communityDetail[1]);
       if(!community)return send(404,{error:'La comunidad ya no está disponible.'});
       if(!community.joined&&!community.owned)return send(403,{error:'Debes unirte a la comunidad para ver su contenido.'});
       return send(200,await pool.community('detail',companyId,{community_id:communityDetail[1]}));
     }
+    if(communityProfile&&req.method==='PUT'){requireJson(req);return send(200,await pool.community('profile.update',companyId,{community_id:communityProfile[1],...cleanCommunityProfile(await bodyJson(req),communityProfile[1])}));}
     if(communityAdmin && req.method==='POST'){requireJson(req);const data=await bodyJson(req,1024);return send(200,await pool.community('admin.set',companyId,{community_id:communityAdmin[1],target_company_id:communityAdmin[2],is_admin:Boolean(data.isAdmin)}));}
     if(url.pathname==='/api/network/forms' && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024),questions=Array.isArray(data.questions)?data.questions:[];

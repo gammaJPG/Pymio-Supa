@@ -22,6 +22,8 @@ La aplicación usa la Data API HTTPS de Supabase. Se eliminó el cliente `pg` y 
    - `supabase/migrations/013_product_status.sql`
    - `supabase/migrations/014_network_connections_and_private_communities.sql`
    - `supabase/migrations/015_network_post_editing.sql`
+   - `supabase/migrations/016_community_forms.sql`
+   - `supabase/migrations/017_community_identity_and_management.sql`
 3. La primera migración importa el adjunto `inventario_app`: 4 empresas, 39 categorías, 82 productos, 5 movimientos y 7 líneas. Conserva IDs, secuencias, restricciones, índices y el disparador de actualización. No requiere cargar CSV ni ejecutar el dump original.
 
 No ejecutes la importación sobre tablas existentes. Está preparada para un proyecto vacío y no elimina datos. El archivo contiene los datos del adjunto; consérvalo como respaldo privado.

@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+test('Tema: landing, acceso y plataforma comparten un selector persistente',async()=>{
+  const [script,styles,landing,platform,worker]=await Promise.all([
+    readFile(new URL('../theme.js',import.meta.url),'utf8'),
+    readFile(new URL('../theme.css',import.meta.url),'utf8'),
+    readFile(new URL('../index.html',import.meta.url),'utf8'),
+    readFile(new URL('../piloto.html',import.meta.url),'utf8'),
+    readFile(new URL('../sw.js',import.meta.url),'utf8'),
+  ]);
+  assert.match(script,/pymio:theme/);assert.match(script,/prefers-color-scheme: dark/);
+  assert.match(script,/Cambiar a modo claro/);assert.match(script,/Cambiar a modo oscuro/);
+  assert.match(script,/theme-toggle--login/);assert.match(script,/theme-toggle--app/);
+  assert.match(styles,/html\[data-theme=dark\]/);assert.match(styles,/prefers-reduced-motion:reduce/);
+  for(const html of [landing,platform]){assert.match(html,/theme\.js\?v=1/);assert.match(html,/theme\.css\?v=3/);}
+  assert.match(worker,/theme\.css/);assert.match(worker,/theme\.js/);
+});

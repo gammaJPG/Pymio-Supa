@@ -60,7 +60,134 @@
   </form></dialog>
 
   <dialog class="network-dialog" id="community-dialog"><form method="dialog" data-community-form><div class="dialog-head"><div><span class="dialog-kicker">Nueva comunidad</span><h2>Crea un espacio con propósito</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><p class="dialog-lead">Define con claridad quiénes deberían encontrarse aquí y qué podrán compartir.</p><div class="network-form-grid"><label class="field field-wide"><span>Nombre</span><input name="name" maxlength="100" required></label><label class="field field-wide"><span>Rubro o temática</span><input name="industry" maxlength="80"></label><label class="field field-wide"><span>Descripción</span><textarea name="description" maxlength="500" rows="5" required></textarea></label><label class="community-access field-wide"><input name="isOpen" type="checkbox" checked><span><strong>Comunidad abierta</strong><small>Cualquier empresa puede unirse. Si desmarcas esta opción, deberás aprobar cada solicitud.</small></span></label></div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Crear comunidad</button></div></form></dialog>
-  <dialog class="network-dialog community-detail-dialog" id="community-detail-dialog"><div class="dialog-head"><div><span class="dialog-kicker">Comunidad</span><h2 data-community-detail-title></h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><div class="community-detail-layout"><main><p class="dialog-lead" data-community-detail-description></p><div class="community-detail-actions"><button type="button" class="btn-outline" data-community-pane="events">Eventos</button><button type="button" class="btn-outline" data-community-pane="forms">Formularios</button><button type="button" class="btn" data-form-create hidden>Crear formulario</button></div><section data-community-events></section><section data-community-forms hidden></section></main><aside><span class="section-kicker">Creador</span><strong data-community-creator></strong><span class="section-kicker">Administradores</span><div data-community-admins></div><button type="button" class="btn-outline" data-members-view>Ver todos los miembros</button></aside></div></dialog>
+<dialog class="network-dialog community-detail-dialog" id="community-detail-dialog" aria-labelledby="community-detail-title" aria-describedby="community-detail-description">
+  <header class="community-manager-head dialog-head">
+    <div class="community-cover" data-community-cover>
+      <img data-community-banner alt="" hidden>
+      <div class="community-cover-shade"></div>
+    </div>
+    <div class="community-manager-identity">
+      <div class="community-avatar" data-community-avatar><span data-community-avatar-initials>CO</span><img alt="" hidden></div>
+      <div class="community-manager-title">
+        <span class="dialog-kicker">Comunidad en RED Pymio</span>
+        <div class="community-manager-badges" aria-label="Estado de la comunidad">
+          <span class="community-manager-badge" data-community-access></span>
+          <span class="community-manager-badge community-manager-badge--role" data-community-role></span>
+        </div>
+        <h2 id="community-detail-title" data-community-detail-title></h2>
+        <p class="dialog-lead" id="community-detail-description" data-community-detail-description></p>
+        <div class="community-socials" data-community-socials aria-label="Redes sociales de la comunidad"></div>
+      </div>
+      <button type="button" class="btn community-edit-button" data-community-edit hidden>Editar comunidad</button>
+    </div>
+    <button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button>
+  </header>
+
+  <section class="community-manager-metrics" aria-label="Resumen de la comunidad">
+    <article><span>Miembros</span><strong data-community-member-count>0</strong></article>
+    <article><span>Próximos eventos</span><strong data-community-event-count>0</strong></article>
+    <article><span>Formularios abiertos</span><strong data-community-form-count>0</strong></article>
+    <article data-community-request-metric><span>Solicitudes</span><strong data-community-request-count>0</strong></article>
+  </section>
+
+  <div class="community-admin-toolbar" data-community-management hidden>
+    <div>
+      <strong>Acciones de gestión</strong>
+      <span>Coordina a tu comunidad desde un solo lugar.</span>
+    </div>
+    <div class="community-admin-actions">
+      <button type="button" class="btn" data-community-event-create>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm6 7v5m-2.5-2.5h5"/></svg>
+        Programar evento
+      </button>
+      <button type="button" class="btn-outline" data-form-create>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 4h10a2 2 0 0 1 2 2v14H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Zm0 0v16m3-11h6m-6 4h6"/></svg>
+        Crear formulario
+      </button>
+    </div>
+  </div>
+
+  <nav class="community-detail-actions" aria-label="Contenido de la comunidad">
+    <button type="button" class="btn-outline active" data-community-pane="overview" aria-pressed="true">Resumen</button>
+    <button type="button" class="btn-outline" data-community-pane="events" aria-pressed="false">Eventos</button>
+    <button type="button" class="btn-outline" data-community-pane="forms" aria-pressed="false">Formularios</button>
+    <button type="button" class="btn-outline" data-community-pane="requests" data-community-request-tab aria-pressed="false" hidden>Solicitudes <span data-community-request-tab-count></span></button>
+  </nav>
+
+  <div class="community-detail-layout">
+    <main class="community-manager-panels">
+      <section class="community-overview" data-community-panel="overview">
+        <div class="community-overview-block">
+          <div class="community-panel-heading">
+            <div><span class="section-kicker">Agenda</span><h3>Próximo evento</h3></div>
+            <button type="button" class="community-text-action" data-community-pane-jump="events">Ver eventos</button>
+          </div>
+          <div data-community-next-event></div>
+        </div>
+        <div class="community-overview-block">
+          <div class="community-panel-heading">
+            <div><span class="section-kicker">Coordinación</span><h3 data-community-inbox-title>Pendientes de gestión</h3></div>
+          </div>
+          <div class="community-management-inbox" data-community-inbox></div>
+        </div>
+      </section>
+      <section data-community-panel="events" data-community-events hidden></section>
+      <section data-community-panel="forms" data-community-forms hidden></section>
+      <section data-community-panel="requests" hidden>
+        <div class="community-panel-heading">
+          <div><span class="section-kicker">Acceso</span><h3>Solicitudes pendientes</h3></div>
+        </div>
+        <div class="community-request-list" data-community-requests></div>
+      </section>
+    </main>
+
+    <aside class="community-manager-sidebar">
+      <div class="community-sidebar-section"><span class="section-kicker">Creador</span><strong data-community-creator></strong></div>
+      <div class="community-sidebar-section"><span class="section-kicker">Administradores</span><div data-community-admins></div></div>
+      <div class="community-sidebar-actions">
+        <button type="button" class="btn-outline" data-members-view>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m7-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 2.13a4 4 0 0 1 0 7.75"/></svg>
+          <span data-members-view-label>Gestionar miembros</span>
+        </button>
+        <button type="button" class="btn-outline" data-community-share>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm12 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8.6 10.5l6.8-4m-6.8 7 6.8 4"/></svg>
+          Compartir invitación
+        </button>
+        <button type="button" class="btn-outline" data-members-export hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+          Exportar miembros
+        </button>
+      </div>
+    </aside>
+  </div>
+</dialog>
+  <dialog class="network-dialog community-edit-dialog" id="community-edit-dialog">
+    <form method="dialog" data-community-edit-form>
+      <div class="dialog-head"><div><span class="dialog-kicker">Administración</span><h2>Editar comunidad</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div>
+      <p class="dialog-lead">Define cómo se presenta la comunidad y dónde pueden encontrarla sus miembros.</p>
+      <section class="profile-media-editor community-media-editor" aria-labelledby="community-media-title">
+        <div class="profile-media-heading"><div><strong id="community-media-title">Identidad visual</strong><p>Las imágenes se optimizan automáticamente para que carguen rápido.</p></div></div>
+        <div class="profile-media-grid">
+          <div class="profile-media-card"><div class="avatar-editor-preview" data-community-avatar-preview><span data-community-avatar-preview-initials>CO</span><img alt="Vista previa de la foto de la comunidad" hidden></div><div class="profile-media-copy"><strong>Foto de perfil</strong><p>Recomendado: imagen cuadrada de 600 × 600 px.</p><label class="media-upload"><input name="avatarImage" type="file" accept="image/jpeg,image/png,image/webp"><span>Elegir foto</span></label><label class="media-remove"><input name="removeAvatar" type="checkbox"> Quitar foto actual</label></div></div>
+          <div class="profile-media-card banner-media-card"><div class="banner-editor-preview" data-community-banner-preview><span>Vista previa del banner</span><img alt="Vista previa del banner de la comunidad" hidden></div><div class="profile-media-copy"><strong>Banner de la comunidad</strong><p>Recomendado: 1440 × 480 px, proporción 3:1.</p><div class="banner-mode" role="radiogroup" aria-label="Fondo del banner de la comunidad"><label><input name="bannerMode" type="radio" value="color" checked><span>Usar color</span></label><label><input name="bannerMode" type="radio" value="image"><span>Usar imagen</span></label></div><label class="media-upload"><input name="bannerImage" type="file" accept="image/jpeg,image/png,image/webp"><span>Elegir imagen</span></label></div></div>
+        </div>
+      </section>
+      <div class="network-form-grid community-edit-grid">
+        <label class="field field-wide"><span>Nombre</span><input name="name" maxlength="100" required></label>
+        <label class="field field-wide"><span>Rubro o temática</span><input name="industry" maxlength="80"></label>
+        <label class="field field-wide"><span>Descripción</span><textarea name="description" maxlength="500" rows="4" required></textarea></label>
+        <label class="community-access field-wide"><input name="isOpen" type="checkbox"><span><strong>Comunidad abierta</strong><small>Cualquier empresa puede unirse sin aprobación previa.</small></span></label>
+        <div class="field-wide social-form-title"><span>Canales de la comunidad</span><p>Incluye la URL completa de cada perfil.</p></div>
+        <label class="field"><span>Sitio web</span><input name="website" type="url" maxlength="240" placeholder="https://..."></label>
+        <label class="field"><span>Instagram</span><input name="instagram" type="url" maxlength="240" placeholder="https://instagram.com/..."></label>
+        <label class="field"><span>YouTube</span><input name="youtube" type="url" maxlength="240" placeholder="https://youtube.com/@..."></label>
+        <label class="field"><span>TikTok</span><input name="tiktok" type="url" maxlength="240" placeholder="https://tiktok.com/@..."></label>
+        <label class="field"><span>Facebook</span><input name="facebook" type="url" maxlength="240" placeholder="https://facebook.com/..."></label>
+        <label class="field"><span>LinkedIn</span><input name="linkedin" type="url" maxlength="240" placeholder="https://linkedin.com/company/..."></label>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Guardar cambios</button></div>
+    </form>
+  </dialog>
   <dialog class="network-dialog" id="community-members-dialog"><div class="dialog-head"><div><span class="dialog-kicker">Comunidad</span><h2>Miembros</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><label class="community-search"><span class="sr-only">Buscar miembros</span><input type="search" data-member-search placeholder="Buscar por nombre de tienda"></label><div data-member-list></div></dialog>
   <dialog class="network-dialog" id="community-form-builder"><form method="dialog" data-community-form-builder><div class="dialog-head"><div><span class="dialog-kicker">Formulario de comunidad</span><h2>Crear formulario</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><label class="field"><span>Título</span><input name="title" maxlength="140" required></label><div class="form-question-list" data-form-questions></div><button type="button" class="btn-outline" data-question-add>+ Agregar pregunta</button><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Publicar formulario</button></div></form></dialog>
   <dialog class="network-dialog" id="community-form-view"><form method="dialog" data-community-form-response><div class="dialog-head"><div><span class="dialog-kicker">Formulario</span><h2 data-form-view-title></h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><p data-form-view-status></p><div data-form-view-questions></div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-form-download hidden>Descargar archivos adjuntados por usuarios</button><button type="button" class="btn-outline" data-form-close hidden>Cerrar formulario</button><button type="submit" class="btn" data-form-submit>Enviar</button></div></form></dialog>

@@ -123,16 +123,26 @@ svg { display: block; }
 .hero-flyer { position: absolute; display: block; width: 62px; aspect-ratio: 1; opacity: .82; }
 .hero-flyer::after { content: ""; position: absolute; width: 58px; height: 24px; border-top: 2px dashed rgba(207,159,8,.55); border-radius: 50%; }
 .hero-flyer img { width: 100%; height: 100%; object-fit: contain; }
-.hero-flyer--one { --bee-facing: rotate(-14deg); left: 4.5%; top: 76px; transform: var(--bee-facing); animation: bee-float-one 4.8s var(--ease-in-out) infinite; }
+.hero-flyer--one { --bee-facing: rotate(-14deg); left: 4.5%; top: 76px; transform: var(--bee-facing); animation: bee-float-one 3.8s var(--ease-in-out) infinite; }
 .hero-flyer--one::after { left: -42px; top: 39px; transform: rotate(-17deg); }
-.hero-flyer--two { --bee-facing: rotate(13deg) scaleX(-1); right: 4.5%; top: 125px; width: 70px; transform: var(--bee-facing); animation: bee-float-two 5.4s var(--ease-in-out) infinite; }
+.hero-flyer--two { --bee-facing: rotate(13deg) scaleX(-1); right: 4.5%; top: 125px; width: 70px; transform: var(--bee-facing); animation: bee-float-two 4.2s var(--ease-in-out) infinite; }
 .hero-flyer--two::after { left: -38px; top: 44px; transform: rotate(16deg); }
-.hero-flyer--three { --bee-facing: rotate(9deg) scaleX(-1); left: 7%; bottom: 76px; width: 54px; transform: var(--bee-facing); animation: bee-float-two 5.1s var(--ease-in-out) -1.2s infinite; }
+.hero-flyer--three { --bee-facing: rotate(9deg) scaleX(-1); left: 7%; bottom: 76px; width: 54px; transform: var(--bee-facing); animation: bee-float-two 4s var(--ease-in-out) -1.2s infinite; }
 .hero-flyer--three::after { left: -45px; top: 25px; }
-.hero-flyer--four { --bee-facing: rotate(-9deg); right: 7%; bottom: 34px; width: 58px; transform: var(--bee-facing); animation: bee-float-one 5.7s var(--ease-in-out) -.7s infinite; }
+.hero-flyer--four { --bee-facing: rotate(-9deg); right: 7%; bottom: 34px; width: 58px; transform: var(--bee-facing); animation: bee-float-one 4.6s var(--ease-in-out) -.7s infinite; }
 .hero-flyer--four::after { right: -42px; top: 33px; transform: rotate(-11deg); }
-@keyframes bee-float-one { 0%,100% { transform: translate3d(0, 0, 0) var(--bee-facing); } 50% { transform: translate3d(5px, -9px, 0) var(--bee-facing); } }
-@keyframes bee-float-two { 0%,100% { transform: translate3d(0, 0, 0) var(--bee-facing); } 50% { transform: translate3d(-6px, 8px, 0) var(--bee-facing); } }
+@keyframes bee-float-one {
+  0%,100% { transform: translate3d(0, 0, 0) var(--bee-facing) rotate(0); }
+  30% { transform: translate3d(10px, -13px, 0) var(--bee-facing) rotate(2deg); }
+  62% { transform: translate3d(20px, -5px, 0) var(--bee-facing) rotate(-2deg); }
+  82% { transform: translate3d(8px, 5px, 0) var(--bee-facing) rotate(1deg); }
+}
+@keyframes bee-float-two {
+  0%,100% { transform: translate3d(0, 0, 0) var(--bee-facing) rotate(0); }
+  28% { transform: translate3d(-12px, 10px, 0) var(--bee-facing) rotate(-2deg); }
+  60% { transform: translate3d(-21px, -7px, 0) var(--bee-facing) rotate(2deg); }
+  82% { transform: translate3d(-7px, -14px, 0) var(--bee-facing) rotate(-1deg); }
+}
 .hero:not(.is-motion-active) .hero-flyer { animation-play-state: paused; }
 .hero-copy { max-width: 900px; margin: 0 auto; text-align: center; }
 .eyebrow { margin: 0 0 18px; color: #78610b; font-size: .74rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
@@ -375,7 +385,7 @@ h1 span { color: #8a6b06; }
 
 .final-cta {
   position: relative;
-  width: min(calc(100% - 48px), var(--container));
+  width: min(calc(100% - 48px), 1440px);
   min-height: 450px;
   margin: 0 auto 80px;
   padding: 70px 64px;
@@ -389,9 +399,9 @@ h1 span { color: #8a6b06; }
   content: "";
   position: absolute;
   z-index: 0;
-  inset: -10px;
-  background: url("assets/pymio-cta-background-v1.png") center / cover no-repeat;
-  transform: scale(1.015) translate3d(0, 0, 0);
+  inset: 0;
+  background: #fff url("assets/pymio-cta-background-v1.png") center / contain no-repeat;
+  transform: translate3d(0, 0, 0);
   animation: cta-art-drift 9.5s var(--ease-in-out) infinite;
   animation-play-state: paused;
   will-change: transform;
@@ -420,19 +430,22 @@ h1 span { color: #8a6b06; }
 
 @keyframes orchestrator-drift {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(.2deg); }
-  50% { transform: translate3d(-3px, -8px, 0) rotate(-.35deg); }
+  33% { transform: translate3d(-10px, -16px, 0) rotate(-1deg); }
+  66% { transform: translate3d(9px, -7px, 0) rotate(.9deg); }
 }
 @keyframes guide-drift {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(.2deg); }
-  50% { transform: translate3d(-4px, -7px, 0) rotate(-.8deg); }
+  34% { transform: translate3d(-13px, -17px, 0) rotate(-1.5deg); }
+  68% { transform: translate3d(11px, -7px, 0) rotate(1.1deg); }
 }
 @keyframes network-drift {
   0%, 100% { transform: translate3d(-50%, -50%, 0) rotate(.15deg); }
-  50% { transform: translate3d(calc(-50% + 4px), calc(-50% - 7px), 0) rotate(-.25deg); }
+  33% { transform: translate3d(calc(-50% + 13px), calc(-50% - 17px), 0) rotate(-.9deg); }
+  66% { transform: translate3d(calc(-50% - 11px), calc(-50% - 6px), 0) rotate(.75deg); }
 }
 @keyframes cta-art-drift {
-  0%, 100% { transform: scale(1.015) translate3d(0, 0, 0); }
-  50% { transform: scale(1.025) translate3d(-5px, -3px, 0); }
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
 }
 @keyframes card-arrive {
   from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.97); }
@@ -588,7 +601,8 @@ h1 span { color: #8a6b06; }
   .steps strong { margin-top: 1px; }
   .steps p { max-width: none; margin: 7px 0 0; }
 
-  .final-cta { width: calc(100% - 32px); min-height: 600px; margin-bottom: 55px; padding: 46px 24px 285px; align-items: flex-start; border-radius: 25px; background-size: auto 100%; background-position: 76% center; }
+  .final-cta { width: calc(100% - 32px); min-height: 600px; margin-bottom: 55px; padding: 46px 24px 285px; align-items: flex-start; border-radius: 25px; }
+  .final-cta::after { background-size: auto 100%; background-position: 76% center; }
   .final-cta::before { inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.88) 45%, rgba(255,255,255,.2) 78%, rgba(255,255,255,0) 100%); }
   .final-cta__copy .button { width: 100%; }
   .site-footer { width: calc(100% - 32px); padding-top: 40px; grid-template-columns: 1fr; gap: 31px; }
