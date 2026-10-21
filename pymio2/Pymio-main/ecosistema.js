@@ -178,7 +178,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     const visible=communicationsFilter==='inbox'?inbox:communicationsFilter==='sent'?sent:all,list=root.querySelector('[data-communications-list]');
     list.innerHTML=visible.length?visible.map(thread=>{const item=thread.last,other=item.direction==='sent'?item.recipient_name:item.sender_name,isUnread=thread.items.some(row=>row.direction==='received'&&!row.read_at);return `<button type="button" class="communication-thread ${String(thread.id)===String(activeThreadId)?'active':''} ${isUnread?'unread':''}" data-thread-open="${escapeHTML(thread.id)}"><span class="communication-thread-top"><strong>${escapeHTML(other)}</strong><time>${escapeHTML(formatCommunicationDate(item.created_at))}</time></span><span class="communication-kind">${escapeHTML(privateKindInfo[item.kind]?.label||'Mensaje')}</span><b>${escapeHTML(item.subject||'Sin asunto')}</b><small>${escapeHTML(item.body)}</small></button>`;}).join(''):emptyState(communicationsFilter==='sent'?'Aún no has enviado comunicaciones':'No tienes comunicaciones aquí','Los mensajes y oportunidades aparecerán en esta bandeja.');
     if(activeThreadId&&!all.some(thread=>String(thread.id)===String(activeThreadId)))activeThreadId='';
-    renderCommunicationDetail();
+    renderCommunicationDetail();renderFloatingChats();
   }
   function renderCommunicationDetail(){
     const detail=root.querySelector('[data-communications-detail]'),thread=communicationThreads().find(item=>String(item.id)===String(activeThreadId));
@@ -188,11 +188,31 @@ export function iniciarEcosistema({session,apiUrl}={}){
     requestAnimationFrame(()=>{const messages=detail.querySelector('[data-chat-messages]');if(messages)messages.scrollTop=messages.scrollHeight;});
   }
 
+  function ensureChatTray(){
+    let tray=document.querySelector('.pymio-chat-tray');if(!tray){tray=document.createElement('aside');tray.className='pymio-chat-tray';tray.setAttribute('aria-live','polite');tray.setAttribute('aria-label','Chats y mensajes nuevos');document.body.appendChild(tray);}return tray;
+  }
+  function updateChatTray(tray=ensureChatTray()){
+    while(tray.children.length>3){const removable=[...tray.children].reverse().find(item=>!item.classList.contains('pymio-floating-chat'))||tray.lastElementChild;removable?.remove();}tray.dataset.openChats=String(tray.querySelectorAll('.pymio-floating-chat').length);
+  }
+  function renderFloatingChat(card,threadId){
+    const thread=communicationThreads().find(item=>String(item.id)===String(threadId));if(!thread){card.remove();updateChatTray(card.parentElement||undefined);return;}
+    const currentField=card.querySelector('textarea'),draft=currentField?.value||'',restoreFocus=document.activeElement===currentField,first=thread.items[0],otherId=String(first.sender_company_id)===String(session.companyId)?first.recipient_company_id:first.sender_company_id,otherName=String(first.sender_company_id)===String(session.companyId)?first.recipient_name:first.sender_name,kind=first.kind;
+    card.innerHTML=`<header class="floating-chat-head"><span class="chat-popup-avatar" aria-hidden="true">${escapeHTML(initials(otherName))}</span><div><span class="chat-popup-kicker"><i></i> Chat en vivo</span><strong>${escapeHTML(otherName||'RED Pymio')}</strong></div><button type="button" class="chat-popup-close" aria-label="Cerrar chat">×</button></header><div class="floating-chat-messages" data-floating-chat-messages>${thread.items.map(item=>`<article class="floating-chat-message ${item.direction} ${item.pending?'pending':''}"><strong>${escapeHTML(item.direction==='sent'?'Tú':item.sender_name)}</strong><p>${escapeHTML(item.body)}</p><time>${escapeHTML(formatCommunicationDate(item.created_at))}</time></article>`).join('')}</div><form class="floating-chat-composer" data-chat-compose data-company="${escapeHTML(otherId)}" data-kind="${escapeHTML(kind)}" data-thread="${escapeHTML(thread.id)}" data-subject="${escapeHTML(first.subject||'Conversación')}"><label><span class="sr-only">Escribe una respuesta</span><textarea name="body" rows="1" maxlength="5000" required placeholder="Escribe una respuesta…"></textarea></label><button type="submit" aria-label="Enviar respuesta">Enviar</button><p class="chat-compose-error" role="alert" hidden></p></form>`;
+    const nextField=card.querySelector('textarea');nextField.value=draft;if(restoreFocus){nextField.focus();nextField.setSelectionRange(draft.length,draft.length);}card.querySelector('.chat-popup-close').addEventListener('click',()=>{const tray=card.parentElement;card.remove();updateChatTray(tray);});requestAnimationFrame(()=>{const messages=card.querySelector('[data-floating-chat-messages]');if(messages)messages.scrollTop=messages.scrollHeight;});
+  }
+  function renderFloatingChats(){document.querySelectorAll('.pymio-floating-chat[data-chat-thread]').forEach(card=>renderFloatingChat(card,card.dataset.chatThread));}
+  async function openFloatingChat(threadId){
+    const tray=ensureChatTray(),id=String(threadId),existing=tray.querySelector(`.pymio-floating-chat[data-chat-thread="${CSS.escape(id)}"]`);tray.querySelector(`.pymio-chat-popup[data-notification-thread="${CSS.escape(id)}"]`)?.remove();
+    if(existing){renderFloatingChat(existing,id);existing.querySelector('textarea')?.focus();return;}
+    const card=document.createElement('section');card.className='pymio-floating-chat';card.dataset.chatThread=id;tray.prepend(card);renderFloatingChat(card,id);updateChatTray(tray);card.querySelector('textarea')?.focus();
+    if(!demo){try{const connectionState=await request(`/api/network/activity/${encodeURIComponent(id)}/read`,{method:'POST'});state={...state,...connectionState};renderCommunications();publishNetworkNotifications();}catch{}}
+  }
+
   function showRealtimeMessage(message){
     if(currentView==='comunicaciones'&&String(activeThreadId)===String(message.thread_id)&&document.visibilityState==='visible')return;
-    let tray=document.querySelector('.pymio-chat-tray');if(!tray){tray=document.createElement('aside');tray.className='pymio-chat-tray';tray.setAttribute('aria-live','assertive');tray.setAttribute('aria-label','Mensajes nuevos');document.body.appendChild(tray);}
-    const sender=message.display_name||message.sender_name||'RED Pymio',card=document.createElement('article');card.className='pymio-chat-popup';card.innerHTML=`<span class="chat-popup-avatar" aria-hidden="true">${escapeHTML(initials(sender))}</span><div class="chat-popup-copy"><span class="chat-popup-kicker"><i></i> Mensaje nuevo</span><strong>${escapeHTML(sender)}</strong><p>Te acaba de enviar un mensaje · ${escapeHTML(message.body||'Abre la conversación para leerlo.')}</p></div><button type="button" class="chat-popup-open">Ver chat</button><button type="button" class="chat-popup-close" aria-label="Cerrar">×</button>`;
-    card.querySelector('.chat-popup-close').addEventListener('click',()=>card.remove());card.querySelector('.chat-popup-open').addEventListener('click',()=>{activeThreadId=String(message.thread_id);communicationsFilter='all';mostrarVistaEcosistema('comunicaciones');renderCommunications();card.remove();});tray.prepend(card);while(tray.children.length>3)tray.lastElementChild.remove();setTimeout(()=>card.remove(),15000);
+    const tray=ensureChatTray(),threadId=String(message.thread_id),open=tray.querySelector(`.pymio-floating-chat[data-chat-thread="${CSS.escape(threadId)}"]`);if(open){renderFloatingChat(open,threadId);return;}
+    tray.querySelector(`.pymio-chat-popup[data-notification-thread="${CSS.escape(threadId)}"]`)?.remove();const sender=message.display_name||message.sender_name||'RED Pymio',card=document.createElement('article');card.className='pymio-chat-popup';card.dataset.notificationThread=threadId;card.innerHTML=`<span class="chat-popup-avatar" aria-hidden="true">${escapeHTML(initials(sender))}</span><div class="chat-popup-copy"><span class="chat-popup-kicker"><i></i> Mensaje nuevo</span><strong>${escapeHTML(sender)}</strong><p>Te acaba de enviar un mensaje · ${escapeHTML(message.body||'Abre la conversación para leerlo.')}</p></div><button type="button" class="chat-popup-open">Ver chat</button><button type="button" class="chat-popup-close" aria-label="Cerrar">×</button>`;
+    card.querySelector('.chat-popup-close').addEventListener('click',()=>{card.remove();updateChatTray(tray);});card.querySelector('.chat-popup-open').addEventListener('click',()=>openFloatingChat(threadId));tray.prepend(card);updateChatTray(tray);setTimeout(()=>{if(card.isConnected){card.remove();updateChatTray(tray);}},15000);
   }
   function startRealtimeMessages(){
     if(demo||!window.EventSource||realtimeSource)return;
@@ -297,11 +317,11 @@ export function iniciarEcosistema({session,apiUrl}={}){
     const threadButton=event.target.closest('[data-thread-open]');if(threadButton){activeThreadId=threadButton.dataset.threadOpen;renderCommunications();if(!demo){try{const connectionState=await request(`/api/network/activity/${encodeURIComponent(activeThreadId)}/read`,{method:'POST'});state={...state,...connectionState};renderCommunications();publishNetworkNotifications();}catch{}}return;}
     const reply=event.target.closest('[data-thread-reply]');if(reply)openPrivateActivity(reply.dataset.privateCompany,reply.dataset.privateKind,activeThreadId);
   });
-  root.addEventListener('keydown',event=>{const field=event.target.closest('[data-chat-compose] textarea');if(field&&event.key==='Enter'&&!event.shiftKey){event.preventDefault();field.closest('form').requestSubmit();}});
-  root.addEventListener('submit',async event=>{
+  document.addEventListener('keydown',event=>{const field=event.target.closest('[data-chat-compose] textarea');if(field&&event.key==='Enter'&&!event.shiftKey){event.preventDefault();field.closest('form').requestSubmit();}});
+  document.addEventListener('submit',async event=>{
     const form=event.target.closest('[data-chat-compose]');if(!form)return;event.preventDefault();const button=form.querySelector('[type="submit"]'),body=new FormData(form).get('body')?.trim();if(!body)return;
     const threadId=form.dataset.thread,tempId=`pending-${crypto.randomUUID()}`,optimistic={id:tempId,thread_id:threadId,sender_company_id:session.companyId,recipient_company_id:form.dataset.company,sender_name:session.businessName||'Tú',recipient_name:findBusiness(form.dataset.company)?.display_name||'',kind:form.dataset.kind,subject:form.dataset.subject,body,metadata:{},created_at:new Date().toISOString(),read_at:null,direction:'sent',pending:true};
-    setBusy(button,true,'Enviando…');state={...state,private_activity:[...(state.private_activity||[]),optimistic]};activeThreadId=threadId;renderCommunications();
+    setBusy(button,true,'Enviando…');form.reset();state={...state,private_activity:[...(state.private_activity||[]),optimistic]};activeThreadId=threadId;renderCommunications();
     try{
       const connectionState=await request(`/api/network/connections/${encodeURIComponent(form.dataset.company)}/activity`,{method:'POST',body:JSON.stringify({kind:form.dataset.kind,subject:form.dataset.subject,body,threadId,metadata:{}})}),returned=connectionState.private_activity||[];
       const confirmed=returned.find(item=>String(item.sender_company_id)===String(session.companyId)&&String(item.recipient_company_id)===String(form.dataset.company)&&item.body===body);

@@ -109,6 +109,7 @@ test('RED Pymio: presenta chat, retención por plan y recepción en tiempo real'
   const migration=await readFile(new URL('../supabase/migrations/025_message_retention.sql',import.meta.url),'utf8');
   assert.match(html,/data-message-retention/);assert.match(source,/data-chat-compose/);assert.match(source,/new EventSource/);
   assert.match(source,/pymio-chat-tray/);assert.match(source,/pending-\$\{crypto\.randomUUID\(\)\}/);assert.match(source,/threadId=form\.dataset\.thread/);assert.match(css,/pymio-chat-popup/);assert.match(css,/color:#8b6900/);assert.match(server,/text\/event-stream/);
+  assert.match(source,/openFloatingChat/);assert.match(source,/pymio-floating-chat/);assert.match(source,/data-notification-thread/);assert.match(css,/floating-chat-composer/);assert.match(css,/data-open-chats="3"/);
   assert.match(server,/res\.on\?\.\('close'/);assert.doesNotMatch(server,/req\.on\?\.\('close'/);assert.match(server,/Date\.parse\(item\.created_at\)>=cursorTime/);assert.match(server,/attempt<150/);
   assert.match(migration,/interval '7 days'/);assert.match(migration,/is_pymium/);
 });
