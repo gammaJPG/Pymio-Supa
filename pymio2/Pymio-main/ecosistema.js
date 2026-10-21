@@ -87,7 +87,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   initialized=true;
   const get=id=>root.querySelector('#'+id),demo=Boolean(session?.demo);
   let state=demo?structuredClone(demoData):{profile:null,businesses:[],connections:[],connection_requests:[],outgoing_connection_requests:[],connection_responses:[],private_notifications:[],private_activity:[],communities:[],community_requests:[],posts:[]},products=[];
-  let communityFilter='all',communityQuery='',communicationsFilter='inbox',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null;
+  let communityFilter='all',communityQuery='',communicationsFilter='inbox',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null,realtimeSource=null,realtimeCursor='';
   const feedback=root.querySelector('.ecosistema-feedback');
   const announce=(message,type='success')=>{feedback.textContent=message;feedback.dataset.type=type;feedback.hidden=false;};
   const setBusy=(button,busy,label)=>{
@@ -151,6 +151,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   function renderCommunications(){
     const all=communicationThreads(),inbox=all.filter(thread=>thread.items.some(item=>item.direction==='received')),sent=all.filter(thread=>thread.items.some(item=>item.direction==='sent'));
     const unread=(state.private_activity||[]).filter(item=>item.direction==='received'&&!item.read_at).length;root.querySelector('[data-inbox-count]').textContent=unread||inbox.length;
+    const retention=root.querySelector('[data-message-retention]');if(retention)retention.textContent=state.is_pymium?'Plan Pymium · tus conversaciones se conservan sin límite.':'Plan básico · los mensajes se conservan durante 7 días.';
     root.querySelectorAll('[data-communications-filter]').forEach(button=>{const active=button.dataset.communicationsFilter===communicationsFilter;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));});
     const visible=communicationsFilter==='inbox'?inbox:communicationsFilter==='sent'?sent:all,list=root.querySelector('[data-communications-list]');
     list.innerHTML=visible.length?visible.map(thread=>{const item=thread.last,other=item.direction==='sent'?item.recipient_name:item.sender_name,isUnread=thread.items.some(row=>row.direction==='received'&&!row.read_at);return `<button type="button" class="communication-thread ${String(thread.id)===String(activeThreadId)?'active':''} ${isUnread?'unread':''}" data-thread-open="${escapeHTML(thread.id)}"><span class="communication-thread-top"><strong>${escapeHTML(other)}</strong><time>${escapeHTML(formatCommunicationDate(item.created_at))}</time></span><span class="communication-kind">${escapeHTML(privateKindInfo[item.kind]?.label||'Mensaje')}</span><b>${escapeHTML(item.subject||'Sin asunto')}</b><small>${escapeHTML(item.body)}</small></button>`;}).join(''):emptyState(communicationsFilter==='sent'?'Aún no has enviado comunicaciones':'No tienes comunicaciones aquí','Los mensajes y oportunidades aparecerán en esta bandeja.');
@@ -161,7 +162,21 @@ export function iniciarEcosistema({session,apiUrl}={}){
     const detail=root.querySelector('[data-communications-detail]'),thread=communicationThreads().find(item=>String(item.id)===String(activeThreadId));
     if(!thread){detail.innerHTML='<div class="communications-empty"><span aria-hidden="true">✉</span><h3>Selecciona una conversación</h3><p>Aquí podrás leer el historial completo y responder sin salir de Pymio.</p></div>';return;}
     const first=thread.items[0],last=thread.last,otherId=String(first.sender_company_id)===String(session.companyId)?first.recipient_company_id:first.sender_company_id,otherName=String(first.sender_company_id)===String(session.companyId)?first.recipient_name:first.sender_name,kind=first.kind,info=privateKindInfo[kind]||privateKindInfo.message;
-    detail.innerHTML=`<header class="communications-detail-head"><div><span class="communication-kind">${escapeHTML(info.label)}</span><h3>${escapeHTML(first.subject||'Sin asunto')}</h3><p>Conversación con ${escapeHTML(otherName)}</p></div><button type="button" class="btn" data-thread-reply data-private-company="${escapeHTML(otherId)}" data-private-kind="${escapeHTML(kind)}">Responder</button></header><div class="communication-messages">${thread.items.map(item=>`<article class="communication-message ${item.direction}"><div><strong>${escapeHTML(item.direction==='sent'?'Tú':item.sender_name)}</strong><time>${escapeHTML(formatCommunicationDate(item.created_at))}</time></div><p>${escapeHTML(item.body)}</p>${Object.entries(item.metadata||{}).filter(([,value])=>value).map(([key,value])=>`<small>${escapeHTML({deadline:'Fecha límite',budget:'Presupuesto',valid_until:'Válida hasta'}[key]||key)}: ${escapeHTML(value)}</small>`).join('')}</article>`).join('')}</div>`;
+    detail.innerHTML=`<header class="communications-detail-head"><div><span class="communication-kind">${escapeHTML(info.label)}</span><h3>${escapeHTML(first.subject||'Sin asunto')}</h3><p>Conversación con ${escapeHTML(otherName)}</p></div><span class="chat-live-status"><i></i> En tiempo real</span></header><div class="communication-messages" data-chat-messages>${thread.items.map(item=>`<article class="communication-message ${item.direction}"><div><strong>${escapeHTML(item.direction==='sent'?'Tú':item.sender_name)}</strong><time>${escapeHTML(formatCommunicationDate(item.created_at))}</time></div><p>${escapeHTML(item.body)}</p>${Object.entries(item.metadata||{}).filter(([,value])=>value).map(([key,value])=>`<small>${escapeHTML({deadline:'Fecha límite',budget:'Presupuesto',valid_until:'Válida hasta'}[key]||key)}: ${escapeHTML(value)}</small>`).join('')}</article>`).join('')}</div><form class="chat-composer" data-chat-compose data-company="${escapeHTML(otherId)}" data-kind="${escapeHTML(kind)}" data-thread="${escapeHTML(thread.id)}" data-subject="${escapeHTML(first.subject||'Conversación')}"><label><span class="sr-only">Escribe un mensaje</span><textarea name="body" rows="1" maxlength="5000" required placeholder="Escribe un mensaje…"></textarea></label><button type="submit" class="btn" aria-label="Enviar mensaje">Enviar</button><p class="chat-compose-error" role="alert" hidden></p></form>`;
+    requestAnimationFrame(()=>{const messages=detail.querySelector('[data-chat-messages]');if(messages)messages.scrollTop=messages.scrollHeight;});
+  }
+
+  function showRealtimeMessage(message){
+    let tray=document.querySelector('.pymio-chat-tray');if(!tray){tray=document.createElement('aside');tray.className='pymio-chat-tray';tray.setAttribute('aria-live','assertive');tray.setAttribute('aria-label','Mensajes nuevos');document.body.appendChild(tray);}
+    const card=document.createElement('article');card.className='pymio-chat-popup';card.innerHTML=`<button type="button" class="chat-popup-close" aria-label="Cerrar">×</button><span class="chat-popup-kicker"><i></i> Nuevo mensaje</span><strong>${escapeHTML(message.display_name||message.sender_name||'RED Pymio')}</strong><p>${escapeHTML(message.body||'Te enviaron un mensaje.')}</p><button type="button" class="chat-popup-open">Abrir chat</button>`;
+    card.querySelector('.chat-popup-close').addEventListener('click',()=>card.remove());card.querySelector('.chat-popup-open').addEventListener('click',()=>{activeThreadId=String(message.thread_id);communicationsFilter='all';mostrarVistaEcosistema('comunicaciones');renderCommunications();card.remove();});tray.prepend(card);while(tray.children.length>3)tray.lastElementChild.remove();setTimeout(()=>card.remove(),15000);
+  }
+  function startRealtimeMessages(){
+    if(demo||!window.EventSource||realtimeSource)return;
+    const received=(state.private_activity||[]).filter(item=>item.direction==='received').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));realtimeCursor=received[0]?.created_at||new Date().toISOString();
+    realtimeSource=new EventSource(`${apiUrl}/api/network/messages/stream?after=${encodeURIComponent(realtimeCursor)}`);
+    realtimeSource.addEventListener('message',event=>{try{const update=JSON.parse(event.data),messages=update.realtime_messages||[];if(!messages.length)return;const existing=new Set((state.private_activity||[]).map(item=>String(item.id)));state={...state,...update};renderCommunications();publishNetworkNotifications();for(const message of messages)if(!existing.has(String(message.id)))showRealtimeMessage(message);}catch{}});
+    realtimeSource.addEventListener('error',()=>{if(realtimeSource?.readyState===EventSource.CLOSED){realtimeSource=null;setTimeout(startRealtimeMessages,2500);}});
   }
   function updateFilters(){
     const businesses=state.businesses||[];
@@ -169,6 +184,10 @@ export function iniciarEcosistema({session,apiUrl}={}){
     const tags=[...new Set(businesses.flatMap(item=>item.product_tags||[]))].sort();
     get('industry-filter').innerHTML='<option value="">Todos los rubros</option>'+industries.map(v=>`<option>${escapeHTML(v)}</option>`).join('');
     get('product-filter').innerHTML='<option value="">Todos los productos</option>'+tags.map(v=>`<option>${escapeHTML(v)}</option>`).join('');
+  }
+  function renderCommunityRoles(container,roles){
+    if(!container)return;container.hidden=!roles.length;
+    container.innerHTML=roles.length?`<h3>Comunidades que gestionas</h3><div class="profile-community-role-list">${roles.map(item=>`<span class="profile-community-role"><strong>${escapeHTML(item.name)}</strong><small>${item.role==='owner'?'Creador':'Administrador'}</small></span>`).join('')}</div>`:'';
   }
   function renderProfile(){
     const p=state.profile||{};
@@ -182,6 +201,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     root.querySelector('[data-store-tagline]').textContent=p.store_tagline||p.description||'Personaliza cómo se presenta tu pyme a la red.';
     root.querySelector('[data-store-socials]').innerHTML=socialHTML(p);
     root.querySelector('[data-storefront]').style.setProperty('--store-accent',p.accent_color||'#f4ce4f');
+    renderCommunityRoles(root.querySelector('[data-own-community-roles]'),state.managed_communities||[]);
   }
   function filteredBusinesses(){
     const query=get('match-search').value.trim().toLocaleLowerCase('es'),industry=get('industry-filter').value,product=get('product-filter').value;
@@ -212,11 +232,11 @@ export function iniciarEcosistema({session,apiUrl}={}){
     if(products.length||demo){if(demo&&!products.length)products=demoProducts;renderProducts();return;}
     try{products=await request(`/api/products?company_id=${encodeURIComponent(session.companyId)}`);renderProducts();}catch{get('store-inventory-grid').innerHTML=emptyState('No pudimos cargar tu inventario','Inténtalo nuevamente desde el botón Actualizar.');}
   }
-  function publishNetworkNotifications(){document.dispatchEvent(new CustomEvent('red-pymio-notifications',{detail:{requests:state.connection_requests||[],responses:state.connection_responses||[],activity:state.private_notifications||[]}}));}
+  function publishNetworkNotifications(){document.dispatchEvent(new CustomEvent('red-pymio-notifications',{detail:{requests:state.connection_requests||[],responses:state.connection_responses||[],activity:state.private_notifications||[],communityRoles:state.community_role_notifications||[]}}));}
   function renderAll(){renderCommunities();renderConnections();renderCommunications();renderProfile();updateFilters();renderMatches();renderPosts();publishNetworkNotifications();if(currentView==='pymio')loadProducts();}
   async function load(){
     if(demo){renderAll();return;}root.classList.add('network-loading');feedback.hidden=true;
-    try{state=await request('/api/network/bootstrap');renderAll();}catch(error){announce(error.message,'error');get('community-grid').innerHTML=emptyState('No pudimos cargar RED Pymio','Revisa tu conexión y vuelve a intentarlo.');}finally{root.classList.remove('network-loading');}
+    try{state=await request('/api/network/bootstrap');renderAll();startRealtimeMessages();}catch(error){announce(error.message,'error');get('community-grid').innerHTML=emptyState('No pudimos cargar RED Pymio','Revisa tu conexión y vuelve a intentarlo.');}finally{root.classList.remove('network-loading');}
   }
   function openDialog(dialog){feedback.hidden=true;dialog.showModal();requestAnimationFrame(()=>dialog.classList.add('is-open'));}
   function closeDialog(dialog){dialog.classList.remove('is-open');setTimeout(()=>{if(dialog.open)dialog.close();},180);}
@@ -231,6 +251,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     dialog.querySelector('[data-public-meta]').textContent=[profile.industry,profile.location].filter(Boolean).join(' · ')||'Negocio en Pymio';
     dialog.querySelector('[data-public-description]').textContent=profile.description||profile.store_tagline||'Este negocio aún no agregó una descripción.';
     dialog.querySelector('[data-public-tags]').innerHTML=(profile.product_tags||[]).map(tag=>`<span class="pill teal">${escapeHTML(tag)}</span>`).join('');
+    const roleBox=dialog.querySelector('[data-public-community-roles]'),roles=profile.is_self?(state.managed_communities||[]):[];renderCommunityRoles(roleBox,roles);
     dialog.querySelector('[data-public-socials]').innerHTML=socialHTML(profile)||'<span class="no-socials">Este negocio aún no agregó canales de contacto.</span>';
     const pending=(state.outgoing_connection_requests||[]).some(request=>String(request.company_id)===String(profile.company_id));
     const connect=dialog.querySelector('[data-public-connect]');connect.hidden=Boolean(profile.is_self);connect.disabled=Boolean(profile.connected||pending);connect.textContent=profile.connected?'Conectado':pending?'Solicitud enviada':'Conectar';connect.dataset.connectBusiness=profile.company_id||'';
@@ -255,6 +276,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     const threadButton=event.target.closest('[data-thread-open]');if(threadButton){activeThreadId=threadButton.dataset.threadOpen;renderCommunications();if(!demo){try{const connectionState=await request(`/api/network/activity/${encodeURIComponent(activeThreadId)}/read`,{method:'POST'});state={...state,...connectionState};renderCommunications();publishNetworkNotifications();}catch{}}return;}
     const reply=event.target.closest('[data-thread-reply]');if(reply)openPrivateActivity(reply.dataset.privateCompany,reply.dataset.privateKind,activeThreadId);
   });
+  root.addEventListener('submit',async event=>{const form=event.target.closest('[data-chat-compose]');if(!form)return;event.preventDefault();const button=form.querySelector('[type="submit"]'),error=form.querySelector('.chat-compose-error'),body=new FormData(form).get('body')?.trim();if(!body)return;setBusy(button,true,'Enviando…');error.hidden=true;try{const connectionState=await request(`/api/network/connections/${encodeURIComponent(form.dataset.company)}/activity`,{method:'POST',body:JSON.stringify({kind:form.dataset.kind,subject:form.dataset.subject,body,threadId:form.dataset.thread,metadata:{}})});state={...state,...connectionState};activeThreadId=form.dataset.thread;renderCommunications();publishNetworkNotifications();}catch(cause){error.textContent=cause.message;error.hidden=false;}finally{setBusy(button,false);}});
   privateForm.addEventListener('submit',async event=>{event.preventDefault();const button=privateForm.querySelector('[type="submit"]'),data=Object.fromEntries(new FormData(privateForm)),metadata={deadline:data.deadline||'',budget:data.budget||'',validUntil:data.validUntil||''};setBusy(button,true,'Enviando…');try{const connectionState=await request(`/api/network/connections/${encodeURIComponent(data.companyId)}/activity`,{method:'POST',body:JSON.stringify({kind:data.kind,subject:data.subject,body:data.body,threadId:data.threadId,metadata})});state={...state,...connectionState};activeThreadId=data.threadId||state.private_activity?.at(-1)?.thread_id||activeThreadId;renderAll();closeDialog(privateDialog);announce(data.threadId?'Respuesta enviada.':'Comunicación enviada de forma privada.');}catch(error){privateForm.querySelector('.form-error').textContent=error.message;privateForm.querySelector('.form-error').hidden=false;}finally{setBusy(button,false);}});
   document.addEventListener('red-pymio-connection-decision',async event=>{if(demo)return;try{state=await request(`/api/network/connection-requests/${encodeURIComponent(event.detail.id)}`,{method:'POST',body:JSON.stringify({decision:event.detail.decision})});renderAll();announce(event.detail.decision==='accept'?'Conexión aceptada. La empresa ya aparece en Mi RED.':'Solicitud rechazada.');}catch(error){announce(error.message,'error');}});
   document.addEventListener('red-pymio-view-profile',event=>{const item=findBusiness(event.detail.companyId);if(item){mostrarVistaEcosistema('explorar');openPublicProfile(item);}});
@@ -334,6 +356,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   const detailDialog=get('community-detail-dialog'),communityEditDialog=get('community-edit-dialog'),membersDialog=get('community-members-dialog'),builderDialog=get('community-form-builder'),formView=get('community-form-view');
   let activeCommunityPane='overview';
   const canAdmin=()=>['owner','admin'].includes(activeCommunity?.community?.role);
+  const isCommunityOwner=()=>activeCommunity?.community?.role==='owner';
   const activeCommunityRequests=()=>canAdmin()?(state.community_requests||[]).filter(request=>request.community_id===activeCommunity?.community?.id):[];
   const communityFromState=()=> (state.communities||[]).find(item=>item.id===activeCommunity?.community?.id)||{};
   const communityRoleLabel=role=>role==='owner'?'Creas y administras':role==='admin'?'Administras':'Eres miembro';
@@ -346,7 +369,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   function renderMembers(){
     const query=root.querySelector('[data-member-search]').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     const members=(activeCommunity?.members||[]).filter(item=>!query||item.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(query));
-    root.querySelector('[data-member-list]').innerHTML=members.map(item=>{const business=findBusiness(item.company_id),isSelf=String(item.company_id)===String(session.companyId),connected=Boolean(business?.connected);const connection=isSelf?'':connected?'<button type="button" class="connect-button is-connected" disabled>Conectado</button>':`<button type="button" class="connect-button" data-connect-business="${escapeHTML(item.company_id)}">Conectar</button>`;const administration=canAdmin()&&item.role!=='owner'&&!isSelf?`<button type="button" class="btn-outline" data-admin-company="${item.company_id}" data-admin-value="${item.role!=='admin'}">${item.role==='admin'?'Quitar administrador':'Hacer administrador'}</button>`:'';return `<article class="member-row"><span>${escapeHTML(initials(item.name))}</span><div class="member-identity"><strong>${escapeHTML(item.name)}</strong><small>${item.role==='owner'?'Creador - Administrador':item.role==='admin'?'Miembro - Administrador':'Miembro - Usuario'}</small></div><div class="member-actions">${connection}${administration}</div></article>`;}).join('')||emptyState('Sin resultados','No encontramos una tienda con ese nombre.');
+    root.querySelector('[data-member-list]').innerHTML=members.map(item=>{const business=findBusiness(item.company_id),isSelf=String(item.company_id)===String(session.companyId),connected=Boolean(business?.connected);const connection=isSelf?'':connected?'<button type="button" class="connect-button is-connected" disabled>Conectado</button>':`<button type="button" class="connect-button" data-connect-business="${escapeHTML(item.company_id)}">Conectar</button>`;const mayChangeRole=canAdmin()&&item.role!=='owner'&&!isSelf&&(item.role!=='admin'||isCommunityOwner());const administration=mayChangeRole?`<button type="button" class="btn-outline" data-admin-company="${item.company_id}" data-admin-value="${item.role!=='admin'}">${item.role==='admin'?'Quitar administrador':'Hacer administrador'}</button>`:'';return `<article class="member-row"><span>${escapeHTML(initials(item.name))}</span><div class="member-identity"><strong>${escapeHTML(item.name)}</strong><small>${item.role==='owner'?'Creador - Administrador':item.role==='admin'?'Miembro - Administrador':'Miembro - Usuario'}</small></div><div class="member-actions">${connection}${administration}</div></article>`;}).join('')||emptyState('Sin resultados','No encontramos una tienda con ese nombre.');
   }
   function renderCommunityDetail(){
     const data=activeCommunity,community=data.community,members=data.members||[],events=data.events||[],forms=data.forms||[],admins=members.filter(item=>['owner','admin'].includes(item.role)),requests=activeCommunityRequests(),listedCommunity=communityFromState(),now=Date.now(),upcoming=events.filter(item=>new Date(item.event_at).getTime()>=now).sort((a,b)=>new Date(a.event_at)-new Date(b.event_at)),openForms=forms.filter(item=>item.status==='open');

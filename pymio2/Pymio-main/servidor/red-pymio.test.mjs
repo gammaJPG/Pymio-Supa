@@ -81,6 +81,17 @@ test('RED Pymio: ofrece una bandeja de comunicaciones y formularios distintos po
   assert.match(migration,/thread_id uuid/);assert.match(migration,/'private_activity'/);assert.match(migration,/operation='activity\.read'/);
 });
 
+test('RED Pymio: presenta chat, retención por plan y recepción en tiempo real',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  const css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8');
+  const server=await readFile(new URL('./red-pymio.mjs',import.meta.url),'utf8');
+  const migration=await readFile(new URL('../supabase/migrations/022_message_retention.sql',import.meta.url),'utf8');
+  assert.match(html,/data-message-retention/);assert.match(source,/data-chat-compose/);assert.match(source,/new EventSource/);
+  assert.match(source,/pymio-chat-tray/);assert.match(css,/pymio-chat-popup/);assert.match(server,/text\/event-stream/);
+  assert.match(migration,/interval '7 days'/);assert.match(migration,/is_pymium/);
+});
+
 test('RED Pymio: al unirse reemplaza el botón por Miembro - Usuario',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   assert.match(source,/item\.joined\?[\s\S]*Miembro - Usuario[\s\S]*data-community-join/);
@@ -156,7 +167,26 @@ test('RED Pymio: la comunidad permite editar marca, redes y administradores',asy
   for(const label of ['Editar comunidad','Foto de perfil','Banner de la comunidad','Sitio web','Instagram','YouTube','TikTok','Facebook','LinkedIn'])assert.match(html,new RegExp(label));
   assert.match(html,/id="community-edit-dialog"/);assert.match(html,/data-community-edit-form/);
   assert.match(source,/communityImageUrl/);assert.match(source,/uploadCommunityImage/);assert.match(source,/communities\/\$\{community\.id\}\/profile/);
-  assert.match(source,/canAdmin\(\)&&item\.role!==['"]owner['"]&&!isSelf/);
+  assert.match(source,/mayChangeRole=canAdmin\(\)&&item\.role!==['"]owner['"]&&!isSelf/);
+});
+
+test('RED Pymio: solo el creador puede quitar administradores y el cambio se notifica',async()=>{
+  const sql=await readFile(new URL('../supabase/migrations/021_community_roles_and_notifications.sql',import.meta.url),'utf8');
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  assert.match(sql,/NOT is_admin AND target_role='admin' AND actor_role<>'owner'/);
+  assert.match(sql,/INSERT INTO public\.community_role_notifications/);
+  assert.match(source,/item\.role!=='admin'\|\|isCommunityOwner\(\)/);
+  assert.match(app,/Ahora eres administrador/);
+  assert.match(app,/Ya no eres administrador/);
+});
+
+test('RED Pymio: el perfil enumera comunidades creadas y administradas',async()=>{
+  const sql=await readFile(new URL('../supabase/migrations/021_community_roles_and_notifications.sql',import.meta.url),'utf8');
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  assert.match(sql,/'managed_communities'/);
+  assert.match(source,/Comunidades que gestionas/);
+  assert.match(source,/item\.role==='owner'\?'Creador':'Administrador'/);
 });
 
 test('RED Pymio: migración define roles, formularios y almacenamiento privado',async()=>{

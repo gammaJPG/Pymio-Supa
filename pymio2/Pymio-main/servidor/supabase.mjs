@@ -131,12 +131,13 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async network(operation, companyId, data = {}) {
       const connectionOperation=operation.startsWith('connection.')||operation.startsWith('activity.');
       if(operation==='bootstrap'){
-        const [network,connections,entitlements]=await Promise.all([
+        const [network,connections,entitlements,communityRoles]=await Promise.all([
           requestJson('/rest/v1/rpc/pymio_network',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo consultar RED Pymio.'),
           requestJson('/rest/v1/rpc/pymio_connections',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar las conexiones.'),
           requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar los beneficios de la cuenta.'),
+          requestJson('/rest/v1/rpc/pymio_community_roles',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({company:String(companyId)})},'No se pudieron consultar tus roles de comunidad.'),
         ]);
-        return {...network,...connections,...entitlements};
+        return {...network,...connections,...entitlements,...communityRoles};
       }
       if(operation==='post.update'){
         const {post_id,...payload}=data;
@@ -158,6 +159,9 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       return requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo validar el plan de la cuenta.');
     },
     async community(operation,companyId,data={}){
+      if(operation==='admin.set')return requestJson('/rest/v1/rpc/pymio_community_admin_set',{
+        method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({company:String(companyId),community_id:data.community_id,target_company_id:String(data.target_company_id),is_admin:Boolean(data.is_admin)}),
+      },'No se pudo actualizar el rol de este miembro.');
       return requestJson('/rest/v1/rpc/pymio_community',{
         method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
       },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.');

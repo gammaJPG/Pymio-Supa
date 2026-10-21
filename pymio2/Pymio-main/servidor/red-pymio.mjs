@@ -13,6 +13,11 @@ function zipFiles(files){
 }
 
 const text = (value, max) => String(value ?? '').trim().slice(0, max);
+const applyMessageRetention=snapshot=>{
+  if(!snapshot||snapshot.is_pymium)return snapshot;
+  const cutoff=Date.now()-7*24*60*60*1000,isCurrent=item=>Date.parse(item.created_at)>=cutoff;
+  return {...snapshot,private_notifications:(snapshot.private_notifications||[]).filter(isCurrent),private_activity:(snapshot.private_activity||[]).filter(isCurrent)};
+};
 const bodyJson = async (req, max = 24_576) => {
   const chunks=[]; let bytes=0;
   for await (const chunk of req) {
@@ -122,7 +127,21 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const formUpload=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses\/([0-9a-f-]{36})\/questions\/([0-9a-f-]{36})\/file$/i.exec(url.pathname);
     const formZip=/^\/api\/network\/forms\/([0-9a-f-]{36})\/files\.zip$/i.exec(url.pathname);
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
-      return send(200,await pool.network('bootstrap',companyId,{}));
+      return send(200,applyMessageRetention(await pool.network('bootstrap',companyId,{})));
+    }
+    if(url.pathname==='/api/network/messages/stream' && req.method==='GET'){
+      let cursor=String(req.headers['last-event-id']||url.searchParams.get('after')||'');
+      if(!Number.isFinite(Date.parse(cursor)))cursor=new Date().toISOString();
+      let closed=false;req.on?.('close',()=>{closed=true;});
+      res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});
+      res.write('retry: 2500\n\n');
+      for(let attempt=0;attempt<12&&!closed;attempt+=1){
+        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>Date.parse(cursor)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+        if(messages.length){cursor=messages.at(-1).created_at;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,realtime_messages:messages})}\n\n`);}
+        else res.write(': keep-alive\n\n');
+        await new Promise(resolve=>setTimeout(resolve,2000));
+      }
+      if(!closed)res.end();return;
     }
     if(url.pathname==='/api/network/profile' && req.method==='PUT'){
       requireJson(req);return send(200,await pool.network('profile.update',companyId,cleanProfile(await bodyJson(req))));
@@ -207,9 +226,10 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       if(!kind||!subject||!message)return send(400,{error:'Completa el asunto y el contenido de la comunicación.'});
       if(threadId&&!UUID.test(threadId))return send(400,{error:'La conversación seleccionada no es válida.'});
       const cleanMetadata={deadline:text(metadata.deadline,10),budget:text(metadata.budget,30),valid_until:text(metadata.validUntil,10)};
-      return send(201,await pool.network('activity.create',companyId,{target_company_id:privateActivity[1],kind,subject,body:message,thread_id:threadId||null,metadata:cleanMetadata}));
+      await pool.network('activity.create',companyId,{target_company_id:privateActivity[1],kind,subject,body:message,thread_id:threadId||null,metadata:cleanMetadata});
+      return send(201,applyMessageRetention(await pool.network('bootstrap',companyId,{})));
     }
-    if(privateActivityRead&&req.method==='POST')return send(200,await pool.network('activity.read',companyId,{thread_id:privateActivityRead[1]}));
+    if(privateActivityRead&&req.method==='POST'){await pool.network('activity.read',companyId,{thread_id:privateActivityRead[1]});return send(200,applyMessageRetention(await pool.network('bootstrap',companyId,{})));}
     if(url.pathname==='/api/network/posts' && req.method==='POST'){
       requireJson(req);const post=cleanPost(await bodyJson(req));
       if(post.kind==='event'&&post.community_id){const detail=await pool.community('detail',companyId,{community_id:post.community_id});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden crear eventos en esta comunidad.'});}
