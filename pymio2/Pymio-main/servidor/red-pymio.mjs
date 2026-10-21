@@ -37,6 +37,15 @@ function cleanProfile(data){
     if(normalized && !/^https?:\/\/[^\s]+$/i.test(normalized))throw Object.assign(new Error(`${label} debe comenzar con http:// o https://.`),{status:400});
     return normalized;
   };
+  const whatsappPhone=value=>{
+    const normalized=text(value,32);
+    if(!normalized)return '';
+    if(!/^[+\d\s().-]+$/.test(normalized))throw Object.assign(new Error('Ingresa un número de WhatsApp válido.'),{status:400});
+    let digits=normalized.replace(/\D/g,'');
+    if(normalized.startsWith('00'))digits=digits.slice(2);
+    if(!/^[1-9]\d{7,14}$/.test(digits))throw Object.assign(new Error('Ingresa el número de WhatsApp con código de país, por ejemplo +56 9 1234 5678.'),{status:400});
+    return `+${digits}`;
+  };
   const contactEmail=text(data.contactEmail,180).toLowerCase();
   const accentColor=text(data.accentColor,7)||'#f4ce4f';
   const imagePath=(value,kind)=>{
@@ -59,6 +68,7 @@ function cleanProfile(data){
     tiktok:optionalUrl(data.tiktok,'TikTok'),
     facebook:optionalUrl(data.facebook,'Facebook'),
     linkedin:optionalUrl(data.linkedin,'LinkedIn'),
+    whatsapp_phone:whatsappPhone(data.whatsappPhone),
     contact_email:contactEmail,
     product_tags:Array.isArray(data.productTags)
       ? [...new Set(data.productTags.map(value=>text(value,60)).filter(Boolean))].slice(0,12)

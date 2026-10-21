@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=158';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=159';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
@@ -32,7 +32,7 @@ let seccionesCargadas = false;
 async function cargarSecciones() {
   if (seccionesCargadas) return;
   const vistas = await Promise.all(['inicio', 'dashboard', 'movimientos', 'inventario', 'diagnostico', 'ecosistema'].map(async nombre => {
-    const respuesta = await fetch(new URL(nombre + '.html?v=134', import.meta.url));
+    const respuesta = await fetch(new URL(nombre + '.html?v=135', import.meta.url));
     if (!respuesta.ok) throw new Error(nombre + ': HTTP ' + respuesta.status);
     return { nombre, html: await respuesta.text() };
   }));
