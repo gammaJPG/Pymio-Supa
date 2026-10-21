@@ -174,9 +174,26 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       return requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo validar el plan de la cuenta.');
     },
     async community(operation,companyId,data={}){
-      if(operation==='admin.set')return requestJson('/rest/v1/rpc/pymio_community_admin_set',{
-        method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({company:String(companyId),community_id:data.community_id,target_company_id:String(data.target_company_id),is_admin:Boolean(data.is_admin)}),
-      },'No se pudo actualizar el rol de este miembro.');
+      if(operation==='admin.set'){
+        const roleRequest={company:String(companyId),community_id:data.community_id,target_company_id:String(data.target_company_id),is_admin:Boolean(data.is_admin)};
+        try{
+          return await requestJson('/rest/v1/rpc/pymio_community_admin_set',{
+            method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(roleRequest),
+          },'No se pudo actualizar el rol de este miembro.');
+        }catch(error){
+          if(error.code!=='PGRST202'&&!/pymio_community_admin_set/i.test(error.message||''))throw error;
+          const actor=encodeURIComponent(String(companyId)),target=encodeURIComponent(String(data.target_company_id)),community=encodeURIComponent(data.community_id);
+          const members=await requestJson(`/rest/v1/community_members?community_id=eq.${community}&company_id=in.(${actor},${target})&select=company_id,role`,{headers},'No se pudieron verificar los permisos de la comunidad.');
+          const actorMember=members.find(item=>String(item.company_id)===String(companyId)),targetMember=members.find(item=>String(item.company_id)===String(data.target_company_id));
+          if(!['owner','admin'].includes(actorMember?.role))throw Object.assign(new Error('Solo los administradores pueden asignar este permiso.'),{status:403});
+          if(!targetMember)throw Object.assign(new Error('La empresa no pertenece a esta comunidad.'),{status:404});
+          if(targetMember.role==='owner')throw Object.assign(new Error('No puedes modificar el rol del creador de la comunidad.'),{status:409});
+          if(!roleRequest.is_admin&&targetMember.role==='admin'&&actorMember.role!=='owner')throw Object.assign(new Error('Solo el creador de la comunidad puede retirar administradores.'),{status:403});
+          return requestJson('/rest/v1/rpc/pymio_community',{
+            method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
+          },'No se pudo actualizar el rol de este miembro.');
+        }
+      }
       return requestJson('/rest/v1/rpc/pymio_community',{
         method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
       },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.');

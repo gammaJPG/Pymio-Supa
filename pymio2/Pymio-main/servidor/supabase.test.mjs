@@ -152,6 +152,28 @@ test('Supabase RED Pymio: sigue cargando la red cuando aún falta la migración 
   assert.equal(calls.length,4);
 });
 
+test('Supabase RED Pymio: asigna administradores aunque aún falte la función nueva',async()=>{
+  const calls=[],communityId='10000000-0000-4000-8000-000000000001';
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/pymio_community_admin_set'))return Response.json({code:'PGRST202',message:'Could not find the function public.pymio_community_admin_set in the schema cache'},{status:404});
+    if(url.pathname.endsWith('/community_members'))return Response.json([{company_id:7,role:'owner'},{company_id:9,role:'member'}]);
+    return Response.json({community:{id:communityId},members:[{company_id:9,role:'admin'}]});
+  }});
+  const result=await client.community('admin.set',7,{community_id:communityId,target_company_id:9,is_admin:true});
+  assert.equal(result.members[0].role,'admin');
+  assert.deepEqual(calls.map(call=>call.url.pathname),['/rest/v1/rpc/pymio_community_admin_set','/rest/v1/community_members','/rest/v1/rpc/pymio_community']);
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body),{operation:'admin.set',company:'7',payload:{community_id:communityId,target_company_id:9,is_admin:true}});
+});
+
+test('Supabase RED Pymio: el modo compatible impide que un administrador retire a otro',async()=>{
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async url=>{
+    if(url.pathname.endsWith('/pymio_community_admin_set'))return Response.json({code:'PGRST202',message:'Missing pymio_community_admin_set'},{status:404});
+    return Response.json([{company_id:7,role:'admin'},{company_id:9,role:'admin'}]);
+  }});
+  await assert.rejects(client.community('admin.set',7,{community_id:'10000000-0000-4000-8000-000000000001',target_company_id:9,is_admin:false}),{status:403,message:'Solo el creador de la comunidad puede retirar administradores.'});
+});
+
 test('HTTP Auth: Google entra a la plataforma y completa dentro solo el nombre del negocio',async()=>{
   const registrations=[],updates=[],passwordUpdates=[],marked=[];
   const pool={
