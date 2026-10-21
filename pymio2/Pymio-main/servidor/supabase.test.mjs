@@ -123,7 +123,7 @@ test('HTTP Auth: mantiene el piloto en empresa 1 y fuerza esa empresa desde la s
   } finally {await close(server);}
 });
 
-test('Supabase Storage: sube únicamente WebP y permite eliminarlo', async () => {
+test('Supabase Storage: conserva el MIME validado y permite eliminar imágenes', async () => {
   const calls=[];
   const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});return Response.json({Key:'ok'});}});
   const image=Buffer.from('RIFFxxxxWEBPdata');
@@ -136,17 +136,18 @@ test('Supabase Storage: sube únicamente WebP y permite eliminarlo', async () =>
   assert.match(calls[1].url.pathname,/\/storage\/v1\/object\/public\/product-images\//);
   assert.ok(downloaded.length>0);
   assert.equal(calls[2].options.method,'DELETE');
-  await client.uploadProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp',image);
+  await client.uploadProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp',image,'image/png');
   await client.getProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp');
   await client.deleteProfileImage('2/avatar/10000000-0000-4000-8000-000000000002.webp');
   assert.equal(calls[3].url.pathname,'/storage/v1/object/profile-images/2/avatar/10000000-0000-4000-8000-000000000002.webp');
+  assert.equal(calls[3].options.headers['Content-Type'],'image/png');
   assert.match(calls[4].url.pathname,/\/storage\/v1\/object\/public\/profile-images\//);
   assert.equal(calls[5].options.method,'DELETE');
 });
 
-test('HTTP: valida y limita las imágenes antes de enviarlas a Storage', async () => {
+test('HTTP: acepta WebP, PNG y JPEG reales antes de enviarlos a Storage', async () => {
   const uploads=[];
-  const pool={uploadProductImage:async(path,body)=>uploads.push({path,body}),getProductImage:async path=>{uploads.push({read:path});return Buffer.from('RIFFxxxxWEBPdata');},deleteProductImage:async path=>uploads.push({deleted:path}),rpc:async()=>[]};
+  const pool={uploadProductImage:async(path,body,mime)=>uploads.push({path,body,mime}),getProductImage:async path=>{uploads.push({read:path});return Buffer.from('RIFFxxxxWEBPdata');},deleteProductImage:async path=>uploads.push({deleted:path}),rpc:async()=>[]};
   const server=createInventoryServer(pool,[]),base=await listen(server);
   try {
     const valid=Buffer.from('RIFFxxxxWEBPdata');
@@ -157,7 +158,10 @@ test('HTTP: valida y limita las imágenes antes de enviarlas a Storage', async (
     assert.equal(uploads[0].body.toString(),valid.toString());
     const served=await fetch(`${base}/api/product-images/${result.path.split('/')[1].replace('.webp','')}?company_id=2`);
     assert.equal(served.status,200); assert.equal(served.headers.get('content-type'),'image/webp');
-    assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:valid})).status,415);
+    const png=Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0]);
+    assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:png})).status,201);
+    assert.equal(uploads.at(-1).mime,'image/png');
+    assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:valid})).status,400);
     assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/webp'},body:Buffer.alloc(250*1024+1)})).status,413);
     const id=result.path.split('/')[1].replace('.webp','');
     assert.equal((await fetch(`${base}/api/product-images/${id}?company_id=2`,{method:'DELETE'})).status,200);
@@ -165,9 +169,9 @@ test('HTTP: valida y limita las imágenes antes de enviarlas a Storage', async (
   } finally { await close(server); }
 });
 
-test('HTTP: procesa fotos de perfil y banners WebP por empresa', async () => {
+test('HTTP: procesa fotos WebP, PNG y JPEG por empresa', async () => {
   const calls=[];
-  const pool={uploadProfileImage:async(path,body)=>calls.push({path,body}),getProfileImage:async path=>{calls.push({read:path});return Buffer.from('RIFFxxxxWEBPdata');},deleteProfileImage:async path=>calls.push({deleted:path}),rpc:async()=>[]};
+  const pool={uploadProfileImage:async(path,body,mime)=>calls.push({path,body,mime}),getProfileImage:async path=>{calls.push({read:path});return Buffer.from('RIFFxxxxWEBPdata');},deleteProfileImage:async path=>calls.push({deleted:path}),rpc:async()=>[]};
   const server=createInventoryServer(pool,[]),base=await listen(server);
   try{
     const valid=Buffer.from('RIFFxxxxWEBPdata');
@@ -175,7 +179,9 @@ test('HTTP: procesa fotos de perfil y banners WebP por empresa', async () => {
     assert.equal(uploaded.status,201);const result=await uploaded.json();assert.match(result.path,/^2\/avatar\/[0-9a-f-]{36}\.webp$/);
     const id=result.path.split('/')[2].replace('.webp','');
     const served=await fetch(`${base}/api/profile-images/2/avatar/${id}?company_id=2`);assert.equal(served.status,200);assert.equal(calls.at(-1).read,result.path);
-    assert.equal((await fetch(base+'/api/profile-images/banner?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:valid})).status,415);
+    const jpeg=Buffer.from([0xff,0xd8,0xff,0xe0,0,0,0,0]);
+    assert.equal((await fetch(base+'/api/profile-images/banner?company_id=2',{method:'POST',headers:{'Content-Type':'image/jpeg'},body:jpeg})).status,201);
+    assert.equal(calls.at(-1).mime,'image/jpeg');
     assert.equal((await fetch(`${base}/api/profile-images/avatar/${id}?company_id=2`,{method:'DELETE'})).status,200);assert.equal(calls.at(-1).deleted,result.path);
   }finally{await close(server);}
 });

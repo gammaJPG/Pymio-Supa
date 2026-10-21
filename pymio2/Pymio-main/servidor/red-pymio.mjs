@@ -1,5 +1,6 @@
 import {deflateRawSync,inflateRawSync} from 'node:zlib';
 import {randomUUID} from 'node:crypto';
+import {detectImageFormat,validateImageFormat} from './image-formats.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FILE_EXTENSIONS=new Set(['pdf','docx','doc','jpg','jpeg','png','webp','csv','xls','xlsx']);
@@ -41,6 +42,15 @@ function cleanProfile(data){
     if(normalized && !/^https?:\/\/[^\s]+$/i.test(normalized))throw Object.assign(new Error(`${label} debe comenzar con http:// o https://.`),{status:400});
     return normalized;
   };
+  const whatsappPhone=value=>{
+    const normalized=text(value,32);
+    if(!normalized)return '';
+    if(!/^[+\d\s().-]+$/.test(normalized))throw Object.assign(new Error('Ingresa un número de WhatsApp válido.'),{status:400});
+    let digits=normalized.replace(/\D/g,'');
+    if(normalized.startsWith('00'))digits=digits.slice(2);
+    if(!/^[1-9]\d{7,14}$/.test(digits))throw Object.assign(new Error('Ingresa el número de WhatsApp con código de país, por ejemplo +56 9 1234 5678.'),{status:400});
+    return `+${digits}`;
+  };
   const contactEmail=text(data.contactEmail,180).toLowerCase();
   const accentColor=text(data.accentColor,7)||'#f4ce4f';
   const imagePath=(value,kind)=>{
@@ -63,6 +73,7 @@ function cleanProfile(data){
     tiktok:optionalUrl(data.tiktok,'TikTok'),
     facebook:optionalUrl(data.facebook,'Facebook'),
     linkedin:optionalUrl(data.linkedin,'LinkedIn'),
+    whatsapp_phone:whatsappPhone(data.whatsappPhone),
     contact_email:contactEmail,
     product_tags:Array.isArray(data.productTags)
       ? [...new Set(data.productTags.map(value=>text(value,60)).filter(Boolean))].slice(0,12)
@@ -150,11 +161,11 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       requireJson(req);await pool.entitlements('community.create',companyId,cleanCommunity(await bodyJson(req)));return send(201,await pool.network('bootstrap',companyId,{}));
     }
     if(communityImagePublic&&req.method==='GET'){
-      const [,communityId,kind,id]=communityImagePublic,body=await pool.getCommunityImage(`${communityId}/${kind}/${id}.webp`);res.writeHead(200,{'Content-Type':'image/webp','Content-Length':body.length,'Cache-Control':'public, max-age=86400'});return res.end(body);
+      const [,communityId,kind,id]=communityImagePublic,body=await pool.getCommunityImage(`${communityId}/${kind}/${id}.webp`),format=detectImageFormat(body);if(!format)return send(502,{error:'La imagen almacenada no tiene un formato válido.'});res.writeHead(200,{'Content-Type':format.mime,'Content-Length':body.length,'Cache-Control':'public, max-age=86400'});return res.end(body);
     }
     if(communityImageUpload&&req.method==='POST'){
       const [,communityId,kind]=communityImageUpload,detail=await pool.community('detail',companyId,{community_id:communityId});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden cambiar la identidad de la comunidad.'});
-      if(req.headers['content-type']?.split(';')[0].trim()!=='image/webp')return send(415,{error:'La imagen debe estar comprimida en formato WebP.'});const limit=kind==='banner'?500*1024:250*1024,chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>limit)return send(413,{error:`La imagen comprimida supera el máximo de ${kind==='banner'?'500':'250'} KB.`});chunks.push(chunk);}const body=Buffer.concat(chunks);if(body.length<12||body.subarray(0,4).toString()!=='RIFF'||body.subarray(8,12).toString()!=='WEBP')return send(400,{error:'El archivo no es una imagen WebP válida.'});const id=randomUUID(),path=`${communityId}/${kind}/${id}.webp`;await pool.uploadCommunityImage(path,body);return send(201,{path});
+      const declaredMime=req.headers['content-type']?.split(';')[0].trim().toLowerCase();if(!['image/webp','image/png','image/jpeg'].includes(declaredMime))return send(415,{error:'La imagen debe ser WebP, PNG o JPEG.'});const limit=kind==='banner'?500*1024:250*1024,chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>limit)return send(413,{error:`La imagen optimizada supera el máximo de ${kind==='banner'?'500':'250'} KB.`});chunks.push(chunk);}const body=Buffer.concat(chunks),format=validateImageFormat(body,declaredMime);if(!format)return send(400,{error:'El contenido no coincide con una imagen WebP, PNG o JPEG válida.'});const id=randomUUID(),path=`${communityId}/${kind}/${id}.webp`;await pool.uploadCommunityImage(path,body,format.mime);return send(201,{path});
     }
     if(communityImageOwn&&req.method==='DELETE'){
       const [,communityId,kind,id]=communityImageOwn,detail=await pool.community('detail',companyId,{community_id:communityId});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden cambiar la identidad de la comunidad.'});await pool.deleteCommunityImage(`${communityId}/${kind}/${id}.webp`);return send(200,{deleted:true});

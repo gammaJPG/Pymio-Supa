@@ -2,6 +2,7 @@ import { crearProducto } from './productos.mjs';
 import { atenderCategorias } from './categorias.mjs';
 import { atenderClientes } from './clientes.mjs';
 import { atenderRedPymio } from './red-pymio.mjs';
+import { detectImageFormat, validateImageFormat } from './image-formats.mjs';
 
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -214,18 +215,21 @@ export function createInventoryServer(pool, origins, options = {}) {
       if (url.pathname === '/api/customers') return await atenderClientes(req,pool,companyId,send);
       if (imageRoute) {
         if (req.method === 'GET' && imageId) {
-          const body=await pool.getProductImage(`${companyId}/${imageId}.webp`);
-          res.writeHead(200,{'Content-Type':'image/webp','Content-Length':body.length,'Cache-Control':'public, max-age=86400'});
+          const body=await pool.getProductImage(`${companyId}/${imageId}.webp`),format=detectImageFormat(body);
+          if(!format)return send(502,{error:'La imagen almacenada no tiene un formato válido.'});
+          res.writeHead(200,{'Content-Type':format.mime,'Content-Length':body.length,'Cache-Control':'public, max-age=86400'});
           return res.end(body);
         }
         if (req.method === 'POST' && !imageId) {
-          if (req.headers['content-type']?.split(';')[0].trim() !== 'image/webp') return send(415,{error:'La imagen debe estar comprimida en formato WebP.'});
+          const declaredMime=req.headers['content-type']?.split(';')[0].trim().toLowerCase();
+          if (!['image/webp','image/png','image/jpeg'].includes(declaredMime)) return send(415,{error:'La imagen debe ser WebP, PNG o JPEG.'});
           const chunks=[]; let bytes=0;
           for await (const chunk of req) { bytes+=chunk.length; if(bytes>250*1024)return send(413,{error:'La imagen comprimida supera el máximo de 250 KB.'}); chunks.push(chunk); }
           const body=Buffer.concat(chunks);
-          if(body.length<12 || body.subarray(0,4).toString()!=='RIFF' || body.subarray(8,12).toString()!=='WEBP') return send(400,{error:'El archivo no es una imagen WebP válida.'});
+          const format=validateImageFormat(body,declaredMime);
+          if(!format)return send(400,{error:'El contenido no coincide con una imagen WebP, PNG o JPEG válida.'});
           const id=randomUUID(), path=`${companyId}/${id}.webp`;
-          await pool.uploadProductImage(path,body);
+          await pool.uploadProductImage(path,body,format.mime);
           return send(201,{path});
         }
         if (req.method === 'DELETE' && imageId) {
@@ -236,17 +240,19 @@ export function createInventoryServer(pool, origins, options = {}) {
       }
       if(profileImageRoute){
         if(req.method==='GET' && profilePublicImage){
-          const [,publicCompany,kind,id]=profilePublicImage,body=await pool.getProfileImage(`${publicCompany}/${kind}/${id}.webp`);
-          res.writeHead(200,{'Content-Type':'image/webp','Content-Length':body.length,'Cache-Control':'public, max-age=86400'});
+          const [,publicCompany,kind,id]=profilePublicImage,body=await pool.getProfileImage(`${publicCompany}/${kind}/${id}.webp`),format=detectImageFormat(body);
+          if(!format)return send(502,{error:'La imagen almacenada no tiene un formato válido.'});
+          res.writeHead(200,{'Content-Type':format.mime,'Content-Length':body.length,'Cache-Control':'public, max-age=86400'});
           return res.end(body);
         }
         if(req.method==='POST' && profileUpload){
-          if(req.headers['content-type']?.split(';')[0].trim()!=='image/webp')return send(415,{error:'La imagen debe estar comprimida en formato WebP.'});
+          const declaredMime=req.headers['content-type']?.split(';')[0].trim().toLowerCase();
+          if(!['image/webp','image/png','image/jpeg'].includes(declaredMime))return send(415,{error:'La imagen debe ser WebP, PNG o JPEG.'});
           const kind=profileUpload[1],limit=kind==='banner'?500*1024:250*1024,chunks=[];let bytes=0;
           for await(const chunk of req){bytes+=chunk.length;if(bytes>limit)return send(413,{error:`La imagen comprimida supera el máximo de ${kind==='banner'?'500':'250'} KB.`});chunks.push(chunk);}
           const body=Buffer.concat(chunks);
-          if(body.length<12||body.subarray(0,4).toString()!=='RIFF'||body.subarray(8,12).toString()!=='WEBP')return send(400,{error:'El archivo no es una imagen WebP válida.'});
-          const id=randomUUID(),path=`${companyId}/${kind}/${id}.webp`;await pool.uploadProfileImage(path,body);return send(201,{path});
+          const format=validateImageFormat(body,declaredMime);if(!format)return send(400,{error:'El contenido no coincide con una imagen WebP, PNG o JPEG válida.'});
+          const id=randomUUID(),path=`${companyId}/${kind}/${id}.webp`;await pool.uploadProfileImage(path,body,format.mime);return send(201,{path});
         }
         if(req.method==='DELETE' && profileOwnImage){
           const [,kind,id]=profileOwnImage;await pool.deleteProfileImage(`${companyId}/${kind}/${id}.webp`);return send(200,{deleted:true});

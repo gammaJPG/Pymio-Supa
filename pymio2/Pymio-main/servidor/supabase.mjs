@@ -18,11 +18,11 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     }
     return result;
   };
-  const uploadStorageImage = async (bucket, path, body) => {
+  const uploadStorageImage = async (bucket, path, body, mimeType='image/webp') => {
     let response;
     try {
       response = await fetchImpl(new URL(`/storage/v1/object/${bucket}/${path}`, base), {
-        method: 'POST', headers: {...headers, 'Content-Type':'image/webp', 'x-upsert':'false'}, body,
+        method: 'POST', headers: {...headers, 'Content-Type':mimeType, 'x-upsert':'false'}, body,
         signal: AbortSignal.timeout(20000),
       });
     } catch { throw Object.assign(new Error('No se pudo conectar con Supabase Storage.'), {status:503}); }
@@ -206,8 +206,8 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       }
       return result;
     },
-    async uploadProductImage(path, body) {
-      return uploadStorageImage('product-images',path,body);
+    async uploadProductImage(path, body, mimeType) {
+      return uploadStorageImage('product-images',path,body,mimeType);
     },
     async deleteProductImage(path) {
       return deleteStorageImage('product-images',path);
@@ -215,8 +215,8 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async getProductImage(path) {
       return getStorageImage('product-images',path);
     },
-    async uploadProfileImage(path, body) {
-      return uploadStorageImage('profile-images',path,body);
+    async uploadProfileImage(path, body, mimeType) {
+      return uploadStorageImage('profile-images',path,body,mimeType);
     },
     async deleteProfileImage(path) {
       return deleteStorageImage('profile-images',path);
@@ -224,7 +224,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async getProfileImage(path) {
       return getStorageImage('profile-images',path);
     },
-    async uploadCommunityImage(path,body){return uploadStorageImage('community-profile-images',path,body);},
+    async uploadCommunityImage(path,body,mimeType){return uploadStorageImage('community-profile-images',path,body,mimeType);},
     async deleteCommunityImage(path){return deleteStorageImage('community-profile-images',path);},
     async getCommunityImage(path){return getStorageImage('community-profile-images',path);},
     async uploadCommunityFile(path,body){return uploadStorageFile('community-form-files',path,body);},

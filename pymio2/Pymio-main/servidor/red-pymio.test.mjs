@@ -22,15 +22,18 @@ test('RED Pymio: carga el espacio y conserva el alcance de la empresa',async()=>
 });
 
 test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()=>{
-  const profile=await call('/api/network/profile','PUT',{displayName:'  Café Sur  ',industry:'Alimentos',productTags:[' Café ','Mayorista','Café'],website:'',instagram:'https://instagram.com/cafesur',contactEmail:'VENTAS@CAFE.CL',accentColor:'#e4b930',avatarPath:'7/avatar/10000000-0000-4000-8000-000000000001.webp',bannerPath:'7/banner/10000000-0000-4000-8000-000000000002.webp'});
+  const profile=await call('/api/network/profile','PUT',{displayName:'  Café Sur  ',industry:'Alimentos',productTags:[' Café ','Mayorista','Café'],website:'',instagram:'https://instagram.com/cafesur',whatsappPhone:'+56 9 1234-5678',contactEmail:'VENTAS@CAFE.CL',accentColor:'#e4b930',avatarPath:'7/avatar/10000000-0000-4000-8000-000000000001.webp',bannerPath:'7/banner/10000000-0000-4000-8000-000000000002.webp'});
   assert.equal(profile.response.status,200);assert.deepEqual(profile.calls[0].payload.product_tags,['Café','Mayorista']);
   assert.equal(profile.calls[0].payload.contact_email,'ventas@cafe.cl');
   assert.equal(profile.calls[0].payload.instagram,'https://instagram.com/cafesur');
+  assert.equal(profile.calls[0].payload.whatsapp_phone,'+56912345678');
   assert.equal(profile.calls[0].payload.avatar_path,'7/avatar/10000000-0000-4000-8000-000000000001.webp');
   assert.equal(profile.calls[0].payload.banner_path,'7/banner/10000000-0000-4000-8000-000000000002.webp');
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',website:'ftp://archivo'})).response.status,400);
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',instagram:'instagram.com/sin-protocolo'})).response.status,400);
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',contactEmail:'correo-invalido'})).response.status,400);
+  assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',whatsappPhone:'1234567'})).response.status,400);
+  assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',whatsappPhone:'+56 WhatsApp'})).response.status,400);
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',avatarPath:'archivo.png'})).response.status,400);
   assert.equal((await call('/api/network/communities','POST',{name:' ',description:'Vacía'})).response.status,400);
   const community=await call('/api/network/communities','POST',{name:'Comercio Local',description:'Un espacio para colaborar',industry:'Retail',isOpen:'on'});
@@ -201,4 +204,15 @@ test('RED Pymio: migración amplía identidad visual, redes y gestión delegada'
   for(const field of ['avatar_path','banner_path','website','instagram','youtube','tiktok','facebook','linkedin'])assert.match(sql,new RegExp(field));
   assert.match(sql,/community-profile-images','community-profile-images',false,524288/);
   assert.match(sql,/role_name NOT IN \('owner','admin'\)/);assert.match(sql,/operation='profile\.update'/);
+});
+
+test('RED Pymio: WhatsApp queda disponible y enlazado en los perfiles públicos',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  const schemaSql=await readFile(new URL('../supabase/migrations/022_profile_whatsapp.sql',import.meta.url),'utf8');
+  const functionSql=await readFile(new URL('../supabase/migrations/023_expose_profile_whatsapp.sql',import.meta.url),'utf8');
+  assert.match(html,/name="whatsappPhone"/);assert.match(html,/type="tel"/);assert.match(html,/código de país/);
+  assert.match(source,/whatsapp_phone/);assert.match(source,/https:\/\/wa\.me\//);assert.match(source,/Enviar mensaje por WhatsApp/);
+  assert.match(schemaSql,/ADD COLUMN IF NOT EXISTS whatsapp_phone/);assert.match(schemaSql,/business_profiles_whatsapp_phone_format/);
+  assert.match(functionSql,/'whatsapp_phone',coalesce\(bp\.whatsapp_phone,''\)/);
 });
