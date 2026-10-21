@@ -53,9 +53,10 @@ export async function iniciarInventario({
   if (!['detailed','simple'].includes(currentView)) currentView = matchMedia('(max-width: 1024px)').matches ? 'simple' : 'detailed';
 
   function aplicarVista() {
+    const phone = matchMedia('(max-width:767px),(max-height:500px) and (max-width:950px)').matches;
     viewSelect.value = currentView;
-    detailedView.hidden = currentView !== 'detailed';
-    simpleView.hidden = currentView !== 'simple';
+    detailedView.hidden = phone || currentView !== 'detailed';
+    simpleView.hidden = !phone && currentView !== 'simple';
   }
   viewSelect.onchange = () => {
     currentView = viewSelect.value;
@@ -63,6 +64,7 @@ export async function iniciarInventario({
     aplicarVista();
   };
   aplicarVista();
+  matchMedia('(max-width:767px),(max-height:500px) and (max-width:950px)').addEventListener('change', aplicarVista);
 
   function celda(fila, texto, clase = '') {
     const td = fila.insertCell();
@@ -92,7 +94,7 @@ export async function iniciarInventario({
       card.onclick=()=>abrirDetalleSimple(producto);
       card.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirDetalleSimple(producto);}};
       const stock=document.createElement('p'); stock.className='inventario-card-stock';
-      if (Number(producto.qty) === 0 || Number(producto.qty) < Number(producto.low_qty)) stock.classList.add('critico');
+      if (Number(producto.qty) === 0 || Number(producto.qty) <= Number(producto.low_qty)) stock.classList.add('critico');
       stock.append('Stock: ',Object.assign(document.createElement('strong'),{textContent:numero.format(producto.qty)}));
       const name=document.createElement('h3'); name.className='inventario-card-name'; name.textContent=producto.name;
       name.title=producto.name;
@@ -164,16 +166,30 @@ export async function iniciarInventario({
     });
     const detail = summary.nextElementSibling;
     if (detail) detail.id = `inventario-simple-detalle-${producto.id}`;
+    const facts = document.createElement('dl');facts.className='mobile-only mobile-product-facts';
+    for(const [label,value] of [['SKU',producto.sku],['Categoría',producto.category||'Sin categoría'],['Cantidad',numero.format(producto.qty)],['Precio',clp.format(producto.price)],['Costo',clp.format(producto.cost)],['Creado',new Date(producto.created_at).toLocaleString('es-CL')],['Actualizado',new Date(producto.updated_at).toLocaleString('es-CL')]]){
+      const group=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value;group.append(term,description);facts.append(group);
+    }
+    simpleDetailBody.prepend(facts);
     simpleDetailDialog.showModal();
     summary.onclick();
   }
 
+  let mobileStockScope = 'all';
+  const context=document.createElement('div');context.className='mobile-filter-context mobile-only';context.hidden=true;
+  const contextText=document.createElement('span'),clearContext=document.createElement('button');clearContext.type='button';clearContext.textContent='Quitar filtros';context.append(contextText,clearContext);panel.querySelector('.toolbar').after(context);
+  let dashboardFilterLabel='';
+  clearContext.onclick=()=>{dashboardProductIds=null;mobileStockScope='all';dashboardFilterLabel='';search.value='';categoria.value='';panel.querySelectorAll('.mobile-scope button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scope==='all')));render();};
+  const stockScopeQuery = matchMedia('(max-width:767px), (max-height:500px) and (max-width:950px)');
+  panel.addEventListener('mobile-inventory-filter', event => { mobileStockScope=event.detail; dashboardProductIds=null; render(); });
+  stockScopeQuery.addEventListener('change', () => render());
   function render() {
     if (cargando) return;
     const filtro = normalizar(search.value.trim());
     const visibles = inventory.filter(p => (!dashboardProductIds || dashboardProductIds.has(String(p.id)))
       && normalizar(`${p.name} ${p.sku}`).includes(filtro)
-      && (!categoria.value || String(p.category ?? '') === JSON.parse(categoria.value)));
+      && (!categoria.value || String(p.category ?? '') === JSON.parse(categoria.value))
+      && (!stockScopeQuery.matches || mobileStockScope === 'all' || (mobileStockScope === 'empty' ? Number(p.qty) === 0 : Number(p.qty) === 0 || Number(p.qty) <= Number(p.low_qty))));
     if (orden) {
       visibles.sort((a, b) => {
         const valor = producto => {
@@ -220,6 +236,8 @@ export async function iniciarInventario({
       prepararDetalleInventario(fila, p, { companyId, apiUrl, onToggleStatus: cambiarEstadoProducto, onEditProduct: producto => productFormController?.abrirModificar(producto.id) });
     }
     renderSimple(visibles);
+    const active=[dashboardProductIds?dashboardFilterLabel||'Selección de productos':'',categoria.value?categoria.selectedOptions[0]?.textContent:'',stockScopeQuery.matches&&mobileStockScope!=='all'?(mobileStockScope==='empty'?'Agotados':'Stock bajo'):'',search.value.trim()?'Búsqueda: '+search.value.trim():''].filter(Boolean);
+    context.hidden=!active.length;contextText.textContent=active.join(' · ')+' · '+visibles.length+' productos';
     if (!visibles.length) {
       tbody.replaceChildren();
       celda(tbody.insertRow(), 'No disponible').colSpan = 8;
@@ -346,13 +364,14 @@ export async function iniciarInventario({
   categoria.onchange = () => { dashboardProductIds = null; render(); };
   document.addEventListener('abrir-inventario-filtrado', event => {
     dashboardProductIds = new Set((event.detail?.ids ?? []).map(String));
+    dashboardFilterLabel=event.detail?.label||'Selección de productos';mobileStockScope='all';panel.querySelectorAll('.mobile-scope button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scope==='all')));
     search.value = ''; categoria.value = '';
     document.querySelector('[data-tab="inventario"]').click();
     render();
   });
   document.addEventListener('abrir-inventario-producto', event => {
     const id=String(event.detail?.id||'');
-    dashboardProductIds=id?new Set([id]):null;
+    dashboardProductIds=id?new Set([id]):null;dashboardFilterLabel='Producto desde Por resolver';mobileStockScope='all';
     search.value='';categoria.value='';
     document.querySelector('[data-tab="inventario"]').click();
     render();

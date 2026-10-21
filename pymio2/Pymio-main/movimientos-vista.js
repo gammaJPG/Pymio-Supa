@@ -67,7 +67,10 @@ export function ordenarMovimientos(movements, order, collator = new Intl.Collato
 
 export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
   table.replaceChildren();
+  let previousDay='';
   for (const [index, movement] of movements.entries()) {
+    const day=new Date(movement.occurred_at).toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    if(day!==previousDay){const group=table.insertRow();group.className='mobile-day-heading mobile-only';const cell=group.insertCell();cell.colSpan=5;cell.textContent=day;previousDay=day;}
     const row = table.insertRow();
     row.className = 'movimiento-resumen';
     row.dataset.movementCode = movement.code;
@@ -83,8 +86,18 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     toggleIndicator.setAttribute('aria-hidden', 'true');
     toggleIndicator.textContent = '▸';
     const toggleLabel = document.createElement('span');
+    toggleLabel.className = 'movement-desktop-date';
     toggleLabel.textContent = fechaMovimiento(movement.occurred_at);
     toggle.append(toggleIndicator, toggleLabel);
+    const mobileSummary=document.createElement('span');mobileSummary.className='mobile-movement-summary mobile-only';
+    for(const [className,value] of [
+      ['mobile-movement-name',movement.customer_name||(movement.products||[])[0]?.name||movement.operation_detail||'Otro movimiento'],
+      ['mobile-movement-total',moneda(movement.total)],
+      ['mobile-movement-date',[movement.operation_detail||'Otro movimiento',movement.products?.length>1?movement.products.length+' productos':'',new Date(movement.occurred_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})].filter(Boolean).join(' · ')],
+      ['mobile-movement-meta',[movement.channel,movement.payment_method].filter(Boolean).join(' · ')],
+      ['mobile-movement-state',movement.Estado==='Pendiente de Pago'?'Por cobrar':'']
+    ]){const part=document.createElement('span');part.className=className;part.textContent=value;mobileSummary.append(part);}
+    toggle.append(mobileSummary);
     toggle.setAttribute('aria-expanded', 'false');
     toggle.setAttribute('aria-controls', `movimiento-detalle-${index}`);
     dateCell.appendChild(toggle);

@@ -1,44 +1,640 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-04T18:00:00-03:00",
+  "generatedAt": "2026-10-20T23:05:32.065Z",
   "title": "Design System: Pymio",
   "extensions": {
     "colorMeta": {
-      "honey": {"role":"primary","displayName":"Miel Pymio","canonical":"#f1cf54","tonalRamp":["#2d260b","#5c4e16","#8a7521","#b89c2c","#f1cf54","#f6df86","#faedb9","#fff9e8"]},
-      "forest-ink": {"role":"neutral","displayName":"Verde tinta","canonical":"#20251c","tonalRamp":["#161914","#20251c","#3c4434","#59634d","#778267","#9ba48d","#c3c9b9","#f2f4ed"]},
-      "warm-canvas": {"role":"neutral","displayName":"Papel cálido","canonical":"#f7f6ef","tonalRamp":["#28271f","#504e40","#777562","#9e9c85","#c5c3a9","#dedcc6","#eeecdd","#f7f6ef"]}
+      "honey": {
+        "role": "primary",
+        "displayName": "honey",
+        "canonical": "#f1cf54",
+        "tonalRamp": [
+          "oklch(15% 0.1441 93.61)",
+          "oklch(26% 0.1441 93.61)",
+          "oklch(38% 0.1441 93.61)",
+          "oklch(49% 0.1441 93.61)",
+          "oklch(61% 0.1441 93.61)",
+          "oklch(72% 0.1441 93.61)",
+          "oklch(84% 0.1441 93.61)",
+          "oklch(95% 0.1441 93.61)"
+        ]
+      },
+      "honey-soft": {
+        "role": "primary",
+        "displayName": "Miel suave",
+        "canonical": "#f9efc4",
+        "tonalRamp": [
+          "oklch(15% 0.0568 96.43)",
+          "oklch(26% 0.0568 96.43)",
+          "oklch(38% 0.0568 96.43)",
+          "oklch(49% 0.0568 96.43)",
+          "oklch(61% 0.0568 96.43)",
+          "oklch(72% 0.0568 96.43)",
+          "oklch(84% 0.0568 96.43)",
+          "oklch(95% 0.0568 96.43)"
+        ]
+      },
+      "forest-ink": {
+        "role": "neutral",
+        "displayName": "forest ink",
+        "canonical": "#20251c",
+        "tonalRamp": [
+          "oklch(15% 0.0180 131.32)",
+          "oklch(26% 0.0180 131.32)",
+          "oklch(38% 0.0180 131.32)",
+          "oklch(49% 0.0180 131.32)",
+          "oklch(61% 0.0180 131.32)",
+          "oklch(72% 0.0180 131.32)",
+          "oklch(84% 0.0180 131.32)",
+          "oklch(95% 0.0180 131.32)"
+        ]
+      },
+      "warm-canvas": {
+        "role": "neutral",
+        "displayName": "Papel claro",
+        "canonical": "#f3f4ee",
+        "tonalRamp": [
+          "oklch(15% 0.0080 114.22)",
+          "oklch(26% 0.0080 114.22)",
+          "oklch(38% 0.0080 114.22)",
+          "oklch(49% 0.0080 114.22)",
+          "oklch(61% 0.0080 114.22)",
+          "oklch(72% 0.0080 114.22)",
+          "oklch(84% 0.0080 114.22)",
+          "oklch(95% 0.0080 114.22)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "surface",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(26% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(49% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(72% 0.0000 89.88)",
+          "oklch(84% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "soft-surface": {
+        "role": "neutral",
+        "displayName": "soft surface",
+        "canonical": "#eeefe6",
+        "tonalRamp": [
+          "oklch(15% 0.0120 111.76)",
+          "oklch(26% 0.0120 111.76)",
+          "oklch(38% 0.0120 111.76)",
+          "oklch(49% 0.0120 111.76)",
+          "oklch(61% 0.0120 111.76)",
+          "oklch(72% 0.0120 111.76)",
+          "oklch(84% 0.0120 111.76)",
+          "oklch(95% 0.0120 111.76)"
+        ]
+      },
+      "muted-olive": {
+        "role": "neutral",
+        "displayName": "muted olive",
+        "canonical": "#60685b",
+        "tonalRamp": [
+          "oklch(15% 0.0224 133.25)",
+          "oklch(26% 0.0224 133.25)",
+          "oklch(38% 0.0224 133.25)",
+          "oklch(49% 0.0224 133.25)",
+          "oklch(61% 0.0224 133.25)",
+          "oklch(72% 0.0224 133.25)",
+          "oklch(84% 0.0224 133.25)",
+          "oklch(95% 0.0224 133.25)"
+        ]
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "divider",
+        "canonical": "#dcded3",
+        "tonalRamp": [
+          "oklch(15% 0.0149 115.06)",
+          "oklch(26% 0.0149 115.06)",
+          "oklch(38% 0.0149 115.06)",
+          "oklch(49% 0.0149 115.06)",
+          "oklch(61% 0.0149 115.06)",
+          "oklch(72% 0.0149 115.06)",
+          "oklch(84% 0.0149 115.06)",
+          "oklch(95% 0.0149 115.06)"
+        ]
+      },
+      "critical": {
+        "role": "neutral",
+        "displayName": "critical",
+        "canonical": "#a23b34",
+        "tonalRamp": [
+          "oklch(15% 0.1381 27.14)",
+          "oklch(26% 0.1381 27.14)",
+          "oklch(38% 0.1381 27.14)",
+          "oklch(49% 0.1381 27.14)",
+          "oklch(61% 0.1381 27.14)",
+          "oklch(72% 0.1381 27.14)",
+          "oklch(84% 0.1381 27.14)",
+          "oklch(95% 0.1381 27.14)"
+        ]
+      },
+      "focus": {
+        "role": "neutral",
+        "displayName": "focus",
+        "canonical": "#a27b00",
+        "tonalRamp": [
+          "oklch(15% 0.1237 86.26)",
+          "oklch(26% 0.1237 86.26)",
+          "oklch(38% 0.1237 86.26)",
+          "oklch(49% 0.1237 86.26)",
+          "oklch(61% 0.1237 86.26)",
+          "oklch(72% 0.1237 86.26)",
+          "oklch(84% 0.1237 86.26)",
+          "oklch(95% 0.1237 86.26)"
+        ]
+      },
+      "success": {
+        "role": "neutral",
+        "displayName": "success",
+        "canonical": "#32704d",
+        "tonalRamp": [
+          "oklch(15% 0.0860 156.47)",
+          "oklch(26% 0.0860 156.47)",
+          "oklch(38% 0.0860 156.47)",
+          "oklch(49% 0.0860 156.47)",
+          "oklch(61% 0.0860 156.47)",
+          "oklch(72% 0.0860 156.47)",
+          "oklch(84% 0.0860 156.47)",
+          "oklch(95% 0.0860 156.47)"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "dark ink",
+        "canonical": "#f1f3e9",
+        "tonalRamp": [
+          "oklch(15% 0.0134 115.83)",
+          "oklch(26% 0.0134 115.83)",
+          "oklch(38% 0.0134 115.83)",
+          "oklch(49% 0.0134 115.83)",
+          "oklch(61% 0.0134 115.83)",
+          "oklch(72% 0.0134 115.83)",
+          "oklch(84% 0.0134 115.83)",
+          "oklch(95% 0.0134 115.83)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "dark muted",
+        "canonical": "#b2baaa",
+        "tonalRamp": [
+          "oklch(15% 0.0240 128.81)",
+          "oklch(26% 0.0240 128.81)",
+          "oklch(38% 0.0240 128.81)",
+          "oklch(49% 0.0240 128.81)",
+          "oklch(61% 0.0240 128.81)",
+          "oklch(72% 0.0240 128.81)",
+          "oklch(84% 0.0240 128.81)",
+          "oklch(95% 0.0240 128.81)"
+        ]
+      },
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "dark canvas",
+        "canonical": "#141812",
+        "tonalRamp": [
+          "oklch(15% 0.0132 135.17)",
+          "oklch(26% 0.0132 135.17)",
+          "oklch(38% 0.0132 135.17)",
+          "oklch(49% 0.0132 135.17)",
+          "oklch(61% 0.0132 135.17)",
+          "oklch(72% 0.0132 135.17)",
+          "oklch(84% 0.0132 135.17)",
+          "oklch(95% 0.0132 135.17)"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "dark surface",
+        "canonical": "#1d221a",
+        "tonalRamp": [
+          "oklch(15% 0.0165 133.76)",
+          "oklch(26% 0.0165 133.76)",
+          "oklch(38% 0.0165 133.76)",
+          "oklch(49% 0.0165 133.76)",
+          "oklch(61% 0.0165 133.76)",
+          "oklch(72% 0.0165 133.76)",
+          "oklch(84% 0.0165 133.76)",
+          "oklch(95% 0.0165 133.76)"
+        ]
+      },
+      "dark-soft": {
+        "role": "neutral",
+        "displayName": "dark soft",
+        "canonical": "#272e22",
+        "tonalRamp": [
+          "oklch(15% 0.0234 132.42)",
+          "oklch(26% 0.0234 132.42)",
+          "oklch(38% 0.0234 132.42)",
+          "oklch(49% 0.0234 132.42)",
+          "oklch(61% 0.0234 132.42)",
+          "oklch(72% 0.0234 132.42)",
+          "oklch(84% 0.0234 132.42)",
+          "oklch(95% 0.0234 132.42)"
+        ]
+      },
+      "dark-divider": {
+        "role": "neutral",
+        "displayName": "dark divider",
+        "canonical": "#3b4434",
+        "tonalRamp": [
+          "oklch(15% 0.0291 131.65)",
+          "oklch(26% 0.0291 131.65)",
+          "oklch(38% 0.0291 131.65)",
+          "oklch(49% 0.0291 131.65)",
+          "oklch(61% 0.0291 131.65)",
+          "oklch(72% 0.0291 131.65)",
+          "oklch(84% 0.0291 131.65)",
+          "oklch(95% 0.0291 131.65)"
+        ]
+      },
+      "dark-honey-soft": {
+        "role": "primary",
+        "displayName": "dark honey soft",
+        "canonical": "#383220",
+        "tonalRamp": [
+          "oklch(15% 0.0309 91.78)",
+          "oklch(26% 0.0309 91.78)",
+          "oklch(38% 0.0309 91.78)",
+          "oklch(49% 0.0309 91.78)",
+          "oklch(61% 0.0309 91.78)",
+          "oklch(72% 0.0309 91.78)",
+          "oklch(84% 0.0309 91.78)",
+          "oklch(95% 0.0309 91.78)"
+        ]
+      },
+      "dark-critical": {
+        "role": "neutral",
+        "displayName": "dark critical",
+        "canonical": "#ffaba0",
+        "tonalRamp": [
+          "oklch(15% 0.1010 27.67)",
+          "oklch(26% 0.1010 27.67)",
+          "oklch(38% 0.1010 27.67)",
+          "oklch(49% 0.1010 27.67)",
+          "oklch(61% 0.1010 27.67)",
+          "oklch(72% 0.1010 27.67)",
+          "oklch(84% 0.1010 27.67)",
+          "oklch(95% 0.1010 27.67)"
+        ]
+      },
+      "dark-success": {
+        "role": "neutral",
+        "displayName": "dark success",
+        "canonical": "#9dd9ae",
+        "tonalRamp": [
+          "oklch(15% 0.0860 153.11)",
+          "oklch(26% 0.0860 153.11)",
+          "oklch(38% 0.0860 153.11)",
+          "oklch(49% 0.0860 153.11)",
+          "oklch(61% 0.0860 153.11)",
+          "oklch(72% 0.0860 153.11)",
+          "oklch(84% 0.0860 153.11)",
+          "oklch(95% 0.0860 153.11)"
+        ]
+      },
+      "desktop-ink": {
+        "role": "neutral",
+        "displayName": "desktop ink",
+        "canonical": "#20221d",
+        "tonalRamp": [
+          "oklch(15% 0.0097 124.91)",
+          "oklch(26% 0.0097 124.91)",
+          "oklch(38% 0.0097 124.91)",
+          "oklch(49% 0.0097 124.91)",
+          "oklch(61% 0.0097 124.91)",
+          "oklch(72% 0.0097 124.91)",
+          "oklch(84% 0.0097 124.91)",
+          "oklch(95% 0.0097 124.91)"
+        ]
+      },
+      "desktop-canvas": {
+        "role": "neutral",
+        "displayName": "desktop canvas",
+        "canonical": "#f5f5ef",
+        "tonalRamp": [
+          "oklch(15% 0.0079 106.55)",
+          "oklch(26% 0.0079 106.55)",
+          "oklch(38% 0.0079 106.55)",
+          "oklch(49% 0.0079 106.55)",
+          "oklch(61% 0.0079 106.55)",
+          "oklch(72% 0.0079 106.55)",
+          "oklch(84% 0.0079 106.55)",
+          "oklch(95% 0.0079 106.55)"
+        ]
+      },
+      "desktop-muted": {
+        "role": "neutral",
+        "displayName": "desktop muted",
+        "canonical": "#707263",
+        "tonalRamp": [
+          "oklch(15% 0.0228 113.32)",
+          "oklch(26% 0.0228 113.32)",
+          "oklch(38% 0.0228 113.32)",
+          "oklch(49% 0.0228 113.32)",
+          "oklch(61% 0.0228 113.32)",
+          "oklch(72% 0.0228 113.32)",
+          "oklch(84% 0.0228 113.32)",
+          "oklch(95% 0.0228 113.32)"
+        ]
+      },
+      "desktop-divider": {
+        "role": "neutral",
+        "displayName": "desktop divider",
+        "canonical": "#e5e6dc",
+        "tonalRamp": [
+          "oklch(15% 0.0134 111.29)",
+          "oklch(26% 0.0134 111.29)",
+          "oklch(38% 0.0134 111.29)",
+          "oklch(49% 0.0134 111.29)",
+          "oklch(61% 0.0134 111.29)",
+          "oklch(72% 0.0134 111.29)",
+          "oklch(84% 0.0134 111.29)",
+          "oklch(95% 0.0134 111.29)"
+        ]
+      },
+      "desktop-honey-soft": {
+        "role": "primary",
+        "displayName": "desktop honey soft",
+        "canonical": "#f9f1d4",
+        "tonalRamp": [
+          "oklch(15% 0.0389 94.28)",
+          "oklch(26% 0.0389 94.28)",
+          "oklch(38% 0.0389 94.28)",
+          "oklch(49% 0.0389 94.28)",
+          "oklch(61% 0.0389 94.28)",
+          "oklch(72% 0.0389 94.28)",
+          "oklch(84% 0.0389 94.28)",
+          "oklch(95% 0.0389 94.28)"
+        ]
+      },
+      "navigation-ink": {
+        "role": "neutral",
+        "displayName": "Tinta de navegación",
+        "canonical": "#20271e",
+        "tonalRamp": [
+          "oklch(15% 0.0192 138.76)",
+          "oklch(26% 0.0192 138.76)",
+          "oklch(38% 0.0192 138.76)",
+          "oklch(49% 0.0192 138.76)",
+          "oklch(61% 0.0192 138.76)",
+          "oklch(72% 0.0192 138.76)",
+          "oklch(84% 0.0192 138.76)",
+          "oklch(95% 0.0192 138.76)"
+        ]
+      },
+      "navigation-muted": {
+        "role": "neutral",
+        "displayName": "navigation muted",
+        "canonical": "#c4cdbb",
+        "tonalRamp": [
+          "oklch(15% 0.0265 128.82)",
+          "oklch(26% 0.0265 128.82)",
+          "oklch(38% 0.0265 128.82)",
+          "oklch(49% 0.0265 128.82)",
+          "oklch(61% 0.0265 128.82)",
+          "oklch(72% 0.0265 128.82)",
+          "oklch(84% 0.0265 128.82)",
+          "oklch(95% 0.0265 128.82)"
+        ]
+      },
+      "navigation-active": {
+        "role": "neutral",
+        "displayName": "navigation active",
+        "canonical": "#394331",
+        "tonalRamp": [
+          "oklch(15% 0.0327 131.52)",
+          "oklch(26% 0.0327 131.52)",
+          "oklch(38% 0.0327 131.52)",
+          "oklch(49% 0.0327 131.52)",
+          "oklch(61% 0.0327 131.52)",
+          "oklch(72% 0.0327 131.52)",
+          "oklch(84% 0.0327 131.52)",
+          "oklch(95% 0.0327 131.52)"
+        ]
+      },
+      "navigation-text": {
+        "role": "neutral",
+        "displayName": "navigation text",
+        "canonical": "#f6f8ef",
+        "tonalRamp": [
+          "oklch(15% 0.0120 116.80)",
+          "oklch(26% 0.0120 116.80)",
+          "oklch(38% 0.0120 116.80)",
+          "oklch(49% 0.0120 116.80)",
+          "oklch(61% 0.0120 116.80)",
+          "oklch(72% 0.0120 116.80)",
+          "oklch(84% 0.0120 116.80)",
+          "oklch(95% 0.0120 116.80)"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": {"displayName":"Título Pymio","purpose":"Encabezados de vista y decisiones principales."},
-      "body": {"displayName":"Lectura operativa","purpose":"Datos, formularios y explicaciones."}
+      "display": {
+        "displayName": "Importe principal",
+        "purpose": "Resumen financiero de Hoy; IBM Plex Sans. Análisis emplea su variante de 34px."
+      },
+      "headline": {
+        "displayName": "Título operativo",
+        "purpose": "Títulos de vistas móviles en IBM Plex Sans; secciones incumbentes conservan Space Grotesk."
+      },
+      "field": {
+        "displayName": "Entrada táctil",
+        "purpose": "Formularios de 16px; mínimo 48px."
+      }
     },
     "shadows": [
-      {"name":"mobile-card","value":"0 8px 28px rgba(32,37,28,.07)","purpose":"Separar tarjetas del lienzo cálido."},
-      {"name":"bottom-sheet","value":"0 -24px 64px rgba(20,24,17,.2)","purpose":"Elevar acciones temporales sobre la tarea actual."}
+      {
+        "name": "mobile-navigation",
+        "value": "0 6px 20px rgba(20,30,15,.15)",
+        "purpose": "Separación suave de la barra flotante respecto del contenido."
+      },
+      {
+        "name": "mobile-sheet",
+        "value": "0 -18px 60px rgba(12,18,10,.16)",
+        "purpose": "Hojas temporales."
+      },
+      {
+        "name": "mobile-filter",
+        "value": "0 12px 48px rgba(12,18,10,.2)",
+        "purpose": "Filtros superpuestos."
+      },
+      {
+        "name": "mobile-menu",
+        "value": "0 12px 30px rgba(12,18,10,.13)",
+        "purpose": "Menú contextual de inventario."
+      },
+      {
+        "name": "mobile-notifications",
+        "value": "0 18px 48px rgba(12,18,10,.18)",
+        "purpose": "Panel temporal de notificaciones."
+      }
     ],
     "motion": [
-      {"name":"mobile-standard","value":"180ms cubic-bezier(.2,.8,.2,1)","purpose":"Cambio breve entre vistas y estados."}
+      {
+        "name": "mobile-sheet-in",
+        "value": "200ms cubic-bezier(.2,.8,.2,1)",
+        "purpose": "Entrada desde translateY(32px), opacity .6; desactivada con prefers-reduced-motion."
+      },
+      {
+        "name": "desktop-ease-out",
+        "value": "cubic-bezier(.23,1,.32,1)",
+        "purpose": "Curva incumbente de escritorio."
+      },
+      {
+        "name": "desktop-fast",
+        "value": "250ms",
+        "purpose": "Duración incumbente; no aplicarla a paneles móviles."
+      },
+      {
+        "name": "desktop-panel",
+        "value": "360ms",
+        "purpose": "Duración incumbente de paneles."
+      }
     ],
     "breakpoints": [
-      {"name":"phone","value":"767px"},
-      {"name":"phone-landscape","value":"950px × 500px"}
-    ]
+      {
+        "name": "mobile",
+        "value": "(max-width:767px), (max-height:500px) and (max-width:950px)"
+      },
+      {
+        "name": "small-phone",
+        "value": "(max-width:359px)"
+      },
+      {
+        "name": "short-landscape",
+        "value": "(max-height:500px) and (orientation:landscape)"
+      },
+      {
+        "name": "desktop-transition",
+        "value": "768px–900px; menú RED hasta 960px, altura >500px"
+      }
+    ],
+    "tonalRampNote": "Las rampas son interpolaciones OKLCH para el panel de documentación; no son tokens adicionales implementados en la aplicación."
   },
   "components": [
-    {"name":"Primary Button","kind":"button","refersTo":"button-primary","description":"Acción principal táctil.","html":"<button class=\"ds-primary\">Registrar venta</button>","css":".ds-primary{min-height:46px;padding:0 16px;border:0;border-radius:12px;background:#f1cf54;color:#20251c;font:650 14px 'IBM Plex Sans',sans-serif}.ds-primary:hover{background:#e3c364}.ds-primary:focus-visible{outline:3px solid #b58c12;outline-offset:3px}.ds-primary:active{transform:scale(.98)}"},
-    {"name":"Mobile Card","kind":"card","refersTo":"card","description":"Superficie operativa sobre papel cálido.","html":"<article class=\"ds-card\"><strong>Venta</strong><span>$24.900</span><small>Hoy · Tarjeta</small></article>","css":".ds-card{display:grid;gap:6px;padding:18px;border-radius:15px;background:#fff;color:#20251c;box-shadow:0 8px 28px rgba(32,37,28,.07);font-family:'IBM Plex Sans',sans-serif}.ds-card span{font:700 20px 'Space Grotesk',sans-serif}.ds-card small{color:#676c5d}"},
-    {"name":"Text Field","kind":"input","description":"Campo táctil cómodo y legible.","html":"<label class=\"ds-field\">Producto<input placeholder=\"Buscar producto o SKU\"></label>","css":".ds-field{display:grid;gap:7px;color:#676c5d;font:600 12px 'IBM Plex Sans',sans-serif}.ds-field input{min-height:48px;padding:0 14px;border:1px solid #dedfd4;border-radius:13px;background:#fff;color:#20251c;font:16px 'IBM Plex Sans',sans-serif}.ds-field input:focus-visible{outline:3px solid #b58c12;outline-offset:2px}"}
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal móvil.",
+      "html": "<button class=\"ds-button ds-focus\">Registrar venta</button>",
+      "css": ".ds-button{min-height:46px;padding:11px 14px;border:0;border-radius:10px;background:var(--m-honey,#f1cf54);color:#20251c;font:400 14px/1.3 \"IBM Plex Sans\",system-ui,sans-serif;cursor:pointer}.ds-button:hover:not(:disabled){filter:brightness(.98)}.ds-button:active:not(:disabled){filter:brightness(.94)}.ds-button:disabled{opacity:.48}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acción secundaria con borde divisor.",
+      "html": "<button class=\"ds-button ds-secondary ds-focus\">Cancelar</button>",
+      "css": ".ds-button{min-height:46px;padding:11px 14px;border:0;border-radius:10px;background:var(--m-honey,#f1cf54);color:#20251c;font:400 14px/1.3 \"IBM Plex Sans\",system-ui,sans-serif;cursor:pointer}.ds-button:hover:not(:disabled){filter:brightness(.98)}.ds-button:active:not(:disabled){filter:brightness(.94)}.ds-button:disabled{opacity:.48}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}.ds-secondary{background:var(--m-surface,#fff);color:var(--m-ink,#20251c);border:1px solid var(--m-line,#dcded3)}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Entrada móvil legible, con altura mínima de 48px.",
+      "html": "<label class=\"ds-field\">Producto<input class=\"ds-focus\" placeholder=\"Buscar producto o SKU\"></label>",
+      "css": ".ds-field{display:grid;gap:6px;color:var(--m-ink,#20251c);font:400 14px/1.5 \"IBM Plex Sans\",system-ui,sans-serif}.ds-field input{min-height:48px;padding:11px 12px;border:1px solid var(--m-line,#dcded3);border-radius:10px;background:var(--m-surface,#fff);color:var(--m-ink,#20251c);font:400 16px/1.4 \"IBM Plex Sans\",system-ui,sans-serif}.ds-field input::placeholder{color:var(--m-muted,#60685b)}.ds-field input:hover{border-color:var(--m-muted,#60685b)}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "Mobile Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superficie de trabajo plana; sin sombra.",
+      "html": "<article class=\"ds-card\"><h3>Tu negocio en cifras</h3><p>Este mes</p></article>",
+      "css": ".ds-card{padding:18px;border:0;border-radius:14px;background:var(--m-surface,#fff);color:var(--m-ink,#20251c);box-shadow:none;font-family:\"IBM Plex Sans\",system-ui,sans-serif}.ds-card h3{margin:0;font:600 19px/1.25 \"Space Grotesk\",system-ui,sans-serif;letter-spacing:-.025em}.ds-card p{margin:8px 0 0;font-size:14px;color:var(--m-muted,#60685b)}"
+    },
+    {
+      "name": "Mobile Navigation",
+      "kind": "nav",
+      "refersTo": "mobile-navigation",
+      "description": "Barra flotante de tinta; cinco destinos etiquetados y Registrar como acción.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Navegación móvil\"><button class=\"ds-focus ds-selected\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m3 10 9-7 9 7v10H3Z M9 20v-7h6v7\"/></svg>Hoy</button><button class=\"ds-focus\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"M4 5h16M4 12h16M4 19h16\"/></svg>Actividad</button><button class=\"ds-focus ds-register\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg>Registrar</button><button class=\"ds-focus\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"m4 7 8-4 8 4v10l-8 4-8-4Z M4 7l8 4 8-4M12 11v10\"/></svg>Inventario</button><button class=\"ds-focus\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"M8 12h8M7 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6M17 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6\"/></svg>RED</button></nav>",
+      "css": ".ds-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;min-height:66px;padding:6px;border:0;border-radius:16px;background:#20271e;box-shadow:0 6px 20px rgba(20,30,15,.15)}.ds-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;min-height:54px;padding:4px 0;border:0;border-radius:11px;background:transparent;color:#c4cdbb;font:500 11px/1.2 \"IBM Plex Sans\",system-ui,sans-serif}.ds-nav svg{width:22px;height:22px}.ds-nav .ds-selected{background:#394331;color:#f6f8ef;font-weight:600}.ds-selected svg{color:#f1cf54}.ds-nav .ds-register{color:#f1cf54}.ds-register svg{width:35px;height:27px;padding:2.5px 6.5px;border-radius:6px;background:var(--m-honey,#f1cf54);color:#20251c}.ds-nav button:hover{filter:brightness(.98)}.ds-nav button:active{filter:brightness(.94)}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "RED Local Tabs",
+      "kind": "nav",
+      "description": "Secciones locales desplazables; selección miel con texto tinta en ambos temas.",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"Secciones de RED Pymio\"><button class=\"ds-focus ds-active\" aria-current=\"page\">Mi RED</button><button class=\"ds-focus\">Explorar</button><button class=\"ds-focus\">Eventos</button><button class=\"ds-focus\">Mi Pymio</button><button class=\"ds-focus\">Guías</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:4px;overflow-x:auto;padding:10px 12px;background:var(--m-surface,#fff)}.ds-tabs button{flex:1 0 auto;min-height:44px;padding:10px 8px;border:0;border-radius:9px;background:transparent;color:var(--m-muted,#60685b);font:400 13px \"IBM Plex Sans\",system-ui,sans-serif;white-space:nowrap}.ds-tabs .ds-active{background:var(--m-honey,#f1cf54);color:#20251c;font-weight:600}.ds-tabs button:hover{filter:brightness(.98)}.ds-tabs button:active{filter:brightness(.94)}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "Mobile Task Sheet",
+      "kind": "custom",
+      "refersTo": "mobile-sheet",
+      "description": "Capa temporal para registrar y abrir herramientas.",
+      "html": "<section class=\"ds-sheet\"><div class=\"ds-handle\"></div><h2>Registrar</h2><button class=\"ds-sheet-row ds-focus\">Venta</button><button class=\"ds-sheet-row ds-focus\">Compra</button></section>",
+      "css": ".ds-sheet{padding:8px 20px 24px;border-radius:24px 24px 0 0;background:var(--m-surface,#fff);color:var(--m-ink,#20251c);box-shadow:0 -18px 60px rgba(12,18,10,.16);font-family:\"IBM Plex Sans\",system-ui,sans-serif}.ds-handle{width:36px;height:4px;margin:3px auto 20px;border-radius:3px;background:var(--m-line,#dcded3)}.ds-sheet h2{margin:0 0 20px;font:600 24px/1.15 \"Space Grotesk\",system-ui,sans-serif}.ds-sheet-row{display:block;width:100%;min-height:80px;padding:14px 0;border:0;border-bottom:1px solid var(--m-line,#dcded3);background:transparent;color:inherit;font:600 17px/1.3 \"IBM Plex Sans\",system-ui,sans-serif;text-align:left}.ds-sheet-row:hover{filter:brightness(.98)}.ds-sheet-row:active{filter:brightness(.94)}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "Scope Filter",
+      "kind": "chip",
+      "refersTo": "scope-selected",
+      "description": "Filtro operativo de estado o tipo, con selección aria-pressed.",
+      "html": "<div class=\"ds-scope\" role=\"group\" aria-label=\"Estado del inventario\"><button class=\"ds-focus\" aria-pressed=\"true\">Todos</button><button class=\"ds-focus\" aria-pressed=\"false\">Stock bajo</button><button class=\"ds-focus\" aria-pressed=\"false\">Agotados</button></div>",
+      "css": ".ds-scope{display:flex;gap:6px;overflow-x:auto;padding:2px 0}.ds-scope button{flex-shrink:0;min-height:44px;padding:10px 13px;border:0;border-radius:10px;background:transparent;color:var(--m-muted,#60685b);font:500 13px \"IBM Plex Sans\",system-ui,sans-serif}.ds-scope button[aria-pressed=true]{background:var(--m-ink,#20251c);color:var(--m-paper,#f3f4ee);font-weight:600}.ds-scope button:hover{filter:brightness(.98)}.ds-scope button:active{filter:brightness(.94)}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    },
+    {
+      "name": "Action Queue",
+      "kind": "custom",
+      "description": "Superficie compartida con divisores y acción contextual; muestra de fila de diagnóstico.",
+      "html": "<section class=\"ds-queue\"><article><h3>Producto con stock bajo</h3><p>Revisa existencias y reposición.</p><button class=\"ds-focus\">Revisar producto</button></article></section>",
+      "css": ".ds-queue{border-radius:14px;overflow:hidden;background:var(--m-surface,#fff);color:var(--m-ink,#20251c);font-family:\"IBM Plex Sans\",system-ui,sans-serif}.ds-queue article{padding:16px;border-bottom:1px solid var(--m-line,#dcded3)}.ds-queue h3{margin:4px 0 0;font:600 15px/1.35 \"Space Grotesk\",system-ui,sans-serif;letter-spacing:-.025em}.ds-queue p{margin:6px 0 12px;font-size:13px;line-height:1.5}.ds-queue button{min-height:44px;padding:8px 0;border:0;background:none;color:inherit;font:600 13px \"IBM Plex Sans\",system-ui,sans-serif;text-decoration:underline;text-underline-offset:4px}.ds-queue button:hover{filter:brightness(.98)}.ds-queue button:active{filter:brightness(.94)}.ds-focus:focus-visible{outline:3px solid #a27b00;outline-offset:3px}:host-context(html[data-theme=dark]) .ds-focus:focus-visible{outline-color:#f1cf54}"
+    }
   ],
   "narrative": {
-    "northStar": "La libreta inteligente de una pyme",
-    "overview": "Pymio combina la confianza de una herramienta de trabajo con la calidez de un negocio atendido por personas. En móvil se comporta como una aplicación con navegación al alcance del pulgar, acciones progresivas y tareas largas a pantalla completa.",
-    "keyCharacteristics": ["Jerarquía inmediata","Superficies cálidas","Controles táctiles amplios","Datos convertidos en recorridos verticales"],
-    "rules": [
-      {"name":"Honey Action Rule","body":"El amarillo identifica acciones principales, selección y momentos de marca.","section":"colors"},
-      {"name":"Immediate Meaning Rule","body":"Un título explica la tarea o el dato sin una etiqueta decorativa anterior.","section":"typography"},
-      {"name":"Quiet Surface Rule","body":"Una superficie elige borde o sombra según su función.","section":"elevation"}
+    "northStar": "Mesa de trabajo",
+    "overview": "Pymio combina la confianza de una herramienta de trabajo con la calidez de un negocio atendido por personas. Papel claro, tinta verde y miel organizan tareas, registros y resultados. La densidad es práctica: cada grupo reúne información relacionada y mantiene su acción a mano.\n\nLa composición móvil tiene navegación propia, listas legibles y detalle progresivo. Este documento registra lo implementado en mobile.css, mobile.js y mobile-workspace.js; no sustituye la composición de escritorio. Los tokens sin prefijo desktop describen el sistema móvil; dark recoge sus sustituciones oscuras. Los valores desktop conservan el vocabulario de pymio.css y style.css, con las sustituciones oscuras de theme.css. La abeja y los recursos existentes siguen siendo la identidad; este cambio no añade ilustraciones generadas.",
+    "keyCharacteristics": [
+      "Jerarquía inmediata y lenguaje directo.",
+      "Papel claro, superficies agrupadas y amarillo miel contenido.",
+      "Navegación flotante de tinta con destinos etiquetados.",
+      "Controles táctiles amplios, SVG lineal y cifras tabulares.",
+      "Composición de escritorio conservada fuera del ámbito móvil."
     ],
-    "dos": ["Priorizar la acción más útil","Convertir tablas en listas","Mantener targets de 44px","Respetar safe areas"],
-    "donts": ["Encoger tablas de escritorio","Ocultar capacidades críticas","Saturar con amarillo","Usar emoji como iconos"]
+    "rules": [
+      {
+        "name": "The Honey Action Rule",
+        "body": "El amarillo identifica acciones principales, selección y prioridades; su uso conserva la jerarquía entre grupos.",
+        "section": "colors"
+      },
+      {
+        "name": "The Immediate Meaning Rule",
+        "body": "Un título debe explicar la tarea o el dato sin depender de una etiqueta decorativa anterior.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Surface Rule",
+        "body": "Las superficies de trabajo permanecen planas; la elevación distingue la navegación flotante y las capas temporales.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do priorizar la acción o señal más útil en el primer viewport.",
+      "Do agrupar información relacionada y convertir tablas móviles en listas estructuradas y expandibles.",
+      "Do mantener áreas táctiles de al menos 44px y respetar safe areas.",
+      "Do conservar la arquitectura y los tokens de escritorio fuera de los breakpoints móviles.",
+      "Do usar las sustituciones oscuras del mismo rol y mantener legibles metadatos y errores."
+    ],
+    "donts": [
+      "Don't encoger tablas, barras laterales o modales de escritorio para hacerlos caber.",
+      "Don't ocultar capacidades críticas ni duplicar autorización o lógica de negocio en la capa móvil.",
+      "Don't usar amarillo simultáneamente en todas las superficies.",
+      "Don't introducir iconos de texto o emoji; usa SVG del mismo peso visual.",
+      "Don't añadir sombras a cada fila, tarjeta o KPI móvil."
+    ]
   }
 }

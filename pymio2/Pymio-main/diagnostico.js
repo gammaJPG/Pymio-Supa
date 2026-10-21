@@ -102,7 +102,7 @@ export function renderAlerts(alerts=currentAlerts) {
   list.replaceChildren();
   if (!alerts.length) return renderEmpty('El inventario está normal y no hay ventas vencidas por cobrar.');
   for (const alert of alerts) {
-    const card=document.createElement('article');card.className=`alert-card ${alert.sev}${alert.kind==='receivable'?' receivable-alert':' inventory-alert'}`;card.id=alert.alertId;
+    const card=document.createElement('article');card.className=`alert-card ${alert.sev}${alert.kind==='receivable'?' receivable-alert':' inventory-alert'}`;card.id=alert.alertId;if(alert.productId)card.dataset.productId=alert.productId;
     if (alert.kind!=='receivable') {
       const media=document.createElement('div');media.className='diagnostic-product-media';
       const match=alert.imagePath.match(new RegExp(`^${configuration.companyId}/([0-9a-f-]{36})\\.webp$`,'i'));

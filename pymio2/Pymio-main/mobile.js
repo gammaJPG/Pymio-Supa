@@ -1,3 +1,4 @@
+import { enhanceWorkspace } from './mobile-workspace.js?v=152';
 const mobileQuery = matchMedia('(max-width: 767px), (max-height: 500px) and (max-width: 950px)');
 const backdrop = document.querySelector('.mobile-sheet-backdrop');
 const sheets = [...document.querySelectorAll('.mobile-sheet')];
@@ -9,6 +10,10 @@ function syncMobileOnlyContent() {
   document.querySelectorAll('.mobile-hub-trigger').forEach(node => { node.hidden = !isMobile(); });
 }
 function syncMobileChrome() {
+  const networkTrigger=document.querySelector('.sidebar .network-nav-toggle');
+  if(networkTrigger&&innerWidth>=768&&innerWidth<=960){
+    document.documentElement.style.setProperty('--network-flyout-top',`${Math.max(12,Math.min(networkTrigger.getBoundingClientRect().top,innerHeight-240))}px`);
+  }
   const title = document.getElementById('page-title');
   const refresh = document.querySelector('.data-sync-refresh');
   if (title) {
@@ -37,6 +42,7 @@ function openSheet(id, trigger) {
   closeSheets(false);
   const sheet = document.getElementById(id);
   if (!sheet) return;
+  if(id==='mobile-create-sheet')sheet.querySelector('.mobile-sheet-head p').textContent=document.getElementById('account-role')?.textContent.trim()==='Cuenta piloto'?'Cuenta piloto: puedes explorar los formularios, pero no guardar operaciones.':'Elige una acción para continuar.';
   lastSheetTrigger = trigger;
   sheet.hidden = false;
   backdrop.hidden = false;
@@ -71,13 +77,15 @@ function refreshAccountSheet() {
   document.querySelector('[data-mobile-business]').textContent = name;
   document.querySelector('[data-mobile-role]').textContent = role;
   document.querySelector('[data-mobile-avatar]').textContent = initials;
+  const security = document.querySelector('[data-mobile-security]');
+  if (security) security.hidden = Boolean(document.getElementById('profile-password-btn')?.hidden);
 }
 function installMobileHub() {
   const topbar = document.querySelector('.topbar-right');
   if (!topbar || topbar.querySelector('.mobile-hub-trigger')) return;
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'mobile-hub-trigger';
-  button.setAttribute('aria-label','Abrir herramientas y cuenta');
+  button.setAttribute('aria-label','Abrir cuenta y preferencias');
   button.setAttribute('aria-haspopup','dialog'); button.setAttribute('aria-controls','mobile-more-sheet');
   button.innerHTML = '<span>PY</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   button.addEventListener('click', event => { refreshAccountSheet(); openSheet('mobile-more-sheet', event.currentTarget); });
@@ -150,20 +158,29 @@ function syncToday() {
   setText(greeting, business);
   const date = document.querySelector('[data-mobile-date]');
   setText(date, new Intl.DateTimeFormat('es-CL',{weekday:'long',day:'numeric',month:'long'}).format(new Date()));
-  const sourceIncome = document.getElementById('dash-income') || document.getElementById('home-income');
-  const sourceChange = document.getElementById('dash-income-change') || document.getElementById('home-income-change');
+  const sourceIncome = document.getElementById('home-income');
+  const sourceChange = document.getElementById('home-income-change');
   const income = document.querySelector('[data-mobile-income]');
   const change = document.querySelector('[data-mobile-income-change]');
   if (sourceIncome) setText(income, sourceIncome.textContent);
-  if (sourceChange) setText(change, `${sourceChange.textContent.trim()} frente al período anterior`);
-  const low = parseCount(document.getElementById('dash-low-count')?.textContent);
-  const pending = parseCount(document.getElementById('dash-pending-count')?.textContent);
+  if (sourceChange) setText(change, sourceChange.dataset.mobileComparison || `${sourceChange.textContent.trim()} frente al período anterior`);
+  const summary=document.querySelector('.mobile-today');
+  const low = Number(summary?.dataset.lowCount||0);
+  const pending = Number(summary?.dataset.pendingCount||0);
+  setText(document.querySelector('[data-mobile-sales-count]'),document.getElementById('home-count')?.textContent||'0');
+  setText(document.querySelector('[data-mobile-ticket]'),document.getElementById('home-ticket')?.textContent||'$0');
+  setText(document.querySelector('[data-mobile-period]'),document.getElementById('home-month')?.textContent||'Este mes');
+  setText(document.querySelector('.mobile-today-head>p'),new Date().getHours()<12?'Buenos días':new Date().getHours()<20?'Buenas tardes':'Buenas noches');
+  const mode=document.getElementById('account-role')?.textContent||'';
+  setText(document.querySelector('[data-mobile-mode]'),mode==='Cuenta piloto'?'Cuenta piloto: RED muestra información de demostración.':'Tu espacio de trabajo');
+  const empty=Number(summary?.dataset.emptyCount||0);
   setText(document.querySelector('[data-mobile-low-count]'), low);
+  const stockRow=document.querySelector('[data-mobile-low-count]')?.closest('button');if(stockRow)stockRow.dataset.urgent=String(empty>0);
   setText(document.querySelector('[data-mobile-pending-count]'), pending);
   const lowLabel = document.querySelector('[data-mobile-low-label]');
   const lowCopy = document.querySelector('[data-mobile-low-copy]');
-  setText(lowLabel, low ? 'Productos con stock bajo' : 'Inventario al día');
-  setText(lowCopy, low ? 'Conviene planificar reposición' : 'No hay alertas urgentes');
+  setText(lowLabel, low ? 'Productos para reponer' : 'Inventario al día');
+  setText(lowCopy, empty ? `${empty} ${empty===1?'agotado':'agotados'} · ${Math.max(0,low-empty)} con stock bajo` : low ? 'Revisar productos con stock bajo' : 'No hay alertas urgentes');
   const pendingLabel = document.querySelector('[data-mobile-pending-label]');
   setText(pendingLabel, pending ? 'Ventas por cobrar' : 'Pagos al día');
   setText(document.querySelector('[data-mobile-pending-copy]'), pending ? 'Revisa los cobros pendientes' : 'No hay cobros pendientes');
@@ -177,7 +194,7 @@ function buildNetworkTabs() {
   const nav = document.createElement('nav');
   nav.className = 'mobile-network-tabs';
   nav.setAttribute('aria-label','Secciones de RED Pymio');
-  const views = [['overview','Guías'],['pymio','Mi Pymio'],['red','Mi RED'],['explorar','Explorar'],['eventos','Eventos']];
+  const views = [['red','Mi RED'],['explorar','Explorar'],['eventos','Eventos'],['pymio','Mi Pymio'],['overview','Herramientas']];
   for (const [view,label] of views) {
     const button = document.createElement('button');
     button.type = 'button'; button.dataset.mobileNetworkView = view; button.textContent = label;
@@ -253,9 +270,18 @@ function enhanceLoadedViews() {
   addDashboardFilterTrigger();
   syncToday();
   syncMobileNavState();
+  enhanceMobileTasks();
+  enhanceWorkspace();
 }
-const observer = new MutationObserver(enhanceLoadedViews);
-observer.observe(document.getElementById('main-content'), {childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});
+// Disconnect while enhancing: class mutations must not schedule their own next pass.
+const observedContent = document.getElementById('main-content');
+const observer = new MutationObserver(() => {
+  observer.disconnect();
+  enhanceLoadedViews();
+  observeContent();
+});
+function observeContent(){observer.observe(observedContent,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','hidden']});}
+observeContent();
 enhanceLoadedViews();
 
 mobileQuery.addEventListener('change', event => {
@@ -264,3 +290,124 @@ mobileQuery.addEventListener('change', event => {
   if (!event.matches) closeSheets(false);
 });
 addEventListener('resize', syncMobileChrome, {passive:true});
+
+function installNavigationIcons(){
+  const mappings = [['.icon-home','inicio'],['.icon-activity','movimientos'],['.icon-inventory','inventario'],['.icon-network','ecosistema']];
+  for(const [selector,tab] of mappings){
+    const host=document.querySelector(`.mobile-nav ${selector}`);
+    const icon=document.querySelector(`.sidebar [data-tab="${tab}"] svg`);
+    if(host&&icon&&!host.firstChild)host.append(icon.cloneNode(true));
+  }
+  const register=document.querySelector('.icon-register');
+  const plus=document.querySelector('.home-actions svg');
+  if(register&&plus&&!register.firstChild)register.append(plus.cloneNode(true));
+  if(register&&!register.nextElementSibling){const label=document.createElement('span');label.textContent='Registrar';register.after(label);}
+}
+
+function addSortControl(panelId, selector, label){
+  const panel=document.getElementById(panelId);
+  if(!panel||panel.querySelector('.mobile-sort-control'))return;
+  const headers=[...panel.querySelectorAll(selector)];
+  if(!headers.length)return;
+  const wrapper=document.createElement('label');wrapper.className='mobile-sort-control';
+  const title=document.createElement('span');title.textContent=label;
+  const select=document.createElement('select');select.setAttribute('aria-label',label);
+  select.add(new Option('Orden actual',''));
+  headers.forEach((header,index)=>{
+    const text=header.textContent.replace(/[↕↑↓]/g,'').trim();
+    const names={Producto:['Nombre A–Z','Nombre Z–A'],SKU:['SKU A–Z','SKU Z–A'],Categoría:['Categoría A–Z','Categoría Z–A'],Cantidad:['Menor stock','Mayor stock'],Precio:['Menor precio','Mayor precio'],Costo:['Menor costo','Mayor costo'],Actualizado:['Actualizados hace más tiempo','Actualizados recientemente'],Creado:['Más antiguos','Más recientes'],Fecha:['Más antiguos','Más recientes'],Total:['Menor importe','Mayor importe']};
+    const labels=names[text]||[text+' A–Z',text+' Z–A'];
+    select.add(new Option(labels[0],index+':ascending'));
+    select.add(new Option(labels[1],index+':descending'));
+  });
+  select.onchange=()=>{
+    if(!select.value)return;
+    const [index,direction]=select.value.split(':'),header=headers[Number(index)],cell=header.closest('th');
+    header.click();
+    if((cell||header).getAttribute('aria-sort')!==direction)header.click();
+  };
+  wrapper.append(title,select);
+  if(panelId==='tab-inventario')panel.querySelector('.toolbar').append(wrapper);
+  else panel.querySelector('.card-head').after(wrapper);
+}
+
+function enhanceMobileTasks(){
+  installNavigationIcons();
+  for(const [id,title] of [['inventario','Productos y existencias'],['movimientos','Tu actividad'],['dashboard','Tu negocio en cifras'],['diagnostico','Lo que necesita atención']]){
+    const header=document.querySelector(`#tab-${id} .page-intro`),original=header?.querySelector('h2');
+    if(header&&original&&!header.querySelector('.mobile-view-title')){
+      original.classList.add('mobile-replaced-heading');const heading=document.createElement('h2');heading.className='mobile-only mobile-view-title';heading.textContent=title;original.after(heading);
+    }
+  }
+  const summary=document.querySelector('.mobile-today');
+  if(summary&&!summary.querySelector('.mobile-home-metrics')){
+    const metrics=document.createElement('div');metrics.className='mobile-home-metrics';
+    metrics.innerHTML='<div><span>Ventas registradas</span><strong data-mobile-sales-count>0</strong></div><div><span>Ticket promedio</span><strong data-mobile-ticket>$0</strong></div>';
+    summary.querySelector('.mobile-balance').after(metrics);
+    const state=document.createElement('p');state.className='mobile-home-state';state.dataset.mobileMode='';metrics.after(state);
+    const period=document.createElement('span');period.dataset.mobilePeriod='';summary.querySelector('.mobile-balance>div>span').after(period);
+  }
+  addSortControl('tab-inventario','[data-sort]','Ordenar productos');
+  addSortControl('tab-movimientos','[data-movement-sort]','Ordenar movimientos');
+  document.querySelectorAll('.filter-options').forEach(panel=>{
+    if(panel.querySelector('.mobile-filter-done'))return;
+    const done=document.createElement('button');done.type='button';done.className='mobile-filter-done mobile-only';done.textContent='Ver resultados';
+    done.onclick=()=>{const toggle=document.querySelector(`[aria-controls="${panel.id}"]`);if(toggle?.getAttribute('aria-expanded')==='true')toggle.click();};panel.append(done);
+  });
+  document.querySelectorAll('input[type=number]').forEach(input=>{if(!input.hasAttribute('inputmode'))input.inputMode=input.step&&input.step!=='1'?'decimal':'numeric';});
+  document.querySelectorAll('input[type=search]').forEach(input=>{input.enterKeyHint='search';});
+}
+
+// Proxy existing actions: never duplicate authorization, refresh or theme state.
+const moreGrid=document.querySelector('.mobile-more-grid');
+for(const [key,title,copy,selector] of [
+  ['refresh','Actualizar datos','Sincroniza tu espacio','.data-sync-refresh'],
+  ['theme','Apariencia','Cambiar entre claro y oscuro','.theme-toggle--app'],
+  ['security','Contraseña','Seguridad de tu cuenta','#profile-password-btn']
+]){
+  const button=document.createElement('button');button.type='button';button.dataset[`mobile${key[0].toUpperCase()+key.slice(1)}`]='';
+  const text=document.createElement('div'),strong=document.createElement('strong'),small=document.createElement('small');strong.textContent=title;small.textContent=copy;text.append(strong,small);button.append(text);
+  button.onclick=()=>{closeSheets(false);document.querySelector(selector)?.click();};moreGrid?.append(button);
+}
+
+// The virtual keyboard must not compete with the bottom navigation.
+function syncKeyboard(){
+  const viewport=window.visualViewport;
+  const editing=document.activeElement?.matches('input,textarea,select');
+  document.body.classList.toggle('mobile-keyboard-open',Boolean(isMobile()&&editing&&viewport&&innerHeight-viewport.height>120));
+}
+window.visualViewport?.addEventListener('resize',syncKeyboard,{passive:true});
+document.addEventListener('focusin',syncKeyboard);
+document.addEventListener('focusout',()=>requestAnimationFrame(syncKeyboard));
+
+// Long tasks protect edits before a voluntary dismiss. Native dialog keeps focus trapped.
+const dirtyForms=new WeakSet();
+const discardDialog=document.createElement('dialog');
+discardDialog.className='mobile-discard-dialog';
+discardDialog.setAttribute('aria-labelledby','mobile-discard-title');
+discardDialog.innerHTML='<h2 id="mobile-discard-title">¿Descartar los cambios?</h2><p>Lo que escribiste todavía no se ha guardado.</p><div><button type="button" data-keep-editing>Seguir editando</button><button type="button" data-discard-edit>Descartar cambios</button></div>';
+document.body.append(discardDialog);
+let pendingDismiss=null;
+function protectDismiss(form,action){
+  if(!isMobile()||!form||!dirtyForms.has(form))return false;
+  pendingDismiss=()=>{dirtyForms.delete(form);action();};discardDialog.showModal();return true;
+}
+discardDialog.querySelector('[data-keep-editing]').onclick=()=>{pendingDismiss=null;discardDialog.close();};
+discardDialog.querySelector('[data-discard-edit]').onclick=()=>{const action=pendingDismiss;pendingDismiss=null;discardDialog.close();action?.();};
+document.addEventListener('input',event=>{
+  const form=event.target.closest('dialog form');
+  if(form?.querySelector('[type="submit"]')&&form.closest('dialog').open)dirtyForms.add(form);
+});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-cancelar],[data-cancel-movement],[data-customer-cancel],[data-category-cancel],[data-dialog-close],.account-dialog-close,.mobile-dialog-dismiss');
+  if(!button)return;
+  const form=button.closest('form')||button.closest('dialog')?.querySelector('form');
+  if(protectDismiss(form,()=>button.click())){event.preventDefault();event.stopImmediatePropagation();}
+},true);
+document.addEventListener('cancel',event=>{
+  const dialog=event.target,form=dialog.querySelector?.('form');
+  if(protectDismiss(form,()=>dialog.close()))event.preventDefault();
+},true);
+document.addEventListener('close',event=>{
+  const form=event.target.querySelector?.('form');if(form)dirtyForms.delete(form);
+},true);

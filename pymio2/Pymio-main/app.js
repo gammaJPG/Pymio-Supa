@@ -1,10 +1,10 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=139';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=152';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
-import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=50';
+import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
 import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js';
 

@@ -108,6 +108,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
 
   selectViewImpl=(view,keyboard=false)=>{
     currentView=view;
+    feedback.hidden=true;
     root.querySelectorAll('.subpanel').forEach(panel=>panel.classList.toggle('active',panel.id===`sub-${view}`));
     document.querySelectorAll('[data-network-view]').forEach(button=>button.classList.toggle('active',button.dataset.networkView===view));
     const target=get('sub-'+view); if(target)revealView(target,{keyboard});

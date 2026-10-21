@@ -96,19 +96,32 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   for (const input of [filterFrom, filterTo]) input.onchange = () => { clearDashboardFilter(); filterPeriod.value = 'custom'; status.textContent = ''; refresh(); };
   const sortHeaders = [...panel.querySelectorAll('[data-movement-sort]')];
   let displayedMovements = [], movementOrder = null;
+  let mobileActivityFilter = {kind:'all',query:''};
+  const mobileActivityQuery = matchMedia('(max-width:767px), (max-height:500px) and (max-width:950px)');
+  panel.addEventListener('mobile-movement-filter',event=>{mobileActivityFilter=event.detail;renderMovementList();});
+  mobileActivityQuery.addEventListener('change',()=>renderMovementList());
   function renderMovementList(openCode = null) {
-    const ordered=ordenarMovimientos(displayedMovements,movementOrder);
+    const {kind,query}=mobileActivityFilter;
+    const visible=mobileActivityQuery.matches?displayedMovements.filter(m=>{
+      const type=normalizar(String(m.operation_detail||''));
+      const matchesKind=kind==='all'||(kind==='pending'?m.Estado==='Pendiente de Pago':type.includes(kind));
+      const haystack=[m.code,m.operation_detail,m.channel,m.payment_method,m.customer_name,...(m.products||[]).map(p=>p.name||p.product_name||p.sku)].join(' ');
+      return matchesKind&&normalizar(haystack).includes(normalizar(query.trim()));
+    }):displayedMovements;
+    const ordered=ordenarMovimientos(visible,movementOrder||(mobileActivityQuery.matches?{field:'occurred_at',type:'fecha',direction:-1}:null));
     renderMovimientos($('#movimientos-table'),ordered,{onMarkPaid:markMovementPaid,onEdit:movement=>open('edit',null,movement)});
-    if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent='No hay movimientos para el período seleccionado.';
+    if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent=mobileActivityQuery.matches&&(query.trim()||kind!=='all')?'No hay movimientos que coincidan con esta búsqueda o filtro.':'No hay movimientos para el período seleccionado.';
     if (openCode) panel.querySelector(`[data-movement-code="${openCode}"] .movimiento-toggle`)?.click();
   }
-  function confirmMarkPaid() {
+  function confirmMarkPaid(movement) {
+    paymentConfirm.querySelector('p').textContent='Registrar como pagado: '+new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(movement.total)+' · '+(movement.customer_name||movement.code)+'. Esta acción actualiza el registro; no realiza un cobro bancario.';
+    paymentConfirm.querySelector('[value="confirm"]').textContent='Registrar pago';
     paymentConfirm.returnValue = '';
     paymentConfirm.showModal();
     return new Promise(resolve => paymentConfirm.addEventListener('close', () => resolve(paymentConfirm.returnValue === 'confirm'), {once:true}));
   }
   async function markMovementPaid(movement) {
-    if (!await confirmMarkPaid()) return;
+    if (!await confirmMarkPaid(movement)) return;
     status.textContent = '';
     const response = await fetch(endpoint('/api/movements/' + encodeURIComponent(movement.code)), {
       method:'PUT', headers:{'Content-Type':'application/json'},
@@ -143,6 +156,13 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       sort();
     };
   });
+  const context=document.createElement('div');context.className='mobile-filter-context mobile-only';context.hidden=true;
+  const contextLabel=document.createElement('span'),clearFilters=document.createElement('button');clearFilters.type='button';clearFilters.textContent='Quitar filtros';context.append(contextLabel,clearFilters);panel.querySelector('.page-intro').after(context);
+  function describeFilters(){
+    const parts=[dashboardMovementCodes?'Selección desde tus indicadores':'',filterPeriod.value!=='all'?filterPeriod.selectedOptions[0]?.textContent:'',filterFrom.value,filterTo.value,filterStatus.value,filterChannel.value,filterPayment.value,hourFrom.value,hourTo.value].filter(Boolean);
+    context.hidden=!parts.length;contextLabel.textContent=parts.join(' · ');
+  }
+  clearFilters.onclick=()=>{clearDashboardFilter();filterPeriod.value='all';filterFrom.value=filterTo.value=hourFrom.value=hourTo.value='';filterStatus.value=filterChannel.value=filterPayment.value='';mobileActivityFilter={kind:'all',query:''};const search=panel.querySelector('.mobile-activity-tools input');if(search)search.value='';panel.querySelectorAll('.mobile-scope button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scope==='all')));status.textContent='';refresh();};
   let refreshVersion = 0;
   async function refresh(targetCode = null) {
     const current = ++refreshVersion;
@@ -157,6 +177,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       status.textContent = 'Revisa el rango de fechas.';
       return;
     }
+    describeFilters();
     const url = endpoint('/api/movements');
     if (filterFrom.value) url.searchParams.set('from', new Date(filterFrom.value + 'T00:00:00').toISOString());
     if (filterTo.value) {
@@ -197,6 +218,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   });
   document.addEventListener('abrir-movimientos-filtrados', event => {
     dashboardMovementCodes = new Set((event.detail?.codes ?? []).map(String));
+    mobileActivityFilter={kind:'all',query:''};const mobileSearch=panel.querySelector('.mobile-activity-tools input');if(mobileSearch)mobileSearch.value='';panel.querySelectorAll('.mobile-scope button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scope==='all')));
+    filterStatus.value=filterChannel.value=filterPayment.value='';
     filterPeriod.value = 'all'; filterFrom.value = filterTo.value = hourFrom.value = hourTo.value = '';
     document.querySelector('[data-tab="movimientos"]').click();
     status.textContent = event.detail?.label || 'Filtro aplicado desde el Dashboard: ventas por cobrar.';
