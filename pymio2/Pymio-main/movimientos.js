@@ -1,6 +1,7 @@
 import { offlineFetch as fetch, apiBase, pendingMovements } from './offline.js';
 import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario, ordenarMovimientos, datosMovimientoPagado } from './movimientos-vista.js';
 import { stockDisponibleParaEgreso } from './movimientos-stock.js';
+import { annotateFefo, compareFefo, expiryState, lotLabel } from './inventory-expiry.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
   if (panel.dataset.initialized) return;
@@ -69,7 +70,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const actionLabel = () => mode === 'delete' ? 'Eliminar movimiento' : mode === 'edit' ? 'Guardar cambios' : 'Guardar movimiento';
   let products = [], busy = false, version = 0, lineId = 0, pending = null;
   const normalizar = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const label = product => `${product.name} - ${product.sku}`;
+  const label = product => lotLabel(product, {recommended: product.fefo_recommended && Number(product.qty) > 0});
   const endpoint = path => { const url = new URL(path, apiUrl); url.searchParams.set('company_id', companyId); return url; };
   const showError = message => { error.textContent = message; error.hidden = false; };
   function closeMenu() { menu.hidden = true; menuButton.setAttribute('aria-expanded', 'false'); }
@@ -230,21 +231,24 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     if (lines.children.length >= 100) return;
     const row = $('#movimiento-linea').content.firstElementChild.cloneNode(true);
     const input = row.querySelector('[data-product]'), list = row.querySelector('datalist');
+    const hint=document.createElement('small'); hint.className='movement-fefo-hint'; hint.setAttribute('role','status'); input.closest('label').appendChild(hint);
     list.id = `mov-product-options-${++lineId}`;
     input.setAttribute('list', list.id);
     const options = () => {
       const filter = normalizar(input.value);
       list.replaceChildren();
-      products.filter(p => normalizar(label(p)).includes(filter)).forEach(p => list.appendChild(new Option(label(p), label(p))));
+      [...products].sort(compareFefo).filter(p => normalizar(label(p)).includes(filter)).forEach(p => list.appendChild(new Option(label(p), label(p))));
       input.setCustomValidity('');
     };
-    input.oninput = options;
+    const updateHint=()=>{const product=products.find(p=>label(p)===input.value);if(!product){hint.textContent='';return;}const expiry=expiryState(product);hint.textContent=product.fefo_recommended?`Rotación recomendada: ${expiry.label}.`:(product.fefo_first?`FEFO recomienda primero ${product.fefo_first.sku}: ${expiryState(product.fefo_first).label.toLowerCase()}.`:`Lote ${product.sku}: ${expiry.label}.`);hint.dataset.state=product.fefo_recommended?'recommended':'notice';};
+    input.oninput = () => { options(); updateHint(); };
     options();
     row.querySelector('[data-remove-line]').onclick = () => { if (lines.children.length > 1) row.remove(); };
     if (item?.product_id) {
       const product = products.find(p => String(p.id) === String(item.product_id));
       input.value = product ? label(product) : item.name + ' - ' + item.sku;
       row.querySelector('[data-units]').value = Math.abs(item.units);
+      updateHint();
     }
     const unitsInput = row.querySelector('[data-units]');
     unitsInput.addEventListener('input', () => { unitsInput.setCustomValidity(''); error.hidden = true; });
@@ -386,7 +390,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         return data;
       }));
       if (current !== version || !dialog.open) return;
-      if (mode !== 'delete') products = results[0].filter(p => String(p.company_id) === String(companyId));
+      if (mode !== 'delete') products = annotateFefo(results[0].filter(p => String(p.company_id) === String(companyId)));
       if (mode === 'edit' || preset?.detail === 'Venta') { customers = results.at(-1); renderCustomers(); }
       if (mode === 'add') {
         if (!products.length) throw new Error('No hay productos disponibles para esta empresa.');

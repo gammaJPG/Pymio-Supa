@@ -294,7 +294,8 @@ export function createInventoryServer(pool, origins, options = {}) {
         try { producto = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400, { error: 'JSON inválido.' }); }
         if (!producto || typeof producto !== 'object' || Array.isArray(producto)) return send(400, { error: 'Producto inválido.' });
         if (req.method === 'POST') producto.updated_at = producto.created_at;
-        const { name, sku, category, qty, cost, price, low_qty, created_at, updated_at, image_path } = producto;
+        const hasExpiryDate = Object.prototype.hasOwnProperty.call(producto,'expiry_date');
+        const { name, sku, category, qty, cost, price, low_qty, created_at, updated_at, image_path, expiry_date } = producto;
         if (typeof name !== 'string' || !name.trim() || typeof category !== 'string' || !category.trim() ||
             (req.method === 'PUT' && (typeof sku !== 'string' || !sku.trim() || sku.length > 32))) {
           return send(400, { error: 'Completa producto, categoría y un SKU válido (mayúsculas, números y guiones).' });
@@ -303,6 +304,11 @@ export function createInventoryServer(pool, origins, options = {}) {
           return send(400, { error: 'Usa números enteros no negativos para cantidad, costo, precio y stock bajo.' });
         }
         if (image_path != null && (typeof image_path !== 'string' || !new RegExp(`^${companyId}/[0-9a-f-]{36}\\.webp$`).test(image_path))) return send(400,{error:'La ruta de imagen no es válida para esta empresa.'});
+        if (expiry_date != null && expiry_date !== '') {
+          const expiry = typeof expiry_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expiry_date) ? new Date(`${expiry_date}T00:00:00.000Z`) : null;
+          if (!expiry || !Number.isFinite(expiry.getTime()) || expiry.toISOString().slice(0,10) !== expiry_date) return send(400,{error:'Ingresa una fecha de vencimiento válida.'});
+        }
+        if (hasExpiryDate) producto.expiry_date = expiry_date || null;
         const fechaValida = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));
         if (!fechaValida(created_at) || !fechaValida(updated_at) || Date.parse(updated_at) < Date.parse(created_at)) {
           return send(400, { error: 'Revisa las fechas: actualización debe ser igual o posterior a creación.' });

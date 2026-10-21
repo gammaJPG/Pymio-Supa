@@ -180,6 +180,7 @@ input:focus,select:focus{border-color:#a78e3c;}
 .btn-secondary{min-width:0;min-height:42px;padding:10px 14px;border:1px solid #dfe1d3;border-radius:8px;color:#656b54;background:#fff;font-size:11px;font-weight:500;}
 .btn-chiquito[data-add-line]{min-width:42px;}
 .chip-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--line);border-radius:14px;background:white;margin:0 0 22px;overflow:hidden;}
+#tab-inventario .chip-row{grid-template-columns:repeat(5,minmax(0,1fr));}
 .chip-card{padding:22px 24px;}
 .chip-card+.chip-card{border-left:1px solid var(--line);}
 .chip-card .kpi-label{font-size:10px;color:var(--muted);display:block;}
@@ -838,6 +839,12 @@ button{min-height:44px;}
 .inventario-card-stock,.inventario-card-price{margin:0;color:var(--ink);font-size:12px;line-height:1.4;}
 .inventario-card-stock.critico{color:#b25942;}
 .inventario-card-stock strong,.inventario-card-price strong{font-weight:600;font-variant-numeric:tabular-nums;}
+.inventario-expiry-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin:8px 0 0;padding:5px 8px;border-radius:999px;background:#eef0e9;color:var(--muted);font-size:11px;font-weight:600;line-height:1.35;}
+.inventario-expiry-badge[data-state=expired],.inventario-expiry-cell.is-expired{background:#f8e4e1;color:var(--critical);}
+.inventario-expiry-badge[data-state=urgent],.inventario-expiry-cell.is-urgent{background:#fff0cd;color:#8a5e00;}
+.inventario-expiry-badge[data-state=soon],.inventario-expiry-cell.is-soon{background:#fff7df;color:#725c17;}
+.inventario-expiry-cell{font-weight:600;white-space:normal;}.inventario-expiry-card .inventario-expiry-badge{margin:0 0 8px;}.inventario-expiry-advice{margin:0;color:var(--muted);font-size:12px;line-height:1.5;}
+.producto-vencimiento small,.movement-fefo-hint{display:block;margin-top:6px;color:var(--muted);font-size:11px;line-height:1.45;}.movement-fefo-hint[data-state=recommended]{color:#367846;font-weight:600;}
 .inventario-card-name{min-width:0;margin:0;color:var(--ink);font-size:12px;font-weight:600;line-height:1.4;text-align:right;overflow-wrap:anywhere;}
 .inventario-card-media{display:grid;place-items:center;width:100%;height:200px;margin:10px 0;min-width:0;overflow:hidden;}
 .inventario-card-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;}

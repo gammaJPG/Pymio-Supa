@@ -6,7 +6,7 @@ import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, disc
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
 import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
-import { iniciarMovimientos } from './movimientos.js';
+import { iniciarMovimientos } from './movimientos.js?v=164';
 
 const apiUrl=apiBase;
 const browserFetch=window.fetch.bind(window);
@@ -215,7 +215,7 @@ async function cargarSecciones() {
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
     document.getElementById('profile-password-btn').hidden=session.demo;
     if(session.requiresBusinessName)openBusinessSetup();
-    import('./inventario.js?v=130').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
+    import('./inventario.js?v=164').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
       console.error('No se pudo iniciar el inventario:',error);const tabla=document.getElementById('inv-table');tabla.replaceChildren();const celda=tabla.insertRow().insertCell();celda.colSpan=10;celda.textContent='No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
     });
   }

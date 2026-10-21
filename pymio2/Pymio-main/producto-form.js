@@ -1,5 +1,6 @@
 import { offlineFetch as fetch } from './offline.js';
 import { configureIntegerInput, parseFormattedInteger } from './number-format.js';
+import { formatExpiryDate } from './inventory-expiry.js';
 const IMAGE_TYPES = new Set(['image/jpeg','image/png','image/webp']);
 const MAX_ORIGINAL_IMAGE = 10 * 1024 * 1024;
 const MAX_PRODUCT_IMAGE = 500 * 1024;
@@ -7,7 +8,7 @@ const formatoEntero = new Intl.NumberFormat('es-CL', {maximumFractionDigits:0});
 const formatoMoneda = new Intl.NumberFormat('es-CL', {style:'currency',currency:'CLP',maximumFractionDigits:0});
 
 function descripcionProductoCreado(producto) {
-  return `${producto.name}${producto.sku ? ` · ${producto.sku}` : ''} · Stock ${formatoEntero.format(producto.qty)} · Precio ${formatoMoneda.format(producto.price)}`;
+  return `${producto.name}${producto.sku ? ` · ${producto.sku}` : ''} · Stock ${formatoEntero.format(producto.qty)} · ${producto.expiry_date ? `Vence ${formatExpiryDate(producto.expiry_date)}` : 'Sin vencimiento'} · Precio ${formatoMoneda.format(producto.price)}`;
 }
 
 function descripcionCambiosProducto(anterior, actual, fotoCambiada) {
@@ -17,7 +18,8 @@ function descripcionCambiosProducto(anterior, actual, fotoCambiada) {
     ['qty','Stock',value=>formatoEntero.format(Number(value))],
     ['cost','Costo',value=>formatoMoneda.format(Number(value))],
     ['price','Precio',value=>formatoMoneda.format(Number(value))],
-    ['low_qty','Umbral de stock bajo',value=>formatoEntero.format(Number(value))]
+    ['low_qty','Umbral de stock bajo',value=>formatoEntero.format(Number(value))],
+    ['expiry_date','Vencimiento',value=>value ? formatExpiryDate(value) : 'Sin vencimiento']
   ];
   const cambios = campos.flatMap(([campo,etiqueta,formatear]) => String(anterior?.[campo] ?? '') === String(actual?.[campo] ?? '')
     ? [] : [`${etiqueta}: ${formatear(anterior?.[campo] ?? 0)} → ${formatear(actual?.[campo] ?? 0)}`]);
@@ -65,6 +67,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
           <div class="field" data-sku-field><label for="producto-sku">SKU</label><input id="producto-sku" name="sku" maxlength="32" title="Letras mayúsculas y números, separados opcionalmente por guiones. Ejemplo: AND-0021" required></div>
           <div class="field"><label for="producto-category">Categoría</label><select id="producto-category" name="category" required></select></div>
           <div class="field"><label for="producto-qty">Cantidad</label><input id="producto-qty" name="qty" type="text" inputmode="numeric" value="0" required></div>
+          <div class="field producto-vencimiento"><label for="producto-expiry-date">Fecha de vencimiento <span>(opcional)</span></label><input id="producto-expiry-date" name="expiry_date" type="date"><small>Cada ingreso se guarda como un lote con SKU propio. Pymio recomendará vender primero el que venza antes.</small></div>
           <div class="field"><label for="producto-cost">Costo Unitario (CLP)</label><input id="producto-cost" name="cost" type="text" inputmode="numeric" required></div>
           <div class="field"><label for="producto-price">Precio Unitario (CLP)</label><input id="producto-price" name="price" type="text" inputmode="numeric" required></div>
           <div class="field"><label for="producto-low">Stock Bajo</label><input id="producto-low" name="low_qty" type="text" inputmode="numeric" required></div>
@@ -213,7 +216,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
       if (solicitud !== carga || !dialogo.open) return;
       productos = datos.filter(p => String(p.company_id) === String(companyId));
       selector.replaceChildren(new Option(productos.length ? 'Selecciona un producto' : 'No hay productos en esta empresa', ''));
-      productos.forEach(p => selector.add(new Option(`${p.name} — ${p.sku}`, String(p.id))));
+      productos.forEach(p => selector.add(new Option(`${p.name} — ${p.sku} · ${p.expiry_date ? `vence ${formatExpiryDate(p.expiry_date)}` : 'sin vencimiento'}`, String(p.id))));
       selector.disabled = !productos.length;
       if (productoId != null) {
         const encontrado = productos.some(p => String(p.id) === String(productoId));
@@ -236,7 +239,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     error.hidden = true;
     campos.forEach(campo => {
       campo.disabled = !producto || modo === 'borrar';
-      campo.value = !producto ? '' : producto[campo.name];
+      campo.value = !producto ? '' : (producto[campo.name] ?? '');
     });
     numericInputs.forEach((controller, name) => controller?.set(producto?.[name] ?? ''));
     imageBlob = null; imageInput.value = ''; limpiarPreview();
@@ -257,6 +260,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
     const datos = Object.fromEntries(new FormData(form));
     delete datos.image;
     if (modo !== 'borrar') {
+    datos.expiry_date = datos.expiry_date || null;
     if (modo === 'agregar') delete datos.sku;
     datos.name = datos.name.trim();
     datos.category = datos.category.trim();

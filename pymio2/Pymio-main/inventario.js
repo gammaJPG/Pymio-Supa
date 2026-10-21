@@ -2,6 +2,7 @@ import { offlineFetch as fetch, apiBase } from './offline.js';
 import { prepararCategorias } from './categorias.js';
 import { prepararFormularioProducto } from './producto-form.js';
 import { prepararDetalleInventario } from './inventario-detalle.js';
+import { annotateFefo, expiryState } from './inventory-expiry.js';
 
 // Los productos se consultan en Supabase mediante la API del servidor.
 export async function iniciarInventario({
@@ -74,7 +75,7 @@ export async function iniciarInventario({
   }
   function mensaje(texto) {
     tbody.replaceChildren();
-    celda(tbody.insertRow(), texto).colSpan = 8;
+    celda(tbody.insertRow(), texto).colSpan = 9;
     simpleView.replaceChildren();
     const message = document.createElement('p'); message.className = 'inventario-simple-mensaje'; message.textContent = texto;
     simpleView.appendChild(message);
@@ -99,6 +100,7 @@ export async function iniciarInventario({
       const name=document.createElement('h3'); name.className='inventario-card-name'; name.textContent=producto.name;
       name.title=producto.name;
       const header=document.createElement('div'); header.className='inventario-card-header'; header.append(stock,name);
+      const expiry=expiryState(producto); const expiryBadge=document.createElement('p'); expiryBadge.className='inventario-expiry-badge'; expiryBadge.dataset.state=expiry.state; expiryBadge.textContent=expiry.label;
       const media=document.createElement('div'); media.className='inventario-card-media';
       const placeholder=()=>{media.replaceChildren();const empty=document.createElement('div');empty.className='inventario-card-placeholder';empty.setAttribute('aria-label',`${producto.name}, sin imagen`);empty.innerHTML='<span aria-hidden="true">◇</span><small>Sin imagen</small>';media.appendChild(empty);};
       const source=imagenProducto(producto);
@@ -106,7 +108,7 @@ export async function iniciarInventario({
       const price=document.createElement('p'); price.className='inventario-card-price'; price.append('Precio: ',Object.assign(document.createElement('strong'),{textContent:clp.format(producto.price)}));
       const action=document.createElement('button');action.type='button';action.className='inventario-card-action';action.textContent='Ver y editar';
       action.onclick=event=>{event.stopPropagation();productFormController?.abrirModificar(producto.id);};
-      card.append(header,media,price,action); simpleView.appendChild(card);
+      card.append(header,expiryBadge,media,price,action); simpleView.appendChild(card);
     }
     if (!productos.length) {
       const message=document.createElement('p');message.className='inventario-simple-mensaje';message.textContent='No disponible';simpleView.appendChild(message);
@@ -167,7 +169,7 @@ export async function iniciarInventario({
     const detail = summary.nextElementSibling;
     if (detail) detail.id = `inventario-simple-detalle-${producto.id}`;
     const facts = document.createElement('dl');facts.className='mobile-only mobile-product-facts';
-    for(const [label,value] of [['SKU',producto.sku],['Categoría',producto.category||'Sin categoría'],['Cantidad',numero.format(producto.qty)],['Precio',clp.format(producto.price)],['Costo',clp.format(producto.cost)],['Creado',new Date(producto.created_at).toLocaleString('es-CL')],['Actualizado',new Date(producto.updated_at).toLocaleString('es-CL')]]){
+    for(const [label,value] of [['SKU / lote',producto.sku],['Categoría',producto.category||'Sin categoría'],['Vencimiento',expiryState(producto).label],['Cantidad',numero.format(producto.qty)],['Precio',clp.format(producto.price)],['Costo',clp.format(producto.cost)],['Creado',new Date(producto.created_at).toLocaleString('es-CL')],['Actualizado',new Date(producto.updated_at).toLocaleString('es-CL')]]){
       const group=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value;group.append(term,description);facts.append(group);
     }
     simpleDetailBody.prepend(facts);
@@ -213,6 +215,7 @@ export async function iniciarInventario({
       celda(fila, p.name);
       celda(fila, p.sku);
       celda(fila, p.category);
+      const expiry=expiryState(p); const expiryCell=celda(fila, expiry.label); expiryCell.className=`inventario-expiry-cell is-${expiry.state}`;
       celda(fila, numero.format(p.qty), 'num');
       celda(fila, clp.format(p.price), 'num');
       celda(fila, clp.format(p.cost), 'num');
@@ -240,7 +243,7 @@ export async function iniciarInventario({
     context.hidden=!active.length;contextText.textContent=active.join(' · ')+' · '+visibles.length+' productos';
     if (!visibles.length) {
       tbody.replaceChildren();
-      celda(tbody.insertRow(), 'No disponible').colSpan = 8;
+      celda(tbody.insertRow(), 'No disponible').colSpan = 9;
     }
   }
 
@@ -326,13 +329,14 @@ export async function iniciarInventario({
       if (!respuesta.ok) throw new Error(`La API respondió ${respuesta.status}.`);
       const datos = await respuesta.json();
       if (!Array.isArray(datos)) throw new Error('La API no devolvió una lista de productos.');
-      inventory = datos;
+      inventory = annotateFefo(datos);
       actualizarCategorias();
       const valores = [
         numero.format(inventory.length),
         clp.format(inventory.reduce((total, p) => total + p.qty * p.cost, 0)),
         numero.format(inventory.filter(p => p['Estado Stock'] === 'Stock Bajo').length),
-        numero.format(inventory.filter(p => p.qty === 0).length)
+        numero.format(inventory.filter(p => p.qty === 0).length),
+        numero.format(inventory.filter(p => { const state=expiryState(p); return Number(p.qty)>0 && ['expired','urgent','soon'].includes(state.state); }).length)
       ];
       indicadores.forEach((el, i) => { if (i < valores.length) el.textContent = valores[i]; });
       cargando = false;

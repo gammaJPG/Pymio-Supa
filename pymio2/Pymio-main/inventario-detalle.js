@@ -1,5 +1,6 @@
 import { offlineFetch as fetch } from './offline.js';
 import { fechaMovimiento } from './movimientos-vista.js';
+import { expiryState } from './inventory-expiry.js';
 
 export function prepararDetalleInventario(fila, producto, { companyId, apiUrl, onToggleStatus, onEditProduct }) {
   fila.classList.add('inventario-resumen');
@@ -12,7 +13,7 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl, o
   const detalle = fila.parentElement.insertRow();
   detalle.id = `inventario-detalle-${producto.id}`;
   detalle.hidden = true; detalle.className = 'inventario-detalle';
-  const celda = detalle.insertCell(); celda.colSpan = 8;
+  const celda = detalle.insertCell(); celda.colSpan = 9;
   const acciones = document.createElement('div'); acciones.className = 'inventario-detalle-acciones';
   const estadoMensaje = document.createElement('p'); estadoMensaje.className = 'inventario-estado-mensaje'; estadoMensaje.setAttribute('role','status'); estadoMensaje.hidden = true;
   const editarBoton = document.createElement('button'); editarBoton.type = 'button'; editarBoton.className = 'detalle-editar';
@@ -47,6 +48,13 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl, o
     item.append(label,number); limites.appendChild(item);
   }
   stock.append(stockTitle,limites);
+  const expiry = expiryState(producto);
+  const expiryCard = document.createElement('section'); expiryCard.className = 'inventario-detalle-card inventario-expiry-card';
+  const expiryTitle = document.createElement('h3'); expiryTitle.textContent = 'Vencimiento y rotación';
+  const expiryValue = document.createElement('p'); expiryValue.className = 'inventario-expiry-badge'; expiryValue.dataset.state = expiry.state; expiryValue.textContent = expiry.label;
+  const expiryAdvice = document.createElement('p'); expiryAdvice.className = 'inventario-expiry-advice';
+  expiryAdvice.textContent = producto.fefo_recommended ? 'Lote recomendado para la próxima venta (FEFO).' : producto.fefo_first ? `Vende antes el lote ${producto.fefo_first.sku}: ${expiryState(producto.fefo_first).label.toLowerCase()}.` : 'Sin otros lotes disponibles del mismo producto.';
+  expiryCard.append(expiryTitle,expiryValue,expiryAdvice);
   const stockState = document.createElement('section'); stockState.className = 'inventario-detalle-card inventario-estado-stock';
   const stockStateTitle = document.createElement('h3'); stockStateTitle.textContent = 'Estado de Stock';
   const currentStock = Number(producto.qty);
@@ -58,7 +66,7 @@ export function prepararDetalleInventario(fila, producto, { companyId, apiUrl, o
   const stockStateDot = document.createElement('span'); stockStateDot.setAttribute('aria-hidden','true');
   stockStateValue.append(stockStateDot,state);
   stockState.append(stockStateTitle,stockStateValue);
-  stockColumn.append(stock,stockState);
+  stockColumn.append(stock,stockState,expiryCard);
   const movimientos = document.createElement('section'); movimientos.className = 'inventario-detalle-card';
   const titulo = document.createElement('h3'); titulo.textContent = 'Últimos 5 movimientos';
   const historial = document.createElement('div'); historial.className = 'table-scroll inventario-historial';
