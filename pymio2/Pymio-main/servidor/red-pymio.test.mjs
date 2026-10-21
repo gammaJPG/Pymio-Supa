@@ -89,7 +89,7 @@ test('RED Pymio: presenta chat, retención por plan y recepción en tiempo real'
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
   const css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8');
   const server=await readFile(new URL('./red-pymio.mjs',import.meta.url),'utf8');
-  const migration=await readFile(new URL('../supabase/migrations/022_message_retention.sql',import.meta.url),'utf8');
+  const migration=await readFile(new URL('../supabase/migrations/025_message_retention.sql',import.meta.url),'utf8');
   assert.match(html,/data-message-retention/);assert.match(source,/data-chat-compose/);assert.match(source,/new EventSource/);
   assert.match(source,/pymio-chat-tray/);assert.match(css,/pymio-chat-popup/);assert.match(server,/text\/event-stream/);
   assert.match(migration,/interval '7 days'/);assert.match(migration,/is_pymium/);
@@ -174,7 +174,7 @@ test('RED Pymio: la comunidad permite editar marca, redes y administradores',asy
 });
 
 test('RED Pymio: solo el creador puede quitar administradores y el cambio se notifica',async()=>{
-  const sql=await readFile(new URL('../supabase/migrations/021_community_roles_and_notifications.sql',import.meta.url),'utf8');
+  const sql=await readFile(new URL('../supabase/migrations/024_community_roles_and_notifications.sql',import.meta.url),'utf8');
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
   assert.match(sql,/NOT is_admin AND target_role='admin' AND actor_role<>'owner'/);
@@ -185,7 +185,7 @@ test('RED Pymio: solo el creador puede quitar administradores y el cambio se not
 });
 
 test('RED Pymio: el perfil enumera comunidades creadas y administradas',async()=>{
-  const sql=await readFile(new URL('../supabase/migrations/021_community_roles_and_notifications.sql',import.meta.url),'utf8');
+  const sql=await readFile(new URL('../supabase/migrations/024_community_roles_and_notifications.sql',import.meta.url),'utf8');
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   assert.match(sql,/'managed_communities'/);
   assert.match(source,/Comunidades que gestionas/);
