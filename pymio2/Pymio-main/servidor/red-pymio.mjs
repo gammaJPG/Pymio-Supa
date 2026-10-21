@@ -159,6 +159,9 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const communityImageOwn=/^\/api\/network\/communities\/([0-9a-f-]{36})\/images\/(avatar|banner)\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityImagePublic=/^\/api\/network\/community-images\/([0-9a-f-]{36})\/(avatar|banner)\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityAdmin=/^\/api\/network\/communities\/([0-9a-f-]{36})\/members\/([1-9]\d{0,18})\/admin$/i.exec(url.pathname);
+    const communityMessages=/^\/api\/network\/communities\/([0-9a-f-]{36})\/messages$/i.exec(url.pathname);
+    const communityMessagesRead=/^\/api\/network\/communities\/([0-9a-f-]{36})\/messages\/read$/i.exec(url.pathname);
+    const eventParticipation=/^\/api\/network\/events\/([0-9a-f-]{36})\/participation$/i.exec(url.pathname);
     const formStatus=/^\/api\/network\/forms\/([0-9a-f-]{36})\/(close|open)$/i.exec(url.pathname);
     const formResponses=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses$/i.exec(url.pathname);
     const formDelete=/^\/api\/network\/forms\/([0-9a-f-]{36})$/i.exec(url.pathname);
@@ -167,17 +170,18 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const formZip=/^\/api\/network\/forms\/([0-9a-f-]{36})\/files\.zip$/i.exec(url.pathname);
     if(url.pathname==='/api/network/notifications'&&req.method==='GET')return send(200,{notifications:await pool.getCommunityNotifications(companyId)});
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
-      return send(200,applyMessageRetention(await pool.network('bootstrap',companyId,{})));
+      const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],eventParticipations=typeof pool.getEventParticipationSummary==='function'?await pool.getEventParticipationSummary(companyId):[];
+      return send(200,{...snapshot,group_chats:groupChats,event_participations:eventParticipations});
     }
     if(url.pathname==='/api/network/messages/stream' && req.method==='GET'){
       let cursor=String(req.headers['last-event-id']||url.searchParams.get('after')||'');
       if(!Number.isFinite(Date.parse(cursor)))cursor=new Date().toISOString();
-      let closed=false;const emitted=new Set();res.on?.('close',()=>{closed=true;});
+      let closed=false,groupCursor='';const emitted=new Set();res.on?.('close',()=>{closed=true;});
       res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});
       res.write('retry: 2500\n\n');
       for(let attempt=0;attempt<150&&!closed;attempt+=1){
-        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),cursorTime=Date.parse(cursor),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>=cursorTime&&!emitted.has(String(item.id))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-        if(messages.length){for(const item of messages)emitted.add(String(item.id));cursor=messages.at(-1).created_at;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,realtime_messages:messages})}\n\n`);}
+        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],nextGroupCursor=JSON.stringify(groupChats.map(chat=>[chat.community_id,chat.items?.at(-1)?.id||'',chat.unread_count||0])),groupsChanged=nextGroupCursor!==groupCursor,cursorTime=Date.parse(cursor),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>=cursorTime&&!emitted.has(String(item.id))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+        if(messages.length||groupsChanged){for(const item of messages)emitted.add(String(item.id));if(messages.length)cursor=messages.at(-1).created_at;groupCursor=nextGroupCursor;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,group_chats:groupChats,realtime_messages:messages})}\n\n`);}
         else res.write(': keep-alive\n\n');
         await new Promise(resolve=>setTimeout(resolve,2000));
       }
@@ -203,10 +207,15 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       const network=await pool.network('bootstrap',companyId,{}),community=(network.communities||[]).find(item=>String(item.id)===communityDetail[1]);
       if(!community)return send(404,{error:'La comunidad ya no está disponible.'});
       if(!community.joined&&!community.owned)return send(403,{error:'Debes unirte a la comunidad para ver su contenido.'});
-      return send(200,await pool.community('detail',companyId,{community_id:communityDetail[1]}));
+      const detail=await pool.community('detail',companyId,{community_id:communityDetail[1]}),participation=typeof pool.getCommunityEventParticipation==='function'?await pool.getCommunityEventParticipation(communityDetail[1],companyId):{can_manage:false,events:[]};
+      return send(200,{...detail,event_participations:participation.events,can_manage_event_participation:participation.can_manage});
     }
     if(communityProfile&&req.method==='PUT'){requireJson(req);return send(200,await pool.community('profile.update',companyId,{community_id:communityProfile[1],...cleanCommunityProfile(await bodyJson(req),communityProfile[1])}));}
     if(communityAdmin && req.method==='POST'){requireJson(req);const data=await bodyJson(req,1024);return send(200,await pool.community('admin.set',companyId,{community_id:communityAdmin[1],target_company_id:communityAdmin[2],is_admin:Boolean(data.isAdmin)}));}
+    if(communityMessages&&req.method==='POST'){requireJson(req);const data=await bodyJson(req,8*1024),message=text(data.body,5000);if(!message)return send(400,{error:'Escribe un mensaje antes de enviarlo.'});return send(201,{group_chats:await pool.createCommunityMessage(communityMessages[1],companyId,message)});}
+    if(communityMessagesRead&&req.method==='POST')return send(200,{group_chats:await pool.markCommunityChatRead(communityMessagesRead[1],companyId)});
+    if(eventParticipation&&req.method==='POST'){requireJson(req);const data=await bodyJson(req,1024),type=data.type==='applicant'?'applicant':data.type==='attendee'?'attendee':'';if(!type)return send(400,{error:'Selecciona c\u00f3mo participar\u00e1s en el evento.'});return send(200,await pool.registerEventParticipation(eventParticipation[1],companyId,type));}
+    if(eventParticipation&&req.method==='DELETE')return send(200,await pool.removeEventParticipation(eventParticipation[1],companyId));
     if(url.pathname==='/api/network/forms' && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024),questions=Array.isArray(data.questions)?data.questions:[];
       return send(201,await pool.community('form.create',companyId,{community_id:data.communityId,title:text(data.title,140),questions:cleanFormQuestions(questions)}));
@@ -269,11 +278,11 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     }
     if(privateActivity && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,16*1024),kind=['message','quote_request','offer','business_update'].includes(data.kind)?data.kind:'';
-      const subject=text(data.subject,140),message=text(data.body,5000),threadId=text(data.threadId,36),metadata=data.metadata&&typeof data.metadata==='object'?data.metadata:{};
-      if(!kind||!subject||!message)return send(400,{error:'Completa el asunto y el contenido de la comunicación.'});
+      const message=text(data.body,5000),threadId=text(data.threadId,36),metadata=data.metadata&&typeof data.metadata==='object'?data.metadata:{};
+      if(!kind||!message)return send(400,{error:'Escribe el contenido de la comunicación.'});
       if(threadId&&!UUID.test(threadId))return send(400,{error:'La conversación seleccionada no es válida.'});
       const cleanMetadata={deadline:text(metadata.deadline,10),budget:text(metadata.budget,30),valid_until:text(metadata.validUntil,10)};
-      await pool.network('activity.create',companyId,{target_company_id:privateActivity[1],kind,subject,body:message,thread_id:threadId||null,metadata:cleanMetadata});
+      await pool.network('activity.create',companyId,{target_company_id:privateActivity[1],kind,subject:'',body:message,thread_id:threadId||null,metadata:cleanMetadata});
       return send(201,applyMessageRetention(await pool.network('bootstrap',companyId,{})));
     }
     if(privateActivityRead&&req.method==='POST'){await pool.network('activity.read',companyId,{thread_id:privateActivityRead[1]});return send(200,applyMessageRetention(await pool.network('bootstrap',companyId,{})));}

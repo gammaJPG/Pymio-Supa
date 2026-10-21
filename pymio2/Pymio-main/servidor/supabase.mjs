@@ -231,6 +231,94 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         ...events.map(item=>({id:`event-${item.id}`,kind:'event_created',resource_id:item.id,title:item.title,created_at:item.created_at,event_at:item.event_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
       ].filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,100);
     },
+    async getCommunityChats(companyId){
+      const memberships=await requestJson(`/rest/v1/community_members?company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id`,{headers},'No se pudieron consultar tus chats de comunidad.');
+      if(!memberships.length)return [];
+      const ids=[...new Set(memberships.map(item=>item.community_id))],idFilter=encodeURIComponent(ids.join(','));
+      const [communities,messages,reads]=await Promise.all([
+        requestJson(`/rest/v1/communities?id=in.(${idFilter})&select=id,name&order=name`,{headers},'No se pudieron identificar las comunidades.'),
+        requestJson(`/rest/v1/community_chat_messages?community_id=in.(${idFilter})&select=id,community_id,sender_company_id,body,created_at&order=created_at.asc&limit=500`,{headers},'No se pudieron consultar los mensajes de comunidad.'),
+        requestJson(`/rest/v1/community_chat_reads?community_id=in.(${idFilter})&company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id,read_at`,{headers},'No se pudo consultar el estado de lectura.'),
+      ]);
+      const senderIds=[...new Set(messages.map(item=>String(item.sender_company_id)))],senders=new Map();
+      if(senderIds.length){
+        const senderFilter=encodeURIComponent(senderIds.join(','));
+        const [accounts,profiles]=await Promise.all([
+          requestJson(`/rest/v1/user_accounts?company_id=in.(${senderFilter})&select=company_id,business_name`,{headers},'No se pudieron identificar los participantes.'),
+          requestJson(`/rest/v1/business_profiles?company_id=in.(${senderFilter})&select=company_id,display_name`,{headers},'No se pudieron identificar los perfiles.'),
+        ]),profileNames=new Map(profiles.map(item=>[String(item.company_id),item.display_name]));
+        for(const item of accounts)senders.set(String(item.company_id),profileNames.get(String(item.company_id))||item.business_name||`Empresa ${item.company_id}`);
+      }
+      const readAt=new Map(reads.map(item=>[String(item.community_id),Date.parse(item.read_at)||0]));
+      return communities.map(community=>{
+        const items=messages.filter(item=>String(item.community_id)===String(community.id)).map(item=>({...item,thread_id:`community:${community.id}`,sender_name:senders.get(String(item.sender_company_id))||'Miembro de la comunidad',direction:String(item.sender_company_id)===String(companyId)?'sent':'received'}));
+        return {id:`community:${community.id}`,community_id:community.id,name:community.name,unread_count:items.filter(item=>item.direction==='received'&&Date.parse(item.created_at)>(readAt.get(String(community.id))||0)).length,items};
+      });
+    },
+    async createCommunityMessage(communityId,companyId,body){
+      const memberships=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(communityId)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id&limit=1`,{headers},'No se pudo verificar tu membresía.');
+      if(!memberships.length)throw Object.assign(new Error('Debes pertenecer a la comunidad para enviar mensajes.'),{status:403});
+      await requestJson('/rest/v1/community_chat_messages',{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({community_id:communityId,sender_company_id:String(companyId),body})},'No se pudo enviar el mensaje al grupo.');
+      await this.markCommunityChatRead(communityId,companyId);
+      return this.getCommunityChats(companyId);
+    },
+    async markCommunityChatRead(communityId,companyId){
+      const memberships=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(communityId)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id&limit=1`,{headers},'No se pudo verificar tu membresía.');
+      if(!memberships.length)throw Object.assign(new Error('Debes pertenecer a la comunidad para leer este chat.'),{status:403});
+      await requestJson('/rest/v1/community_chat_reads?on_conflict=community_id,company_id',{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({community_id:communityId,company_id:String(companyId),read_at:new Date().toISOString()})},'No se pudo actualizar el estado de lectura.');
+      return this.getCommunityChats(companyId);
+    },
+    async getEventParticipationSummary(companyId){
+      const rows=await requestJson('/rest/v1/community_event_participations?select=event_id,company_id,participation_type,status,updated_at',{headers},'No se pudo consultar la participación en eventos.');
+      const grouped=new Map();
+      for(const row of rows){
+        const item=grouped.get(row.event_id)||{event_id:row.event_id,applicant_count:0,attendee_count:0,own_type:'',own_status:''};
+        if(row.status==='registered')item[row.participation_type==='applicant'?'applicant_count':'attendee_count']+=1;
+        if(String(row.company_id)===String(companyId)){item.own_type=row.participation_type;item.own_status=row.status;}
+        grouped.set(row.event_id,item);
+      }
+      return [...grouped.values()];
+    },
+    async getCommunityEventParticipation(communityId,companyId){
+      const membership=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(communityId)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=role&limit=1`,{headers},'No se pudo verificar tu rol en la comunidad.');
+      const role=membership[0]?.role||'',canManage=['owner','admin'].includes(role);
+      const rows=await requestJson(`/rest/v1/community_event_participations?community_id=eq.${encodeURIComponent(communityId)}&select=event_id,company_id,participation_type,status,created_at,updated_at&order=created_at.asc`,{headers},'No se pudieron consultar las inscripciones del evento.');
+      const names=new Map();
+      if(canManage&&rows.length){
+        const ids=[...new Set(rows.map(row=>String(row.company_id)))],filter=encodeURIComponent(ids.join(','));
+        const [accounts,profiles]=await Promise.all([
+          requestJson(`/rest/v1/user_accounts?company_id=in.(${filter})&select=company_id,business_name`,{headers},'No se pudieron identificar los participantes.'),
+          requestJson(`/rest/v1/business_profiles?company_id=in.(${filter})&select=company_id,display_name`,{headers},'No se pudieron identificar los participantes.'),
+        ]),profileNames=new Map(profiles.map(row=>[String(row.company_id),row.display_name]));
+        for(const account of accounts)names.set(String(account.company_id),profileNames.get(String(account.company_id))||account.business_name||`Empresa ${account.company_id}`);
+      }
+      const grouped=new Map();
+      for(const row of rows){
+        const item=grouped.get(row.event_id)||{event_id:row.event_id,applicant_count:0,attendee_count:0,own_type:'',own_status:'',participants:[]};
+        if(row.status==='registered')item[row.participation_type==='applicant'?'applicant_count':'attendee_count']+=1;
+        if(String(row.company_id)===String(companyId)){item.own_type=row.participation_type;item.own_status=row.status;}
+        if(canManage)item.participants.push({...row,name:names.get(String(row.company_id))||`Empresa ${row.company_id}`});
+        grouped.set(row.event_id,item);
+      }
+      return {can_manage:canManage,events:[...grouped.values()]};
+    },
+    async registerEventParticipation(eventId,companyId,type){
+      const events=await requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(eventId)}&kind=eq.event&select=id,community_id,event_at&limit=1`,{headers},'No se pudo encontrar el evento.');
+      const event=events[0];if(!event?.community_id)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
+      if(Date.parse(event.event_at)<=Date.now())throw Object.assign(new Error('Este evento ya comenzó y no admite nuevas inscripciones.'),{status:409});
+      let membership=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(event.community_id)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id&limit=1`,{headers},'No se pudo verificar tu membresía.');
+      if(!membership.length){
+        await this.network('community.join',companyId,{community_id:event.community_id});
+        membership=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(event.community_id)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id&limit=1`,{headers},'No se pudo verificar tu membresía.');
+      }
+      const status=membership.length?'registered':'pending_membership';
+      await requestJson('/rest/v1/community_event_participations?on_conflict=event_id,company_id',{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({event_id:event.id,community_id:event.community_id,company_id:String(companyId),participation_type:type,status,updated_at:new Date().toISOString()})},'No se pudo guardar tu inscripción.');
+      return {event_participations:await this.getEventParticipationSummary(companyId),membership_status:status};
+    },
+    async removeEventParticipation(eventId,companyId){
+      await requestJson(`/rest/v1/community_event_participations?event_id=eq.${encodeURIComponent(eventId)}&company_id=eq.${encodeURIComponent(String(companyId))}`,{method:'DELETE',headers:{...headers,Prefer:'return=minimal'}},'No se pudo cancelar tu inscripción.');
+      return {event_participations:await this.getEventParticipationSummary(companyId)};
+    },
     async getCommunityFormResults(formId,companyId){
       const detail=await this.community('form.export',companyId,{form_id:formId});
       const member=(detail.members||[]).find(item=>String(item.company_id)===String(companyId));

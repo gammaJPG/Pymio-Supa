@@ -32,7 +32,7 @@ let seccionesCargadas = false;
 async function cargarSecciones() {
   if (seccionesCargadas) return;
   const vistas = await Promise.all(['inicio', 'dashboard', 'movimientos', 'inventario', 'diagnostico', 'ecosistema'].map(async nombre => {
-    const respuesta = await fetch(new URL(nombre + '.html?v=135', import.meta.url));
+    const respuesta = await fetch(new URL(nombre + '.html?v=136', import.meta.url));
     if (!respuesta.ok) throw new Error(nombre + ': HTTP ' + respuesta.status);
     return { nombre, html: await respuesta.text() };
   }));

@@ -83,24 +83,49 @@ test('RED Pymio: conecta empresas y permite responder solicitudes privadas',asyn
   assert.equal(approved.response.status,200);assert.deepEqual(approved.calls[0].payload,{community_id:communityId,request_id:requestId,decision:'approve'});
 });
 
-test('RED Pymio: conserva conversaciones privadas, metadatos y estado de lectura',async()=>{
+test('RED Pymio: conserva una conversación por destinatario, metadatos y estado de lectura',async()=>{
   const threadId='30000000-0000-4000-8000-000000000003';
-  const sent=await call('/api/network/connections/12/activity','POST',{kind:'quote_request',subject:'Cotización de embalajes',body:'Necesitamos 100 unidades.',threadId,metadata:{deadline:'2026-11-10',budget:'250000'}});
+  const sent=await call('/api/network/connections/12/activity','POST',{kind:'quote_request',body:'Necesitamos 100 unidades.',threadId,metadata:{deadline:'2026-11-10',budget:'250000'}});
   assert.equal(sent.response.status,201);assert.equal(sent.calls[0].operation,'activity.create');
-  assert.equal(sent.calls[0].payload.thread_id,threadId);assert.equal(sent.calls[0].payload.metadata.deadline,'2026-11-10');
+  assert.equal(sent.calls[0].payload.thread_id,threadId);assert.equal(sent.calls[0].payload.subject,'');assert.equal(sent.calls[0].payload.metadata.deadline,'2026-11-10');
   const read=await call(`/api/network/activity/${threadId}/read`,'POST');
   assert.equal(read.response.status,200);assert.deepEqual(read.calls[0],{operation:'activity.read',company:'7',payload:{thread_id:threadId}});
-  assert.equal((await call('/api/network/connections/12/activity','POST',{kind:'message',subject:'',body:'Sin asunto'})).response.status,400);
+  assert.equal((await call('/api/network/connections/12/activity','POST',{kind:'message',body:'Sin asunto'})).response.status,201);
+  assert.equal((await call('/api/network/connections/12/activity','POST',{kind:'message',body:''})).response.status,400);
 });
 
 test('RED Pymio: ofrece una bandeja de comunicaciones y formularios distintos por acción',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
   const migration=await readFile(new URL('../supabase/migrations/020_private_communications_center.sql',import.meta.url),'utf8');
-  for(const label of ['Mensajes y oportunidades','Recibidos','Enviados','Selecciona una conversación'])assert.match(html,new RegExp(label));
+  const singleConversationMigration=await readFile(new URL('../supabase/migrations/031_single_direct_conversation.sql',import.meta.url),'utf8');
+  for(const label of ['Mensajes y oportunidades','Todos','No leídos','Favoritos','Grupos','Selecciona una conversación'])assert.match(html,new RegExp(label));
   for(const field of ['Fecha límite','Presupuesto estimado','Válida hasta','Detalle de la solicitud','Condiciones de la oferta'])assert.match(source,new RegExp(field));
-  assert.match(source,/data-thread-reply/);assert.match(source,/activity\/.+\/read/);
+  assert.doesNotMatch(source,/name="subject"/);assert.match(source,/id=`direct:\$\{otherId\}`/);assert.match(source,/activity\/.+\/read/);
   assert.match(migration,/thread_id uuid/);assert.match(migration,/'private_activity'/);assert.match(migration,/operation='activity\.read'/);
+  assert.match(singleConversationMigration,/GROUP BY 1,2/);assert.match(singleConversationMigration,/NEW\.subject=''/);
+});
+
+test('RED Pymio: integra chats grupales protegidos para las comunidades del usuario',async()=>{
+  const communityId='10000000-0000-4000-8000-000000000001',migration=await readFile(new URL('../supabase/migrations/029_community_group_chat.sql',import.meta.url),'utf8'),source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8');
+  let response,createdBody='',markedRead=false;
+  const pool={createCommunityMessage:async(id,company,body)=>{assert.equal(id,communityId);assert.equal(company,'7');createdBody=body;return [{community_id:id,items:[]}]},markCommunityChatRead:async(id,company)=>{assert.equal(id,communityId);assert.equal(company,'7');markedRead=true;return []}};
+  const sent=request(`/api/network/communities/${communityId}/messages`,'POST',{body:'Hola comunidad'});await atenderRedPymio(sent.req,pool,'7',(status,data)=>response={status,data},sent.url);assert.equal(response.status,201);assert.equal(createdBody,'Hola comunidad');
+  const read=request(`/api/network/communities/${communityId}/messages/read`,'POST');await atenderRedPymio(read.req,pool,'7',(status,data)=>response={status,data},read.url);assert.equal(response.status,200);assert.equal(markedRead,true);
+  assert.match(migration,/ENABLE ROW LEVEL SECURITY/);assert.match(migration,/REVOKE ALL[\s\S]*anon,authenticated/);assert.match(source,/data-community/);assert.match(source,/communication-thread-group/);assert.match(css,/chat-composer\{position:relative/);
+});
+
+test('RED Pymio: integra postulaciones y asistentes con la membresía de la comunidad',async()=>{
+  const eventId='40000000-0000-4000-8000-000000000004',migration=await readFile(new URL('../supabase/migrations/032_community_event_participation.sql',import.meta.url),'utf8'),source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  let response,registered='',removed=false;
+  const pool={
+    registerEventParticipation:async(id,company,type)=>{assert.equal(id,eventId);assert.equal(company,'7');registered=type;return {event_participations:[{event_id:id,own_type:type,own_status:'registered'}],membership_status:'registered'}},
+    removeEventParticipation:async(id,company)=>{assert.equal(id,eventId);assert.equal(company,'7');removed=true;return {event_participations:[]}},
+  };
+  const apply=request(`/api/network/events/${eventId}/participation`,'POST',{type:'applicant'});await atenderRedPymio(apply.req,pool,'7',(status,data)=>response={status,data},apply.url);assert.equal(response.status,200);assert.equal(registered,'applicant');
+  const cancel=request(`/api/network/events/${eventId}/participation`,'DELETE');await atenderRedPymio(cancel.req,pool,'7',(status,data)=>response={status,data},cancel.url);assert.equal(response.status,200);assert.equal(removed,true);
+  assert.match(migration,/pending_membership/);assert.match(migration,/activate_event_participations_after_join/);assert.match(migration,/clear_event_participations_after_rejection/);
+  for(const label of ['Postular al evento','Iré como público','Pendientes de ingreso','Público asistente'])assert.match(source,new RegExp(label));
 });
 
 test('RED Pymio: presenta chat, retención por plan y recepción en tiempo real',async()=>{

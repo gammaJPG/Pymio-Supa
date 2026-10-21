@@ -45,9 +45,10 @@
     <div class="communications-shell">
       <aside class="communications-sidebar">
         <div class="communications-tabs" role="tablist" aria-label="Filtrar comunicaciones">
-          <button type="button" class="active" data-communications-filter="inbox" role="tab" aria-selected="true">Recibidos <span data-inbox-count>0</span></button>
-          <button type="button" data-communications-filter="sent" role="tab" aria-selected="false">Enviados</button>
-          <button type="button" data-communications-filter="all" role="tab" aria-selected="false">Todos</button>
+          <button type="button" class="active" data-communications-filter="all" role="tab" aria-selected="true">Todos</button>
+          <button type="button" data-communications-filter="unread" role="tab" aria-selected="false">No leídos <span data-unread-count>0</span></button>
+          <button type="button" data-communications-filter="favorites" role="tab" aria-selected="false">Favoritos</button>
+          <button type="button" data-communications-filter="groups" role="tab" aria-selected="false">Grupos</button>
         </div>
         <div class="communications-list" data-communications-list></div>
       </aside>
