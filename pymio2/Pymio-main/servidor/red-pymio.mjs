@@ -1,13 +1,39 @@
 import {deflateRawSync,inflateRawSync} from 'node:zlib';
 import {randomUUID} from 'node:crypto';
 import {detectImageFormat,validateImageFormat} from './image-formats.mjs';
+import {summarize,exportResponses} from './community-results.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const FILE_EXTENSIONS=new Set(['pdf','docx','doc','jpg','jpeg','png','webp','csv','xls','xlsx']);
+const FILE_GROUPS={text:new Set(['docx','txt']),pdf:new Set(['pdf']),image:new Set(['jpg','png','webp'])};
+const FILE_EXTENSIONS=new Set(Object.values(FILE_GROUPS).flatMap(group=>[...group]));
+const FILE_MIMES={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',txt:'text/plain; charset=utf-8',pdf:'application/pdf',jpg:'image/jpeg',png:'image/png',webp:'image/webp'};
 const crcTable=Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
 const crc32=buffer=>{let c=0xffffffff;for(const byte of buffer)c=crcTable[(c^byte)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
 const safeName=value=>String(value||'archivo').normalize('NFKD').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').slice(0,120)||'archivo';
-function zipFiles(files){
+const fileGroups=question=>{const groups=(question?.options||[]).filter(group=>FILE_GROUPS[group]);return groups.length?groups:Object.keys(FILE_GROUPS);};
+const validFileBody=(extension,body)=>{
+  if(extension==='pdf')return body.subarray(0,5).toString()==='%PDF-';
+  if(extension==='docx')return body[0]===0x50&&body[1]===0x4b&&body.includes(Buffer.from('word/document.xml'));
+  if(extension==='txt'){try{new TextDecoder('utf-8',{fatal:true}).decode(body);return !body.includes(0);}catch{return false;}}
+  if(extension==='jpg')return body[0]===0xff&&body[1]===0xd8&&body[2]===0xff;
+  if(extension==='png')return body.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
+  if(extension==='webp')return body.subarray(0,4).toString()==='RIFF'&&body.subarray(8,12).toString()==='WEBP';
+  return false;
+};
+function cleanFormQuestions(input){
+  const questions=(Array.isArray(input)?input:[]).slice(0,20).map((question,index)=>{
+    const type=['text','select','file'].includes(question.type)?question.type:'',title=text(question.title,200);
+    let options=Array.isArray(question.options)?question.options.map(option=>text(option,120)).filter(Boolean).slice(0,50):[];
+    if(type==='file')options=[...new Set(options.filter(option=>FILE_GROUPS[option]))];
+    if(!title||!type)throw Object.assign(new Error('Revisa las preguntas del formulario.'),{status:400});
+    if(type==='select'&&!options.length)throw Object.assign(new Error(`La Pregunta ${index+1} necesita al menos una alternativa.`),{status:400});
+    if(type==='file'&&!options.length)throw Object.assign(new Error(`Selecciona al menos un formato permitido para la Pregunta ${index+1}.`),{status:400});
+    return {position:index+1,title,type,options:type==='text'?[]:options};
+  });
+  if(!questions.length)throw Object.assign(new Error('Incluye al menos una pregunta.'),{status:400});
+  return questions;
+}
+export function zipFiles(files){
   const locals=[],centrals=[];let offset=0;
   for(const file of files){const name=Buffer.from(file.name),raw=file.body,compressed=deflateRawSync(raw,{level:9}),crc=crc32(raw),local=Buffer.alloc(30),central=Buffer.alloc(46);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);local.writeUInt16LE(0x800,6);local.writeUInt16LE(8,8);local.writeUInt32LE(crc,14);local.writeUInt32LE(compressed.length,18);local.writeUInt32LE(raw.length,22);local.writeUInt16LE(name.length,26);central.writeUInt32LE(0x02014b50);central.writeUInt16LE(20,4);central.writeUInt16LE(20,6);central.writeUInt16LE(0x800,8);central.writeUInt16LE(8,10);central.writeUInt32LE(crc,16);central.writeUInt32LE(compressed.length,20);central.writeUInt32LE(raw.length,24);central.writeUInt16LE(name.length,28);central.writeUInt32LE(offset,42);locals.push(local,name,compressed);centrals.push(central,name);offset+=local.length+name.length+compressed.length;}
   const centralBody=Buffer.concat(centrals),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(files.length,8);end.writeUInt16LE(files.length,10);end.writeUInt32LE(centralBody.length,12);end.writeUInt32LE(offset,16);return Buffer.concat([...locals,centralBody,end]);
@@ -99,22 +125,20 @@ function cleanCommunityProfile(data,communityId){
 }
 
 function cleanPost(data){
-  const kind=data.kind==='benefit'?'benefit':data.kind==='event'?'event':'';
   const dateValue=(value,message)=>{
     if(!value)return null;
     const parsed=Date.parse(value);
     if(!Number.isFinite(parsed))throw Object.assign(new Error(message),{status:400});
     return new Date(parsed).toISOString();
   };
-  const result={
-    kind,title:text(data.title,140),description:text(data.description,700),location:text(data.location,160),
-    event_at:dateValue(data.eventAt,'La fecha del evento no es válida.'),
-    expires_at:dateValue(data.expiresAt,'La vigencia del beneficio no es válida.'),
-    community_id:data.communityId||null,
-  };
-  if(!kind || !result.title || !result.description)throw Object.assign(new Error('Completa el tipo, título y descripción de la publicación.'),{status:400});
-  if(kind==='event' && !result.event_at)throw Object.assign(new Error('Indica la fecha y hora del evento.'),{status:400});
-  if(result.community_id && !UUID.test(result.community_id))throw Object.assign(new Error('La comunidad seleccionada no es válida.'),{status:400});
+  const schedule=data.schedule==='range'?'range':'single',start=dateValue(data.eventAt,'La fecha inicial del evento no es válida.'),end=schedule==='range'?dateValue(data.endsAt,'La fecha final del evento no es válida.'):null;
+  const result={kind:'event',title:text(data.title,140),description:text(data.description,700),location:text(data.location,160),event_at:start,expires_at:end,community_id:data.communityId||null};
+  if(data.kind&&data.kind!=='event')throw Object.assign(new Error('Solo se pueden publicar eventos de comunidades.'),{status:400});
+  if(!result.title || !result.description)throw Object.assign(new Error('Completa el título y la descripción del evento.'),{status:400});
+  if(!result.event_at)throw Object.assign(new Error('Indica cuándo comienza el evento.'),{status:400});
+  if(!result.community_id||!UUID.test(result.community_id))throw Object.assign(new Error('Selecciona una comunidad válida.'),{status:400});
+  if(schedule==='range'&&!result.expires_at)throw Object.assign(new Error('Indica cuándo termina el evento.'),{status:400});
+  if(result.expires_at&&Date.parse(result.expires_at)<=Date.parse(result.event_at))throw Object.assign(new Error('La fecha final debe ser posterior a la fecha de inicio.'),{status:400});
   return result;
 }
 
@@ -133,10 +157,13 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const communityImageOwn=/^\/api\/network\/communities\/([0-9a-f-]{36})\/images\/(avatar|banner)\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityImagePublic=/^\/api\/network\/community-images\/([0-9a-f-]{36})\/(avatar|banner)\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityAdmin=/^\/api\/network\/communities\/([0-9a-f-]{36})\/members\/([1-9]\d{0,18})\/admin$/i.exec(url.pathname);
-    const formClose=/^\/api\/network\/forms\/([0-9a-f-]{36})\/close$/i.exec(url.pathname);
+    const formStatus=/^\/api\/network\/forms\/([0-9a-f-]{36})\/(close|open)$/i.exec(url.pathname);
     const formResponses=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses$/i.exec(url.pathname);
+    const formDelete=/^\/api\/network\/forms\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    const formResults=/^\/api\/network\/forms\/([0-9a-f-]{36})\/results$/i.exec(url.pathname);
     const formUpload=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses\/([0-9a-f-]{36})\/questions\/([0-9a-f-]{36})\/file$/i.exec(url.pathname);
     const formZip=/^\/api\/network\/forms\/([0-9a-f-]{36})\/files\.zip$/i.exec(url.pathname);
+    if(url.pathname==='/api/network/notifications'&&req.method==='GET')return send(200,{notifications:await pool.getCommunityNotifications(companyId)});
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
       return send(200,applyMessageRetention(await pool.network('bootstrap',companyId,{})));
     }
@@ -180,38 +207,45 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(communityAdmin && req.method==='POST'){requireJson(req);const data=await bodyJson(req,1024);return send(200,await pool.community('admin.set',companyId,{community_id:communityAdmin[1],target_company_id:communityAdmin[2],is_admin:Boolean(data.isAdmin)}));}
     if(url.pathname==='/api/network/forms' && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024),questions=Array.isArray(data.questions)?data.questions:[];
-      return send(201,await pool.community('form.create',companyId,{community_id:data.communityId,title:text(data.title,140),questions:questions.slice(0,20).map((question,index)=>({position:index+1,title:text(question.title,200),type:question.type,options:Array.isArray(question.options)?question.options.map(option=>text(option,120)).filter(Boolean).slice(0,50):[]}))}));
+      return send(201,await pool.community('form.create',companyId,{community_id:data.communityId,title:text(data.title,140),questions:cleanFormQuestions(questions)}));
     }
-    if(formClose && req.method==='POST')return send(200,await pool.community('form.close',companyId,{form_id:formClose[1]}));
+    if(formStatus && req.method==='POST')return send(200,await pool.setCommunityFormStatus(formStatus[1],companyId,formStatus[2]==='open'?'open':'closed'));
+    if(formDelete && req.method==='DELETE'){
+      const deleted=await pool.deleteCommunityForm(formDelete[1],companyId);
+      return send(200,await pool.community('detail',companyId,{community_id:deleted.communityId}));
+    }
+    if(formResults && req.method==='GET')return send(200,summarize(await pool.getCommunityFormResults(formResults[1],companyId)));
     if(formResponses && req.method==='GET'){
       await pool.community('form.get',companyId,{form_id:formResponses[1]});
-      return send(200,{response:await pool.getCommunityFormResponse(formResponses[1],companyId)});
+      const meta=await pool.getCommunityFormMeta(formResponses[1]);
+      return send(200,{response:await pool.getCommunityFormResponse(formResponses[1],companyId),createdByCurrentUser:String(meta.created_by_company_id)===String(companyId)});
     }
     if(formResponses && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024);if(!UUID.test(data.responseId||''))return send(400,{error:'La respuesta no es válida.'});
       const detail=await pool.community('form.get',companyId,{form_id:formResponses[1]}),form=detail.forms?.[0];
       if(form?.status!=='open')return send(403,{error:'Este formulario ya está cerrado y no admite cambios.'});
+      const meta=await pool.getCommunityFormMeta(formResponses[1]);if(String(meta.created_by_company_id)===String(companyId))return send(403,{error:'La persona que creó el formulario no puede responderlo.'});
+      const existing=await pool.getCommunityFormResponse(formResponses[1],companyId),responseId=existing?.id||data.responseId;
       const answers=(Array.isArray(data.answers)?data.answers:[]).map(answer=>({question_id:answer.questionId,text_value:text(answer.textValue,5000),option_value:text(answer.optionValue,120),file_path:text(answer.filePath,500),file_name:text(answer.fileName,180),mime_type:text(answer.mimeType,120),compressed:Boolean(answer.compressed)}));
-      if(answers.some(answer=>!UUID.test(answer.question_id||'')||(answer.file_path&&!answer.file_path.startsWith(`${companyId}/${formResponses[1]}/${data.responseId}/${answer.question_id}/`))))return send(400,{error:'Las respuestas contienen archivos no válidos.'});
-      const saved=await pool.saveCommunityFormResponse(formResponses[1],companyId,data.responseId,answers),activeFiles=new Set(answers.map(answer=>answer.file_path).filter(Boolean));
+      if(answers.some(answer=>!UUID.test(answer.question_id||'')||(answer.file_path&&!answer.file_path.startsWith(`${companyId}/${formResponses[1]}/${responseId}/${answer.question_id}/`))))return send(400,{error:'Las respuestas contienen archivos no válidos.'});
+      const saved=await pool.saveCommunityFormResponse(formResponses[1],companyId,responseId,answers,existing),activeFiles=new Set(answers.map(answer=>answer.file_path).filter(Boolean));
       for(const oldPath of saved.previousFiles||[])if(!activeFiles.has(oldPath))await pool.deleteCommunityFile(oldPath).catch(()=>{});
-      return send(200,{response:{id:saved.id,submittedAt:saved.submittedAt,answers}});
+      return send(200,{response:{id:saved.id,submittedAt:saved.submittedAt,answers},updated:Boolean(existing)});
     }
     if(formUpload && req.method==='POST'){
       const [,formId,responseId,questionId]=formUpload,detail=await pool.community('form.get',companyId,{form_id:formId});
       const form=detail.forms?.[0],question=form?.questions?.find(item=>item.id===questionId);if(form?.status!=='open'||question?.type!=='file')return send(403,{error:'Esta pregunta no admite archivos.'});
-      const originalName=safeName(decodeURIComponent(req.headers['x-file-name']||'archivo')),extension=originalName.split('.').pop().toLowerCase();if(!FILE_EXTENSIONS.has(extension))return send(415,{error:'Tipo de archivo no permitido.'});
-      if(['jpg','jpeg','png'].includes(extension)||String(req.headers['content-type']||'').startsWith('image/')&&req.headers['content-type']!=='image/webp')return send(415,{error:'La imagen debe optimizarse a WebP antes de subirla.'});
+      const meta=await pool.getCommunityFormMeta(formId);if(String(meta.created_by_company_id)===String(companyId))return send(403,{error:'La persona que creó el formulario no puede responderlo.'});
+      const originalName=safeName(decodeURIComponent(req.headers['x-file-name']||'archivo')),extension=originalName.split('.').pop().toLowerCase(),allowed=new Set(fileGroups(question).flatMap(group=>[...FILE_GROUPS[group]]));if(!FILE_EXTENSIONS.has(extension)||!allowed.has(extension))return send(415,{error:'El formato de este archivo no está permitido para la pregunta.'});
       const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>12*1024*1024)return send(413,{error:'El archivo original es demasiado grande.'});chunks.push(chunk);}const original=Buffer.concat(chunks);
-      const alreadyCompressed=['pdf','docx','xlsx','webp','jpg','jpeg','png'].includes(extension),candidate=alreadyCompressed?original:deflateRawSync(original,{level:9}),compressed=!alreadyCompressed&&candidate.length<original.length,stored=compressed?candidate:original;
+      if(!validFileBody(extension,original))return send(415,{error:'El contenido del archivo no coincide con su extensión.'});
+      const alreadyCompressed=['pdf','docx','webp','jpg','png'].includes(extension),candidate=alreadyCompressed?original:deflateRawSync(original,{level:9}),compressed=!alreadyCompressed&&candidate.length<original.length,stored=compressed?candidate:original;
       if(stored.length>2.5*1024*1024)return send(413,{error:'El archivo supera 2,5 MB después de comprimirlo.'});
-      const path=`${companyId}/${formId}/${responseId}/${questionId}/${randomUUID()}.bin`;await pool.uploadCommunityFile(path,stored);return send(201,{filePath:path,fileName:originalName,mimeType:req.headers['content-type']||'application/octet-stream',compressed});
+      const path=`${companyId}/${formId}/${responseId}/${questionId}/${randomUUID()}.bin`;await pool.uploadCommunityFile(path,stored);return send(201,{filePath:path,fileName:originalName,mimeType:FILE_MIMES[extension],compressed});
     }
     if(formZip && req.method==='GET'){
-      const detail=await pool.community('form.export',companyId,{form_id:formZip[1]}),files=[],sourceFiles=detail.files||[];
-      const owners=await pool.getCommunityFormResponseOwners([...new Set(sourceFiles.map(file=>file.response_id))]),ownerByResponse=new Map(owners.map(owner=>[String(owner.id),String(owner.company_id)])),nameByCompany=new Map((detail.members||[]).map(member=>[String(member.company_id),member.name]));
-      for(const file of sourceFiles){const stored=await pool.getCommunityFile(file.path),body=file.compressed?inflateRawSync(stored):stored,companyName=nameByCompany.get(ownerByResponse.get(String(file.response_id)))||`Empresa ${ownerByResponse.get(String(file.response_id))||'sin identificar'}`;files.push({name:`${safeName(file.question)}/${safeName(companyName+' - '+file.name)}`,body});}
-      const archive=zipFiles(files),downloadName=safeName(detail.forms?.[0]?.title||'formulario')+'.zip';res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="formulario.zip"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,'Content-Length':archive.length});return res.end(archive);
+      const data=await pool.getCommunityFormResults(formZip[1],companyId);
+      const archive=await exportResponses(data,pool,zipFiles),downloadName=safeName(data.form.title)+'.zip';res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="respuestas.zip"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,'Content-Length':archive.length});return res.end(archive);
     }
     if(communityJoin && req.method==='POST'){
       if(!UUID.test(communityJoin[1]))return send(400,{error:'La comunidad seleccionada no es válida.'});
@@ -242,13 +276,11 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     }
     if(privateActivityRead&&req.method==='POST'){await pool.network('activity.read',companyId,{thread_id:privateActivityRead[1]});return send(200,applyMessageRetention(await pool.network('bootstrap',companyId,{})));}
     if(url.pathname==='/api/network/posts' && req.method==='POST'){
-      requireJson(req);const post=cleanPost(await bodyJson(req));
-      if(post.kind==='event'&&post.community_id){const detail=await pool.community('detail',companyId,{community_id:post.community_id});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden crear eventos en esta comunidad.'});}
-      return send(201,await pool.network('post.create',companyId,post));
+      requireJson(req);const data=cleanPost(await bodyJson(req));await pool.requireCommunityAdmin(data.community_id,companyId);return send(201,await pool.network('post.create',companyId,data));
     }
     if(postUpdate && req.method==='PUT'){
       if(!UUID.test(postUpdate[1]))return send(400,{error:'La publicación seleccionada no es válida.'});
-      requireJson(req);return send(200,await pool.network('post.update',companyId,{post_id:postUpdate[1],...cleanPost(await bodyJson(req))}));
+      requireJson(req);const data=cleanPost(await bodyJson(req));await pool.requireCommunityAdmin(data.community_id,companyId);return send(200,await pool.network('post.update',companyId,{post_id:postUpdate[1],...data}));
     }
     return send(404,{error:'Ruta no encontrada.'});
   }catch(error){

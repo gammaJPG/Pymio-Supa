@@ -224,7 +224,7 @@ export function createInventoryServer(pool, origins, options = {}) {
           const declaredMime=req.headers['content-type']?.split(';')[0].trim().toLowerCase();
           if (!['image/webp','image/png','image/jpeg'].includes(declaredMime)) return send(415,{error:'La imagen debe ser WebP, PNG o JPEG.'});
           const chunks=[]; let bytes=0;
-          for await (const chunk of req) { bytes+=chunk.length; if(bytes>250*1024)return send(413,{error:'La imagen comprimida supera el máximo de 250 KB.'}); chunks.push(chunk); }
+          for await (const chunk of req) { bytes+=chunk.length; if(bytes>500*1024)return send(413,{error:'La imagen comprimida supera el máximo de 500 KB.'}); chunks.push(chunk); }
           const body=Buffer.concat(chunks);
           const format=validateImageFormat(body,declaredMime);
           if(!format)return send(400,{error:'El contenido no coincide con una imagen WebP, PNG o JPEG válida.'});

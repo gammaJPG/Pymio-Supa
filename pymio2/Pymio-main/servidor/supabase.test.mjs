@@ -19,7 +19,7 @@ test('Supabase: HTTPS RPC, secret stays server-side, error mapping and timeout',
     await assert.rejects(db.rpc('product.list',1),{status});
   }
   const offline=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async()=>{throw new Error('network');}});
-  await assert.rejects(offline.rpc('product.list',1),{status:503});
+  await assert.rejects(offline.rpc('product.list',1),{status:503,message:'No se pudo conectar con el servidor. Reintenta cuando vuelva la conexión.'});
 });
 
 test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del servidor', async()=>{
@@ -73,6 +73,73 @@ test('Supabase RED Pymio: usa la función protegida y mantiene el alcance empres
   const update=sent.at(-2);assert.equal(update.url.pathname,'/rest/v1/network_posts');assert.equal(update.options.method,'PATCH');
   assert.equal(update.url.searchParams.get('author_company_id'),'eq.12');
   assert.deepEqual(JSON.parse(update.options.body),{kind:'event',title:'Nuevo título'});
+});
+
+test('Supabase RED Pymio: notifica formularios y eventos creados después de unirse',async()=>{
+  const calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async url=>{
+    calls.push(url);
+    if(url.pathname.endsWith('/community_members'))return Response.json([{community_id:'c1',role:'member',joined_at:'2026-10-20T12:00:00Z',role_since:'2026-10-20T12:00:00Z'}]);
+    if(url.pathname.endsWith('/communities'))return Response.json([{id:'c1',name:'Comercio Local'}]);
+    if(url.pathname.endsWith('/community_forms'))return Response.json([{id:'f1',title:'Encuesta semanal',created_at:'2026-10-20T13:00:00Z',community_id:'c1',created_by_company_id:9}]);
+    if(url.pathname.endsWith('/network_posts'))return Response.json([{id:'e1',title:'Encuentro',created_at:'2026-10-20T14:00:00Z',event_at:'2026-10-25T15:00:00Z',community_id:'c1',author_company_id:8},{id:'e0',title:'Evento antiguo',created_at:'2026-10-19T14:00:00Z',event_at:'2026-10-22T15:00:00Z',community_id:'c1',author_company_id:8}]);
+    return Response.json([]);
+  }});
+  const notifications=await client.getCommunityNotifications(7);
+  assert.deepEqual(notifications.map(item=>item.id),['event-e1','form-f1']);
+  assert.equal(notifications[0].community_name,'Comercio Local');
+  assert.equal(calls.length,4);assert.equal(calls[0].searchParams.get('company_id'),'eq.7');
+  assert.equal(calls[0].searchParams.get('select'),'community_id,role,joined_at,role_since');
+});
+
+test('Supabase RED Pymio: notifica cuando asignan o retiran permisos de administrador',async()=>{
+  const roleNotification=async role=>{
+    const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async url=>{
+      if(url.pathname.endsWith('/community_members'))return Response.json([{community_id:'c1',role,joined_at:'2026-10-20T12:00:00Z',role_since:'2026-10-21T15:00:00Z'}]);
+      if(url.pathname.endsWith('/communities'))return Response.json([{id:'c1',name:'Comercio Local'}]);
+      return Response.json([]);
+    }});
+    return (await client.getCommunityNotifications(7))[0];
+  };
+  const granted=await roleNotification('admin');assert.equal(granted.kind,'admin_granted');assert.equal(granted.community_name,'Comercio Local');
+  const revoked=await roleNotification('member');assert.equal(revoked.kind,'admin_revoked');assert.equal(revoked.created_at,'2026-10-21T15:00:00Z');
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async url=>url.pathname.endsWith('/community_members')?Response.json([{community_id:'c1',role:'member',joined_at:'2026-10-20T12:00:00Z',role_since:'2026-10-20T12:00:00Z'}]):Response.json([])});
+  assert.deepEqual(await client.getCommunityNotifications(7),[]);
+});
+
+test('Supabase RED Pymio: elimina el formulario y sus archivos con autorización administrativa',async()=>{
+  const calls=[],formId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002';
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/pymio_community'))return Response.json({community:{id:communityId},forms:[{id:formId}],files:[{path:'7/form/respuesta.bin'}]});
+    return Response.json({});
+  }});
+  assert.deepEqual(await client.deleteCommunityForm(formId,7),{communityId});
+  const deletion=calls.find(call=>call.url.pathname.endsWith('/community_forms'));assert.equal(deletion.options.method,'DELETE');assert.equal(deletion.url.searchParams.get('id'),`eq.${formId}`);
+  const storage=calls.find(call=>call.url.pathname.includes('/storage/v1/object/community-form-files/'));assert.equal(storage.options.method,'DELETE');
+});
+
+test('Supabase RED Pymio: verifica el rol antes de publicar eventos comunitarios',async()=>{
+  const communityId='10000000-0000-4000-8000-000000000001';
+  const admin=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async()=>Response.json([{role:'admin'}])});
+  assert.equal(await admin.requireCommunityAdmin(communityId,7),true);
+  const member=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async()=>Response.json([{role:'member'}])});
+  await assert.rejects(member.requireCommunityAdmin(communityId,7),{status:403});
+});
+
+test('Supabase RED Pymio: cerrar y abrir conserva las respuestas del formulario',async()=>{
+  const calls=[],formId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002';
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/pymio_community'))return Response.json({community:{id:communityId},forms:[{id:formId}]});
+    return Response.json({});
+  }});
+  await client.setCommunityFormStatus(formId,7,'closed');await client.setCommunityFormStatus(formId,7,'open');
+  const patches=calls.filter(call=>call.url.pathname.endsWith('/community_forms'));
+  assert.deepEqual(patches.map(call=>JSON.parse(call.options.body).status),['closed','open']);
+  assert.ok(JSON.parse(patches[0].options.body).closed_at);assert.equal(JSON.parse(patches[1].options.body).closed_at,null);
+  assert.ok(patches.every(call=>call.options.method==='PATCH'));
+  assert.ok(calls.every(call=>!call.url.pathname.endsWith('/community_form_responses')));
 });
 
 test('HTTP Auth: Google entra a la plataforma y completa dentro solo el nombre del negocio',async()=>{
@@ -162,7 +229,7 @@ test('HTTP: acepta WebP, PNG y JPEG reales antes de enviarlos a Storage', async 
     assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:png})).status,201);
     assert.equal(uploads.at(-1).mime,'image/png');
     assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/png'},body:valid})).status,400);
-    assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/webp'},body:Buffer.alloc(250*1024+1)})).status,413);
+    assert.equal((await fetch(base+'/api/product-images?company_id=2',{method:'POST',headers:{'Content-Type':'image/webp'},body:Buffer.alloc(500*1024+1)})).status,413);
     const id=result.path.split('/')[1].replace('.webp','');
     assert.equal((await fetch(`${base}/api/product-images/${id}?company_id=2`,{method:'DELETE'})).status,200);
     assert.equal(uploads.at(-1).deleted,result.path);

@@ -9,7 +9,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     try {
       response = await fetchImpl(new URL(path, base), { ...options, signal: AbortSignal.timeout(15000) });
     } catch {
-      throw Object.assign(new Error('No se pudo conectar con Supabase. Reintenta cuando vuelva la conexión.'), { status: 503 });
+      throw Object.assign(new Error('No se pudo conectar con el servidor. Reintenta cuando vuelva la conexión.'), { status: 503 });
     }
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -166,6 +166,64 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
       },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.');
     },
+    async requireCommunityAdmin(communityId,companyId){
+      const rows=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(communityId)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=role&limit=1`,{headers},'No se pudieron verificar tus permisos en la comunidad.');
+      if(!['owner','admin'].includes(rows[0]?.role))throw Object.assign(new Error('Solo los administradores de la comunidad pueden crear o modificar eventos.'),{status:403});
+      return true;
+    },
+    async getCommunityNotifications(companyId){
+      const memberships=await requestJson(`/rest/v1/community_members?company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id,role,joined_at,role_since`,{headers},'No se pudieron consultar tus comunidades.');
+      if(!memberships.length)return [];
+      const ids=[...new Set(memberships.map(item=>item.community_id))],idFilter=encodeURIComponent(ids.join(','));
+      const [communities,forms,events]=await Promise.all([
+        requestJson(`/rest/v1/communities?id=in.(${idFilter})&select=id,name`,{headers},'No se pudieron identificar las comunidades.'),
+        requestJson(`/rest/v1/community_forms?community_id=in.(${idFilter})&select=id,title,created_at,community_id,created_by_company_id&order=created_at.desc&limit=100`,{headers},'No se pudieron consultar los formularios recientes.'),
+        requestJson(`/rest/v1/network_posts?community_id=in.(${idFilter})&kind=eq.event&select=id,title,created_at,event_at,community_id,author_company_id&order=created_at.desc&limit=100`,{headers},'No se pudieron consultar los eventos recientes.'),
+      ]);
+      const joinedAt=new Map(memberships.map(item=>[item.community_id,Date.parse(item.joined_at)||0])),names=new Map(communities.map(item=>[item.id,item.name]));
+      const roleChanges=memberships.filter(item=>item.role!=='owner'&&(Date.parse(item.role_since)||0)>(Date.parse(item.joined_at)||0)).map(item=>({id:`role-${item.community_id}-${item.role_since}`,kind:item.role==='admin'?'admin_granted':'admin_revoked',created_at:item.role_since,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'}));
+      return [
+        ...roleChanges,
+        ...forms.map(item=>({id:`form-${item.id}`,kind:'form',resource_id:item.id,title:item.title,created_at:item.created_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
+        ...events.map(item=>({id:`event-${item.id}`,kind:'event',resource_id:item.id,title:item.title,created_at:item.created_at,event_at:item.event_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
+      ].filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,100);
+    },
+    async getCommunityFormResults(formId,companyId){
+      const detail=await this.community('form.export',companyId,{form_id:formId});
+      const member=(detail.members||[]).find(item=>String(item.company_id)===String(companyId));
+      if(!member||!['owner','admin'].includes(member.role))throw Object.assign(new Error('Solo los administradores pueden consultar las respuestas.'),{status:403});
+      const responses=[];
+      for(let offset=0;;){
+        const page=await requestJson(`/rest/v1/community_form_responses?form_id=eq.${encodeURIComponent(formId)}&select=id,company_id,submitted_at,answers:community_form_answers(question_id,text_value,option_value,file_path,file_name,compressed)&order=id&limit=500&offset=${offset}`,{headers},'No se pudieron consultar los resultados.');
+        if(!page.length)break;
+        responses.push(...page);offset+=page.length;
+      }
+      for(const response of responses){
+        const accounts=await requestJson(`/rest/v1/user_accounts?company_id=eq.${encodeURIComponent(response.company_id)}&select=owner_name,business_name&limit=1`,{headers},'No se pudo identificar al participante.');
+        response.name=accounts[0]?.owner_name||accounts[0]?.business_name||`Empresa ${response.company_id}`;
+      }
+      return {form:detail.forms?.find(form=>form.id===formId),responses};
+    },
+    async getCommunityFormMeta(formId){
+      const rows=await requestJson(`/rest/v1/community_forms?id=eq.${encodeURIComponent(formId)}&select=id,community_id,created_by_company_id,status&limit=1`,{headers},'No se pudo consultar el formulario.');
+      if(!rows[0])throw Object.assign(new Error('El formulario ya no está disponible.'),{status:404});
+      return rows[0];
+    },
+    async deleteCommunityForm(formId,companyId){
+      const detail=await this.community('form.export',companyId,{form_id:formId}),communityId=detail.community?.id;
+      if(!communityId||!detail.forms?.some(form=>form.id===formId))throw Object.assign(new Error('El formulario ya no está disponible.'),{status:404});
+      const paths=[...new Set((detail.files||[]).map(file=>file.path).filter(Boolean))];
+      await requestJson(`/rest/v1/community_forms?id=eq.${encodeURIComponent(formId)}`,{method:'DELETE',headers:{...headers,Prefer:'return=minimal'}},'No se pudo eliminar el formulario.');
+      for(const path of paths)await this.deleteCommunityFile(path).catch(()=>{});
+      return {communityId};
+    },
+    async setCommunityFormStatus(formId,companyId,status){
+      if(!['open','closed'].includes(status))throw Object.assign(new Error('El estado del formulario no es válido.'),{status:400});
+      const detail=await this.community('form.export',companyId,{form_id:formId}),communityId=detail.community?.id;
+      if(!communityId||!detail.forms?.some(form=>form.id===formId))throw Object.assign(new Error('El formulario ya no está disponible.'),{status:404});
+      await requestJson(`/rest/v1/community_forms?id=eq.${encodeURIComponent(formId)}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({status,closed_at:status==='closed'?new Date().toISOString():null})},status==='closed'?'No se pudo cerrar el formulario.':'No se pudo abrir el formulario.');
+      return this.community('detail',companyId,{community_id:communityId});
+    },
     async getCommunityFormResponse(formId,companyId){
       const query=`?form_id=eq.${encodeURIComponent(formId)}&company_id=eq.${encodeURIComponent(companyId)}&select=id,submitted_at`;
       const responses=await requestJson('/rest/v1/community_form_responses'+query,{headers},'No se pudo consultar tu respuesta.');
@@ -173,8 +231,8 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       const answers=await requestJson(`/rest/v1/community_form_answers?response_id=eq.${encodeURIComponent(response.id)}&select=question_id,text_value,option_value,file_path,file_name,mime_type,compressed`,{headers},'No se pudieron consultar tus respuestas.');
       return {id:response.id,submittedAt:response.submitted_at,answers};
     },
-    async saveCommunityFormResponse(formId,companyId,responseId,answers){
-      const existing=await this.getCommunityFormResponse(formId,companyId),id=existing?.id||responseId,now=new Date().toISOString();
+    async saveCommunityFormResponse(formId,companyId,responseId,answers,knownExisting){
+      const existing=knownExisting===undefined?await this.getCommunityFormResponse(formId,companyId):knownExisting,id=existing?.id||responseId,now=new Date().toISOString();
       if(existing){
         await requestJson(`/rest/v1/community_form_responses?id=eq.${encodeURIComponent(id)}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({submitted_at:now})},'No se pudo actualizar tu respuesta.');
       }else{
@@ -197,7 +255,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
           body: JSON.stringify({ operation, company: String(companyId), payload: data }),
           signal: AbortSignal.timeout(15000),
         });
-      } catch { throw Object.assign(new Error('No se pudo conectar con Supabase. Reintenta cuando vuelva la conexión.'), { status: 503 }); }
+      } catch { throw Object.assign(new Error('No se pudo conectar con el servidor. Reintenta cuando vuelva la conexión.'), { status: 503 }); }
       const result = await response.json();
       if (!response.ok) {
         const status = /^PT(400|404|409)$/.test(result.code) ? Number(result.code.slice(2)) : result.code === '23505' ? 409 : ['23503','23514','22007','22008','22P02','22003'].includes(result.code) ? 400 : 502;

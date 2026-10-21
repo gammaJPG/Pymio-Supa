@@ -2,7 +2,7 @@ import { offlineFetch as fetch } from './offline.js';
 import { configureIntegerInput, parseFormattedInteger } from './number-format.js';
 const IMAGE_TYPES = new Set(['image/jpeg','image/png','image/webp']);
 const MAX_ORIGINAL_IMAGE = 10 * 1024 * 1024;
-const MAX_PRODUCT_IMAGE = 250 * 1024;
+const MAX_PRODUCT_IMAGE = 500 * 1024;
 const formatoEntero = new Intl.NumberFormat('es-CL', {maximumFractionDigits:0});
 const formatoMoneda = new Intl.NumberFormat('es-CL', {style:'currency',currency:'CLP',maximumFractionDigits:0});
 
@@ -44,7 +44,7 @@ async function optimizarImagenProducto(file) {
     if (!blob) throw new Error('Este navegador no pudo convertir la imagen a WebP.');
     if (blob.size <= MAX_PRODUCT_IMAGE) break;
   }
-  if (blob.size > MAX_PRODUCT_IMAGE) throw new Error('La imagen sigue superando 250 KB con la compresión máxima. Sube una imagen que pese menos.');
+  if (blob.size > MAX_PRODUCT_IMAGE) throw new Error('La imagen sigue superando 500 KB con la compresión máxima. Sube una imagen que pese menos.');
   return {blob,width,height,quality};
 }
 // La empresa llega desde iniciarInventario, después del login.
@@ -72,7 +72,7 @@ export function prepararFormularioProducto({ panel, companyId, apiUrl, alGuardar
         <div class="field producto-imagen" data-image-field>
           <label for="producto-image">Foto del producto</label>
           <input id="producto-image" type="file" accept="image/jpeg,image/png,image/webp">
-          <small>JPG, JPEG, PNG o WebP · máximo 10 MB · se guardará como WebP de hasta 800 × 800 px y 250 KB.</small>
+          <small>JPG, JPEG, PNG o WebP · máximo 10 MB · se guardará como WebP de hasta 800 × 800 px y 500 KB.</small>
           <div class="producto-imagen-preview" data-image-preview hidden><img alt="Vista previa de la foto del producto"><span data-image-status></span></div>
         </div>
         <p class="producto-error" role="alert" hidden></p>

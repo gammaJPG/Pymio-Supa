@@ -5,8 +5,8 @@ ALTER TABLE public.products ADD CONSTRAINT products_image_path_check
   CHECK (image_path IS NULL OR image_path ~ '^[1-9][0-9]*/[0-9a-f-]{36}\.webp$');
 
 INSERT INTO storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('product-images', 'product-images', true, 256000, ARRAY['image/webp'])
-ON CONFLICT (id) DO UPDATE SET public=true, file_size_limit=256000, allowed_mime_types=ARRAY['image/webp'];
+VALUES ('product-images', 'product-images', true, 512000, ARRAY['image/webp'])
+ON CONFLICT (id) DO UPDATE SET public=true, file_size_limit=512000, allowed_mime_types=ARRAY['image/webp'];
 
 CREATE OR REPLACE FUNCTION public.pymio_product(company bigint, payload jsonb, method text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, pg_temp AS $$

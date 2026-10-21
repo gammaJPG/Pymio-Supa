@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=159';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=163';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
@@ -88,7 +88,7 @@ async function cargarSecciones() {
   let diagnosticNotifications=[];
   let syncNotifications=[];
   let activityNotifications=[];
-  let networkNotifications=[];
+  let networkNotifications=[],networkNotificationsLoading=false,networkNotificationsTimer=null;
   const readNotificationIds=new Set();
 
   function activityNotificationKey(){return `pymio:activity-notifications:${currentSession?.companyId||'unknown'}`;}
@@ -373,6 +373,7 @@ async function cargarSecciones() {
       else if(notification.destination)item.onclick=()=>{
         closeNotifications();
         if(notification.destination==='inventario'&&notification.productId)document.dispatchEvent(new CustomEvent('abrir-inventario-producto',{detail:{id:notification.productId}}));
+        else if(notification.destination==='ecosistema'&&notification.networkKind){navigateTo('ecosistema',false,true);mostrarVistaEcosistema(notification.networkKind==='event'?'eventos':'red',{keyboard:true});if(notification.networkKind==='form')document.dispatchEvent(new CustomEvent('red-pymio-notification-open',{detail:{communityId:notification.communityId,kind:'form'}}));}
         else navigateTo(notification.destination,false,true);
       };
       if(notification.issueId){
@@ -396,7 +397,26 @@ async function cargarSecciones() {
     catch { syncNotifications=[]; }
     renderNotifications();
   }
+  async function refreshNetworkNotifications(){
+    if(currentSession?.demo||networkNotificationsLoading)return;
+    networkNotificationsLoading=true;
+    try{
+      const response=await fetch(apiUrl+'/api/network/notifications',{cache:'no-store'}),result=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(result.error||'No se pudieron actualizar las notificaciones de RED Pymio.');
+      const dateTime=new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short'});
+      networkNotifications=(result.notifications||[]).map(item=>{
+        let sev='info',title=`Nuevo formulario en ${item.community_name}`,desc=item.title;
+        if(item.kind==='event'){sev='success';title=`Nuevo evento en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
+        else if(item.kind==='admin_granted'){sev='success';title=`Ahora eres administrador en ${item.community_name}`;desc='Ya puedes administrar los formularios de esta comunidad.';}
+        else if(item.kind==='admin_revoked'){sev='warn';title=`Ya no eres administrador en ${item.community_name}`;desc='Tus permisos de administrador fueron retirados.';}
+        return {id:`network-${item.id}`,sev,title,desc,time:dateTime.format(new Date(item.created_at)),destination:'ecosistema',networkKind:item.kind,communityId:item.community_id};
+      });
+    }catch{}
+    finally{networkNotificationsLoading=false;renderNotifications();}
+  }
   window.addEventListener('swc-offline-change',refreshSyncNotifications);
+  document.addEventListener('red-pymio-actualizado',refreshNetworkNotifications);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshNetworkNotifications();});
   document.addEventListener('producto-guardado',async event=>{
     if(currentSession?.demo)return;
     const detail=event.detail||{},action=detail.action||'updated';
@@ -495,6 +515,8 @@ async function cargarSecciones() {
     renderInicio();
     renderNotifications();
     refreshSyncNotifications();
+    refreshNetworkNotifications();
+    clearInterval(networkNotificationsTimer);networkNotificationsTimer=setInterval(refreshNetworkNotifications,45000);
   }
 
   async function initializeAuth(){

@@ -10,7 +10,7 @@ function request(path,method='GET',body){
   return {req,url:new URL(path,'http://localhost')};
 }
 async function call(path,method,body,resultOverride){
-  const calls=[],result=resultOverride||{profile:{},businesses:[],communities:[{id:'10000000-0000-4000-8000-000000000001',joined:true}],posts:[]},pool={network:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},entitlements:async(operation,company,payload)=>{calls.push({operation,company,payload});return {can_create_community:true};}};
+  const calls=[],result=resultOverride||{profile:{},businesses:[],communities:[{id:'10000000-0000-4000-8000-000000000001',joined:true}],posts:[]},pool={network:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},entitlements:async(operation,company,payload)=>{calls.push({operation,company,payload});return {can_create_community:true};},requireCommunityAdmin:async()=>true};
   let response;const send=(status,data)=>(response={status,data});
   const input=request(path,method,body);await atenderRedPymio(input.req,pool,'7',send,input.url);
   return {calls,response};
@@ -19,6 +19,12 @@ async function call(path,method,body,resultOverride){
 test('RED Pymio: carga el espacio y conserva el alcance de la empresa',async()=>{
   const {calls,response}=await call('/api/network/bootstrap','GET');
   assert.equal(response.status,200);assert.deepEqual(calls,[{operation:'bootstrap',company:'7',payload:{}}]);
+});
+
+test('RED Pymio: entrega notificaciones de las comunidades del usuario',async()=>{
+  const req=request('/api/network/notifications','GET'),expected=[{id:'form-f1',kind:'form'}];let response,company;
+  await atenderRedPymio(req.req,{getCommunityNotifications:async value=>{company=value;return expected;}},'7',(status,data)=>response={status,data},req.url);
+  assert.equal(response.status,200);assert.deepEqual(response.data.notifications,expected);assert.equal(company,'7');
 });
 
 test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()=>{
@@ -40,12 +46,23 @@ test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()
   assert.equal(community.response.status,201);assert.equal(community.calls[0].operation,'community.create');assert.equal(community.calls[0].payload.is_open,true);assert.equal(community.calls[1].operation,'bootstrap');
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos'})).response.status,400);
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos',eventAt:'fecha imposible'})).response.status,400);
-  const post=await call('/api/network/posts','POST',{kind:'benefit',title:'Descuento',description:'Oferta para la red'});
+  const communityId='10000000-0000-4000-8000-000000000001';
+  assert.equal((await call('/api/network/posts','POST',{kind:'benefit',communityId,title:'Descuento',description:'Oferta para la red',eventAt:'2026-11-02T15:00:00-03:00'})).response.status,400);
+  assert.equal((await call('/api/network/posts','POST',{kind:'event',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'range',eventAt:'2026-11-02T15:00:00-03:00',endsAt:'2026-11-02T14:00:00-03:00'})).response.status,400);
+  const post=await call('/api/network/posts','POST',{kind:'event',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'range',eventAt:'2026-11-02T15:00:00-03:00',endsAt:'2026-11-03T00:59:00-03:00'});
   assert.equal(post.response.status,201);assert.equal(post.calls[0].operation,'post.create');
-  const updated=await call('/api/network/posts/10000000-0000-4000-8000-000000000001','PUT',{kind:'event',title:'Encuentro actualizado',description:'Nueva información',eventAt:'2026-11-02T15:00:00-03:00'});
+  assert.equal(post.calls[0].payload.expires_at,'2026-11-03T03:59:00.000Z');
+  const updated=await call('/api/network/posts/10000000-0000-4000-8000-000000000001','PUT',{kind:'event',communityId,title:'Encuentro actualizado',description:'Nueva información',schedule:'single',eventAt:'2026-11-02T15:00:00-03:00'});
   assert.equal(updated.response.status,200);assert.equal(updated.calls[0].operation,'post.update');
   assert.equal(updated.calls[0].payload.post_id,'10000000-0000-4000-8000-000000000001');
   assert.equal(updated.calls[0].payload.title,'Encuentro actualizado');
+});
+
+test('RED Pymio: solo administradores de la comunidad pueden publicar eventos',async()=>{
+  const communityId='10000000-0000-4000-8000-000000000001',input=request('/api/network/posts','POST',{kind:'event',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'single',eventAt:'2026-11-02T15:00:00-03:00'});let response,created=false;
+  const pool={requireCommunityAdmin:async()=>{throw Object.assign(new Error('Solo los administradores de la comunidad pueden crear o modificar eventos.'),{status:403});},network:async()=>{created=true;}};
+  await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);
+  assert.equal(response.status,403);assert.equal(created,false);
 });
 
 test('RED Pymio: valida el identificador antes de unirse a una comunidad',async()=>{
@@ -104,9 +121,62 @@ test('RED Pymio: consulta una comunidad y crea formularios de hasta 20 preguntas
   const id='10000000-0000-4000-8000-000000000001';
   const detail=await call(`/api/network/communities/${id}`,'GET');
   assert.equal(detail.response.status,200);assert.deepEqual(detail.calls.map(call=>call.operation),['bootstrap','detail']);
-  const created=await call('/api/network/forms','POST',{communityId:id,title:'Registro de proveedores',questions:[{title:'Razón social',type:'text'},{title:'Documento',type:'file'}]});
+  const created=await call('/api/network/forms','POST',{communityId:id,title:'Registro de proveedores',questions:[{title:'Razón social',type:'text'},{title:'Documento',type:'file',options:['text','pdf']}]});
   assert.equal(created.response.status,201);assert.equal(created.calls[0].operation,'form.create');assert.equal(created.calls[0].payload.questions.length,2);
   assert.deepEqual(created.calls[0].payload.questions.map(item=>item.position),[1,2]);
+  assert.deepEqual(created.calls[0].payload.questions[1].options,['text','pdf']);
+  assert.equal((await call('/api/network/forms','POST',{communityId:id,title:'Inválido',questions:[{title:'Documento',type:'file',options:[]}]})).response.status,400);
+});
+
+test('RED Pymio: valida la extensión configurada y el contenido del archivo',async()=>{
+  const formId='10000000-0000-4000-8000-000000000001',responseId='20000000-0000-4000-8000-000000000002',questionId='30000000-0000-4000-8000-000000000003';
+  const upload=async(name,body)=>{const req=Readable.from([body]);req.method='POST';req.headers={'x-file-name':encodeURIComponent(name),'content-type':'application/octet-stream'};let response,stored;const pool={community:async()=>({forms:[{status:'open',questions:[{id:questionId,type:'file',options:['pdf']}]}]}),getCommunityFormMeta:async()=>({created_by_company_id:'8'}),uploadCommunityFile:async(path,value)=>stored={path,value}};await atenderRedPymio(req,pool,'7',(status,data)=>response={status,data},new URL(`http://localhost/api/network/forms/${formId}/responses/${responseId}/questions/${questionId}/file`));return {response,stored};};
+  assert.equal((await upload('respuesta.txt',Buffer.from('texto'))).response.status,415);
+  assert.equal((await upload('respuesta.pdf',Buffer.from('no es pdf'))).response.status,415);
+  const valid=await upload('respuesta.pdf',Buffer.from('%PDF-1.4\n%%EOF'));
+  assert.equal(valid.response.status,201);assert.equal(valid.response.data.mimeType,'application/pdf');assert.ok(valid.stored.path.endsWith('.bin'));
+});
+
+test('RED Pymio: actualiza la respuesta existente y bloquea cambios al cerrar el formulario',async()=>{
+  const formId='10000000-0000-4000-8000-000000000001',incomingId='20000000-0000-4000-8000-000000000002',existingId='20000000-0000-4000-8000-000000000009',questionId='30000000-0000-4000-8000-000000000003';
+  const submit=async status=>{
+    const input=request(`/api/network/forms/${formId}/responses`,'POST',{responseId:incomingId,answers:[{questionId,textValue:'Respuesta modificada'}]}),calls=[],existing={id:existingId,answers:[{question_id:questionId,text_value:'Respuesta anterior'}]};let response;
+    const pool={
+      community:async()=>({forms:[{id:formId,status}]}),
+      getCommunityFormMeta:async()=>({created_by_company_id:'8'}),
+      getCommunityFormResponse:async()=>{calls.push('get');return existing;},
+      saveCommunityFormResponse:async(...args)=>{calls.push(args);return {id:args[2],submittedAt:'2026-10-21T12:00:00Z',previousFiles:[]};},
+      deleteCommunityFile:async()=>{}
+    };
+    await atenderRedPymio(input.req,pool,'7',(code,data)=>response={status:code,data},input.url);
+    return {response,calls};
+  };
+  const open=await submit('open');
+  assert.equal(open.response.status,200);assert.equal(open.response.data.updated,true);assert.equal(open.response.data.response.id,existingId);
+  assert.equal(open.calls[1][2],existingId);assert.equal(open.calls[1][4].id,existingId);
+  const closed=await submit('closed');
+  assert.equal(closed.response.status,403);assert.deepEqual(closed.calls,[]);
+});
+
+test('RED Pymio: el creador no puede responder y solo administradores pueden eliminar',async()=>{
+  const formId='10000000-0000-4000-8000-000000000001',responseId='20000000-0000-4000-8000-000000000002',questionId='30000000-0000-4000-8000-000000000003';let response,saved=false;
+  const submission=request(`/api/network/forms/${formId}/responses`,'POST',{responseId,answers:[{questionId,textValue:'No debe guardarse'}]});
+  await atenderRedPymio(submission.req,{community:async()=>({forms:[{id:formId,status:'open'}]}),getCommunityFormMeta:async()=>({created_by_company_id:'7'}),saveCommunityFormResponse:async()=>{saved=true;}},'7',(status,data)=>response={status,data},submission.url);
+  assert.equal(response.status,403);assert.match(response.data.error,/creó el formulario/);assert.equal(saved,false);
+  const deletion=request(`/api/network/forms/${formId}`,'DELETE'),calls=[],pool={deleteCommunityForm:async(id,company)=>{calls.push({id,company});return {communityId:'40000000-0000-4000-8000-000000000004'};},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return {community:{id:payload.community_id},forms:[]};}};
+  await atenderRedPymio(deletion.req,pool,'7',(status,data)=>response={status,data},deletion.url);
+  assert.equal(response.status,200);assert.equal(response.data.forms.length,0);assert.equal(calls[0].id,formId);assert.equal(calls[1].operation,'detail');
+});
+
+test('RED Pymio: administradores pueden cerrar y volver a abrir formularios',async()=>{
+  const formId='10000000-0000-4000-8000-000000000001',calls=[];
+  for(const action of ['close','open']){
+    const input=request(`/api/network/forms/${formId}/${action}`,'POST');let response;
+    const pool={setCommunityFormStatus:async(id,company,status)=>{calls.push({id,company,status});return {forms:[{id,status}]};}};
+    await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);
+    assert.equal(response.status,200);assert.equal(response.data.forms[0].status,action==='open'?'open':'closed');
+  }
+  assert.deepEqual(calls.map(call=>call.status),['closed','open']);
 });
 
 test('RED Pymio: exige membresía para ver incluso una comunidad abierta',async()=>{
@@ -125,13 +195,61 @@ test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar
   assert.doesNotMatch(source,/<span>Pregunta<\/span>/);
   assert.match(source,/Escribe cada opción en una línea separada\./);
   assert.match(source,/data-text-preview/);assert.match(source,/data-file-preview/);
-  assert.match(source,/accept="\.pdf,\.docx/);assert.match(server,/\['pdf','docx'/);
-  assert.match(html,/Descargar archivos adjuntados por usuarios/);
+  for(const label of ['Archivo de texto','Documento PDF','Imagen'])assert.match(source,new RegExp(label));
+  for(const extensions of ['docx','txt','pdf','jpg','png','webp'])assert.match(source,new RegExp(extensions));
+  assert.match(source,/fileAccept\(question\)/);assert.match(server,/FILE_GROUPS/);
+  assert.match(html,/Descargar respuestas/);
   assert.match(source,/dialog\.id!==['"]community-form-builder['"]/);
-  assert.match(source,/Respuesta enviada · puedes editarla/);
+  assert.match(source,/Ya respondiste este formulario\. Puedes modificar tu respuesta mientras siga abierto\./);
+  assert.match(source,/Guardar cambios/);
+  assert.match(source,/El formulario está cerrado y ya no puede modificarse/);
+  assert.match(source,/Creaste este formulario\. Puedes revisar sus resultados, pero no enviar una respuesta\./);
+  assert.match(source,/selectDisabled=editable\|\|creator/);
+  assert.doesNotMatch(source,/Vista de las opciones disponibles\. No se enviará ninguna respuesta\./);
+  assert.match(source,/data-form-delete/);assert.match(source,/¿Eliminar el formulario/);assert.match(source,/Abrir formulario/);
+  assert.match(html,/data-form-download[^>]*>Descargar respuestas<\/button><button[^>]*data-form-status/);
+  assert.match(html,/data-form-status[^>]*>Cerrar formulario<\/button><button[^>]*data-form-delete/);
+  assert.match(source,/submit\.hidden=!editable/);
   assert.match(source,/Archivo actual:/);
   assert.match(source,/activeResponse\?\.id\|\|crypto\.randomUUID/);
-  assert.match(server,/companyName\+' - '\+file\.name/);
+  assert.match(server,/updated:Boolean\(existing\)/);
+  assert.match(server,/exportResponses/);
+});
+
+test('RED Pymio: el estado de carga conserva el marcado del botón de formulario',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  assert.match(source,/buttonContent\.set\(button,button\.innerHTML\)/);
+  assert.match(source,/button\.innerHTML=buttonContent\.get\(button\)/);
+  assert.doesNotMatch(source,/button\.dataset\.label=button\.textContent/);
+});
+
+test('RED Pymio: la campana actualiza y abre formularios o eventos comunitarios',async()=>{
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8'),ecosistema=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  assert.match(app,/\/api\/network\/notifications/);assert.match(app,/setInterval\(refreshNetworkNotifications,45000\)/);
+  assert.match(app,/Nuevo formulario en/);assert.match(app,/Nuevo evento en/);
+  assert.match(app,/red-pymio-notification-open/);assert.match(ecosistema,/data-community-forms/);
+  assert.match(ecosistema,/red-pymio-actualizado/);
+});
+
+test('RED Pymio: la campana informa cambios de permisos administrativos',async()=>{
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8'),supabase=await readFile(new URL('./supabase.mjs',import.meta.url),'utf8');
+  assert.match(supabase,/role_since/);assert.match(supabase,/admin_granted/);assert.match(supabase,/admin_revoked/);
+  assert.match(app,/Ahora eres administrador en/);assert.match(app,/Ya no eres administrador en/);
+  assert.match(app,/Tus permisos de administrador fueron retirados/);
+});
+
+test('RED Pymio: crea eventos dentro de comunidades con fecha puntual o duración',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8'),pilot=await readFile(new URL('../piloto.html',import.meta.url),'utf8');
+  assert.match(html,/data-community-event-create[\s\S]*?Crear Evento/);assert.doesNotMatch(html,/data-post-create/);
+  assert.match(html,/name="schedule" value="single"/);assert.match(html,/name="schedule" value="range"/);assert.doesNotMatch(html,/name="kind" value="benefit"/);
+  assert.match(source,/setHours\(0,59,0,0\)/);assert.match(source,/Solo los administradores pueden crear eventos/);
+  assert.match(html,/Eventos de Comunidades/);assert.match(html,/Explorar Tiendas/);assert.match(pilot,/Eventos de Comunidades/);assert.match(pilot,/Explorar Tiendas/);
+});
+
+test('RED Pymio: los resultados no muestran la aclaración por empresa',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  assert.doesNotMatch(source,/una respuesta por empresa/);
+  assert.match(source,/usuarios han respondido\.<\/p>/);
 });
 
 test('RED Pymio: identifica claramente los roles en la lista de miembros',async()=>{
