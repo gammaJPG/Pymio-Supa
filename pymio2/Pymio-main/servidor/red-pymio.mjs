@@ -284,6 +284,10 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       if(!UUID.test(postUpdate[1]))return send(400,{error:'La publicación seleccionada no es válida.'});
       requireJson(req);const data=cleanPost(await bodyJson(req));await pool.requireCommunityAdmin(data.community_id,companyId);return send(200,await pool.network('post.update',companyId,{post_id:postUpdate[1],...data}));
     }
+    if(postUpdate && req.method==='DELETE'){
+      if(!UUID.test(postUpdate[1]))return send(400,{error:'La publicación seleccionada no es válida.'});
+      return send(200,await pool.network('post.delete',companyId,{post_id:postUpdate[1]}));
+    }
     return send(404,{error:'Ruta no encontrada.'});
   }catch(error){
     const duplicateResponse=error.code==='23505'||/community_form_responses_form_id_company_id_key|duplicate key/i.test(error.message||'');

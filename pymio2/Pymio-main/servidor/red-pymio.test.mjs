@@ -56,6 +56,8 @@ test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()
   assert.equal(updated.response.status,200);assert.equal(updated.calls[0].operation,'post.update');
   assert.equal(updated.calls[0].payload.post_id,'10000000-0000-4000-8000-000000000001');
   assert.equal(updated.calls[0].payload.title,'Encuentro actualizado');
+  const deleted=await call('/api/network/posts/10000000-0000-4000-8000-000000000001','DELETE');
+  assert.equal(deleted.response.status,200);assert.deepEqual(deleted.calls[0],{operation:'post.delete',company:'7',payload:{post_id:'10000000-0000-4000-8000-000000000001'}});
 });
 
 test('RED Pymio: solo administradores de la comunidad pueden publicar eventos',async()=>{
@@ -258,6 +260,8 @@ test('RED Pymio: crea eventos dentro de comunidades con fecha puntual o duració
   assert.match(html,/data-community-event-create[\s\S]*?Crear Evento/);assert.doesNotMatch(html,/data-post-create/);
   assert.match(html,/name="schedule" value="single"/);assert.match(html,/name="schedule" value="range"/);assert.doesNotMatch(html,/name="kind" value="benefit"/);
   assert.match(source,/setHours\(0,59,0,0\)/);assert.match(source,/Solo los administradores pueden crear eventos/);
+  assert.match(source,/data-community-event-edit/);assert.match(source,/data-community-event-delete/);
+  assert.match(source,/Solo los administradores pueden modificar eventos/);assert.match(source,/Solo los administradores pueden eliminar eventos/);
   assert.match(html,/Eventos de Comunidades/);assert.match(html,/Explorar Tiendas/);assert.match(pilot,/Eventos de Comunidades/);assert.match(pilot,/Explorar Tiendas/);
 });
 

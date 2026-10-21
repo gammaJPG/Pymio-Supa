@@ -144,14 +144,26 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       }
       if(operation==='post.update'){
         const {post_id,...payload}=data;
-        const query=`/rest/v1/network_posts?id=eq.${encodeURIComponent(post_id)}&author_company_id=eq.${encodeURIComponent(String(companyId))}`;
+        const existing=await requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(post_id)}&kind=eq.event&select=id,community_id&limit=1`,{headers},'No se pudo identificar el evento.');
+        if(!existing[0]?.community_id)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
+        if(payload.community_id!==existing[0].community_id)throw Object.assign(new Error('No puedes mover el evento a otra comunidad.'),{status:400});
+        await this.requireCommunityAdmin(existing[0].community_id,companyId);
+        const query=`/rest/v1/network_posts?id=eq.${encodeURIComponent(post_id)}&community_id=eq.${encodeURIComponent(existing[0].community_id)}&kind=eq.event`;
         const updated=await requestJson(query,{
           method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(payload),
         },'No se pudo actualizar la publicación.');
-        if(!Array.isArray(updated)||!updated.length)throw Object.assign(new Error('Solo la empresa creadora puede editar esta publicación.'),{status:403});
+        if(!Array.isArray(updated)||!updated.length)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
         return requestJson('/rest/v1/rpc/pymio_network',{
           method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation:'bootstrap',company:String(companyId),payload:{}}),
         },'No se pudo actualizar RED Pymio.');
+      }
+      if(operation==='post.delete'){
+        const existing=await requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(data.post_id)}&kind=eq.event&select=id,community_id&limit=1`,{headers},'No se pudo identificar el evento.');
+        if(!existing[0]?.community_id)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
+        await this.requireCommunityAdmin(existing[0].community_id,companyId);
+        const deleted=await requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(data.post_id)}&community_id=eq.${encodeURIComponent(existing[0].community_id)}&kind=eq.event`,{method:'DELETE',headers:{...headers,Prefer:'return=representation'}},'No se pudo eliminar el evento.');
+        if(!Array.isArray(deleted)||!deleted.length)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
+        return requestJson('/rest/v1/rpc/pymio_network',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation:'bootstrap',company:String(companyId),payload:{}})},'No se pudo actualizar RED Pymio.');
       }
       return requestJson(connectionOperation?'/rest/v1/rpc/pymio_connections':'/rest/v1/rpc/pymio_network', {
         method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },

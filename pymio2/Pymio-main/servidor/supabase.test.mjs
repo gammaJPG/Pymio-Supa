@@ -63,16 +63,18 @@ test('Supabase Auth: prepara Google con PKCE e intercambia el código en el serv
 });
 
 test('Supabase RED Pymio: usa la función protegida y mantiene el alcance empresarial',async()=>{
-  const sent=[];
-  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{sent.push({url,options});return options.method==='PATCH'?Response.json([{id:'10000000-0000-4000-8000-000000000001'}]):Response.json({profile:{},businesses:[],communities:[],posts:[]});}});
+  const sent=[],postId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002';
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{sent.push({url,options});if(url.pathname.endsWith('/community_members'))return Response.json([{role:'admin'}]);if(url.pathname.endsWith('/network_posts')&&(!options.method||options.method==='GET'))return Response.json([{id:postId,community_id:communityId}]);if(url.pathname.endsWith('/network_posts'))return Response.json([{id:postId}]);return Response.json({profile:{},businesses:[],communities:[],posts:[]});}});
   const result=await client.network('bootstrap','12');
   assert.deepEqual(result.communities,[]);assert.deepEqual(sent.slice(-4).map(item=>item.url.pathname),['/rest/v1/rpc/pymio_network','/rest/v1/rpc/pymio_connections','/rest/v1/rpc/pymio_entitlements','/rest/v1/rpc/pymio_community_roles']);
   assert.deepEqual(JSON.parse(sent.at(-4).options.body),{operation:'bootstrap',company:'12',payload:{}});
   assert.deepEqual(JSON.parse(sent.at(-1).options.body),{company:'12'});
-  await client.network('post.update','12',{post_id:'10000000-0000-4000-8000-000000000001',kind:'event',title:'Nuevo título'});
+  await client.network('post.update','12',{post_id:postId,community_id:communityId,kind:'event',title:'Nuevo título'});
   const update=sent.at(-2);assert.equal(update.url.pathname,'/rest/v1/network_posts');assert.equal(update.options.method,'PATCH');
-  assert.equal(update.url.searchParams.get('author_company_id'),'eq.12');
-  assert.deepEqual(JSON.parse(update.options.body),{kind:'event',title:'Nuevo título'});
+  assert.equal(update.url.searchParams.get('community_id'),`eq.${communityId}`);
+  assert.deepEqual(JSON.parse(update.options.body),{community_id:communityId,kind:'event',title:'Nuevo título'});
+  await client.network('post.delete','12',{post_id:postId});
+  const deletion=sent.at(-2);assert.equal(deletion.url.pathname,'/rest/v1/network_posts');assert.equal(deletion.options.method,'DELETE');assert.equal(deletion.url.searchParams.get('community_id'),`eq.${communityId}`);
 });
 
 test('Supabase RED Pymio: notifica formularios y eventos creados después de unirse',async()=>{
