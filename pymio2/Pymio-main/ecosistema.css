@@ -295,6 +295,7 @@
 .form-results{padding:16px;margin:16px 0;border:1px solid #dedfd4;border-radius:12px;background:#f6f5ee;overflow-wrap:anywhere}
 .form-results table{width:100%;border-collapse:collapse;font-size:12px}
 .form-results th,.form-results td{padding:8px 4px;text-align:left;border-bottom:1px solid #dedfd4}
+.form-view-actions .form-action-button{display:inline-flex;align-items:center;justify-content:center;gap:7px}.form-view-actions .form-action-button svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.form-view-actions .form-download-button{border-color:#d5af27;background:#f4ce4f;color:#332b12}.form-view-actions .form-download-button:hover{border-color:#c39b13;background:#e8bd32}.form-view-actions .form-status-button{background:#fff;color:#41463d}.form-view-actions .form-status-button:hover{background:#f3f4ee}.form-view-actions .form-delete-button{border-color:#9f3028;background:#b13c32;color:#fff}.form-view-actions .form-delete-button:hover{border-color:#87261f;background:#982f27}
 .form-results th:first-child{width:60%}
 .dialog-actions .form-delete-button{border-color:#d8b7ad;background:#fff8f5;color:#8a3424}.dialog-actions .form-delete-button:hover{background:#fbe9e3}
 /* Community form builder and response fields. */

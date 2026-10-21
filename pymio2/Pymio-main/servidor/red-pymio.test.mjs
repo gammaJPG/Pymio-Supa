@@ -223,9 +223,9 @@ test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar
   assert.match(source,/Creaste este formulario\. Puedes revisar sus resultados, pero no enviar una respuesta\./);
   assert.match(source,/selectDisabled=editable\|\|creator/);
   assert.doesNotMatch(source,/Vista de las opciones disponibles\. No se enviará ninguna respuesta\./);
-  assert.match(source,/data-form-delete/);assert.match(source,/¿Eliminar el formulario/);assert.match(source,/Abrir formulario/);
-  assert.match(html,/data-form-download[^>]*>Descargar respuestas<\/button><button[^>]*data-form-status/);
-  assert.match(html,/data-form-status[^>]*>Cerrar formulario<\/button><button[^>]*data-form-delete/);
+  assert.match(source,/data-form-delete/);assert.match(source,/¿Eliminar el formulario/);assert.match(source,/Reanudar formulario/);
+  assert.match(html,/data-form-download[^>]*>.*Descargar respuestas<\/span><\/button><button[^>]*data-form-status/s);
+  assert.match(html,/data-form-status[^>]*>.*Pausar formulario<\/span><\/button><button[^>]*data-form-delete/s);
   assert.match(source,/submit\.hidden=!editable/);
   assert.match(source,/Archivo actual:/);
   assert.match(source,/activeResponse\?\.id\|\|crypto\.randomUUID/);
