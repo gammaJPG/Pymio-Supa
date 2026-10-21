@@ -83,15 +83,34 @@ test('Supabase RED Pymio: notifica formularios y eventos creados después de uni
     calls.push(url);
     if(url.pathname.endsWith('/community_members'))return Response.json([{community_id:'c1',role:'member',joined_at:'2026-10-20T12:00:00Z',role_since:'2026-10-20T12:00:00Z'}]);
     if(url.pathname.endsWith('/communities'))return Response.json([{id:'c1',name:'Comercio Local'}]);
+    if(url.pathname.endsWith('/community_notifications'))return Response.json({code:'PGRST205',message:"Could not find the table 'public.community_notifications' in the schema cache"},{status:404});
     if(url.pathname.endsWith('/community_forms'))return Response.json([{id:'f1',title:'Encuesta semanal',created_at:'2026-10-20T13:00:00Z',community_id:'c1',created_by_company_id:9}]);
     if(url.pathname.endsWith('/network_posts'))return Response.json([{id:'e1',title:'Encuentro',created_at:'2026-10-20T14:00:00Z',event_at:'2026-10-25T15:00:00Z',community_id:'c1',author_company_id:8},{id:'e0',title:'Evento antiguo',created_at:'2026-10-19T14:00:00Z',event_at:'2026-10-22T15:00:00Z',community_id:'c1',author_company_id:8}]);
     return Response.json([]);
   }});
   const notifications=await client.getCommunityNotifications(7);
-  assert.deepEqual(notifications.map(item=>item.id),['event-e1','form-f1']);
+  assert.deepEqual(notifications.map(item=>item.id),['event-e1','form-f1']);assert.deepEqual(notifications.map(item=>item.kind),['event_created','form_created']);
   assert.equal(notifications[0].community_name,'Comercio Local');
-  assert.equal(calls.length,4);assert.equal(calls[0].searchParams.get('company_id'),'eq.7');
+  assert.equal(calls.length,5);assert.equal(calls[0].searchParams.get('company_id'),'eq.7');
   assert.equal(calls[0].searchParams.get('select'),'community_id,role,joined_at,role_since');
+});
+
+test('Supabase RED Pymio: conserva el historial de eventos modificados y eliminados',async()=>{
+  const calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async url=>{
+    calls.push(url);
+    if(url.pathname.endsWith('/community_members'))return Response.json([{community_id:'c1',role:'member',joined_at:'2026-10-20T12:00:00Z',role_since:'2026-10-20T12:00:00Z'}]);
+    if(url.pathname.endsWith('/communities'))return Response.json([{id:'c1',name:'Comercio Local'}]);
+    return Response.json([
+      {id:'n2',community_id:'c1',kind:'event_deleted',resource_id:'e1',title:'Encuentro',event_at:'2026-10-25T15:00:00Z',created_at:'2026-10-21T14:00:00Z'},
+      {id:'n1',community_id:'c1',kind:'event_updated',resource_id:'e1',title:'Encuentro actualizado',event_at:'2026-10-25T16:00:00Z',created_at:'2026-10-21T13:00:00Z'},
+    ]);
+  }});
+  const notifications=await client.getCommunityNotifications(7);
+  assert.deepEqual(notifications.map(item=>item.kind),['event_deleted','event_updated']);
+  assert.ok(notifications.every(item=>item.community_name==='Comercio Local'&&item.resource_id==='e1'));
+  assert.equal(calls.filter(url=>url.pathname.endsWith('/community_notifications')).length,1);
+  assert.equal(calls.filter(url=>url.pathname.endsWith('/network_posts')||url.pathname.endsWith('/community_forms')).length,0);
 });
 
 test('Supabase RED Pymio: notifica cuando asignan o retiran permisos de administrador',async()=>{

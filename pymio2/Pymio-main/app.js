@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=166';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=167';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
@@ -373,7 +373,7 @@ async function cargarSecciones() {
       else if(notification.destination)item.onclick=()=>{
         closeNotifications();
         if(notification.destination==='inventario'&&notification.productId)document.dispatchEvent(new CustomEvent('abrir-inventario-producto',{detail:{id:notification.productId}}));
-        else if(notification.destination==='ecosistema'&&notification.networkKind){navigateTo('ecosistema',false,true);mostrarVistaEcosistema(notification.networkKind==='event'?'eventos':'red',{keyboard:true});if(notification.networkKind==='form')document.dispatchEvent(new CustomEvent('red-pymio-notification-open',{detail:{communityId:notification.communityId,kind:'form'}}));}
+        else if(notification.destination==='ecosistema'&&notification.networkKind){navigateTo('ecosistema',false,true);mostrarVistaEcosistema(notification.networkKind.startsWith('event')?'eventos':'red',{keyboard:true});document.dispatchEvent(new CustomEvent('red-pymio-notification-open',{detail:{communityId:notification.communityId,kind:notification.networkKind,resourceId:notification.resourceId}}));}
         else navigateTo(notification.destination,false,true);
       };
       if(notification.issueId){
@@ -406,10 +406,12 @@ async function cargarSecciones() {
       const dateTime=new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short'});
       networkNotifications=(result.notifications||[]).map(item=>{
         let sev='info',title=`Nuevo formulario en ${item.community_name}`,desc=item.title;
-        if(item.kind==='event'){sev='success';title=`Nuevo evento en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
+        if(item.kind==='event_created'){sev='success';title=`Nuevo evento en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
+        else if(item.kind==='event_updated'){sev='info';title=`Evento modificado en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
+        else if(item.kind==='event_deleted'){sev='warn';title=`Evento eliminado en ${item.community_name}`;desc=item.title;}
         else if(item.kind==='admin_granted'){sev='success';title=`Ahora eres administrador en ${item.community_name}`;desc='Ya puedes administrar los formularios de esta comunidad.';}
         else if(item.kind==='admin_revoked'){sev='warn';title=`Ya no eres administrador en ${item.community_name}`;desc='Tus permisos de administrador fueron retirados.';}
-        return {id:`network-${item.id}`,sev,title,desc,time:dateTime.format(new Date(item.created_at)),destination:'ecosistema',networkKind:item.kind,communityId:item.community_id};
+        return {id:`network-${item.id}`,sev,title,desc,time:dateTime.format(new Date(item.created_at)),destination:'ecosistema',networkKind:item.kind,communityId:item.community_id,resourceId:item.resource_id};
       });
     }catch{}
     finally{networkNotificationsLoading=false;renderNotifications();}

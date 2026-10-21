@@ -243,9 +243,18 @@ test('RED Pymio: el estado de carga conserva el marcado del botón de formulario
 test('RED Pymio: la campana actualiza y abre formularios o eventos comunitarios',async()=>{
   const app=await readFile(new URL('../app.js',import.meta.url),'utf8'),ecosistema=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   assert.match(app,/\/api\/network\/notifications/);assert.match(app,/setInterval\(refreshNetworkNotifications,45000\)/);
-  assert.match(app,/Nuevo formulario en/);assert.match(app,/Nuevo evento en/);
-  assert.match(app,/red-pymio-notification-open/);assert.match(ecosistema,/data-community-forms/);
+  assert.match(app,/Nuevo formulario en/);assert.match(app,/Nuevo evento en/);assert.match(app,/Evento modificado en/);assert.match(app,/Evento eliminado en/);
+  assert.match(app,/resourceId:item\.resource_id/);assert.match(app,/red-pymio-notification-open/);assert.match(ecosistema,/openCommunityForm/);assert.match(ecosistema,/data-community-event-id/);
+  assert.match(ecosistema,/Este evento fue eliminado\. Estás viendo la agenda actual/);
   assert.match(ecosistema,/red-pymio-actualizado/);
+});
+
+test('RED Pymio: persiste notificaciones comunitarias para todos los miembros',async()=>{
+  const migration=await readFile(new URL('../supabase/migrations/029_persistent_community_notifications.sql',import.meta.url),'utf8');
+  assert.match(migration,/CREATE TABLE IF NOT EXISTS public\.community_notifications/);
+  assert.match(migration,/AFTER INSERT OR UPDATE OR DELETE ON public\.network_posts/);
+  assert.match(migration,/FROM public\.community_members m WHERE m\.community_id=source\.community_id/);
+  assert.match(migration,/event_created/);assert.match(migration,/event_updated/);assert.match(migration,/event_deleted/);assert.match(migration,/form_created/);
 });
 
 test('RED Pymio: la campana informa cambios de permisos administrativos',async()=>{

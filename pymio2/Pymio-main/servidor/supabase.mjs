@@ -207,17 +207,28 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       const memberships=await requestJson(`/rest/v1/community_members?company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id,role,joined_at,role_since`,{headers},'No se pudieron consultar tus comunidades.');
       if(!memberships.length)return [];
       const ids=[...new Set(memberships.map(item=>item.community_id))],idFilter=encodeURIComponent(ids.join(','));
-      const [communities,forms,events]=await Promise.all([
-        requestJson(`/rest/v1/communities?id=in.(${idFilter})&select=id,name`,{headers},'No se pudieron identificar las comunidades.'),
+      const communities=await requestJson(`/rest/v1/communities?id=in.(${idFilter})&select=id,name`,{headers},'No se pudieron identificar las comunidades.');
+      const joinedAt=new Map(memberships.map(item=>[item.community_id,Date.parse(item.joined_at)||0])),names=new Map(communities.map(item=>[item.id,item.name]));
+      const roleChanges=memberships.filter(item=>item.role!=='owner'&&(Date.parse(item.role_since)||0)>(Date.parse(item.joined_at)||0)).map(item=>({id:`role-${item.community_id}-${item.role_since}`,kind:item.role==='admin'?'admin_granted':'admin_revoked',created_at:item.role_since,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'}));
+      try{
+        const notifications=[];
+        for(let offset=0;;offset+=500){
+          const page=await requestJson(`/rest/v1/community_notifications?company_id=eq.${encodeURIComponent(String(companyId))}&select=id,community_id,kind,resource_id,title,event_at,created_at&order=created_at.desc&limit=500&offset=${offset}`,{headers},'No se pudieron consultar las notificaciones de la comunidad.');
+          notifications.push(...page);if(page.length<500)break;
+        }
+        return [...roleChanges,...notifications.map(item=>({...item,community_name:names.get(item.community_id)||'Comunidad'}))]
+          .filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+      }catch(error){
+        if(error.code!=='PGRST205'&&!/community_notifications/i.test(error.message||''))throw error;
+      }
+      const [forms,events]=await Promise.all([
         requestJson(`/rest/v1/community_forms?community_id=in.(${idFilter})&select=id,title,created_at,community_id,created_by_company_id&order=created_at.desc&limit=100`,{headers},'No se pudieron consultar los formularios recientes.'),
         requestJson(`/rest/v1/network_posts?community_id=in.(${idFilter})&kind=eq.event&select=id,title,created_at,event_at,community_id,author_company_id&order=created_at.desc&limit=100`,{headers},'No se pudieron consultar los eventos recientes.'),
       ]);
-      const joinedAt=new Map(memberships.map(item=>[item.community_id,Date.parse(item.joined_at)||0])),names=new Map(communities.map(item=>[item.id,item.name]));
-      const roleChanges=memberships.filter(item=>item.role!=='owner'&&(Date.parse(item.role_since)||0)>(Date.parse(item.joined_at)||0)).map(item=>({id:`role-${item.community_id}-${item.role_since}`,kind:item.role==='admin'?'admin_granted':'admin_revoked',created_at:item.role_since,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'}));
       return [
         ...roleChanges,
-        ...forms.map(item=>({id:`form-${item.id}`,kind:'form',resource_id:item.id,title:item.title,created_at:item.created_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
-        ...events.map(item=>({id:`event-${item.id}`,kind:'event',resource_id:item.id,title:item.title,created_at:item.created_at,event_at:item.event_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
+        ...forms.map(item=>({id:`form-${item.id}`,kind:'form_created',resource_id:item.id,title:item.title,created_at:item.created_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
+        ...events.map(item=>({id:`event-${item.id}`,kind:'event_created',resource_id:item.id,title:item.title,created_at:item.created_at,event_at:item.event_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
       ].filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,100);
     },
     async getCommunityFormResults(formId,companyId){
