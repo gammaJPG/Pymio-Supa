@@ -32,10 +32,15 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: pymio2/Pymio-main/package-lock.json
+          cache-dependency-path: |
+            pymio2/Pymio-main/package-lock.json
+            pymio2/Pymio-main/servidor/package-lock.json
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias de despliegue
         run: npm ci
+
+      - name: Instalar dependencias del servidor
+        run: npm ci --prefix servidor
 
       - name: Ejecutar pruebas
         run: npm test
