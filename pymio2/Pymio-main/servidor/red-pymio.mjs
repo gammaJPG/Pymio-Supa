@@ -41,9 +41,11 @@ export function zipFiles(files){
 
 const text = (value, max) => String(value ?? '').trim().slice(0, max);
 const applyMessageRetention=snapshot=>{
-  if(!snapshot||snapshot.is_pymium)return snapshot;
-  const cutoff=Date.now()-7*24*60*60*1000,isCurrent=item=>Date.parse(item.created_at)>=cutoff;
-  return {...snapshot,private_notifications:(snapshot.private_notifications||[]).filter(isCurrent),private_activity:(snapshot.private_activity||[]).filter(isCurrent)};
+  if(!snapshot)return snapshot;
+  const cutoff=Date.now()-7*24*60*60*1000,activity=snapshot.private_activity||[],latestByThread=new Map();
+  for(const item of activity){const thread=String(item.thread_id||item.id),created=Date.parse(item.created_at);latestByThread.set(thread,Math.max(latestByThread.get(thread)||0,Number.isFinite(created)?created:0));}
+  const activeThreads=new Set([...latestByThread].filter(([,latest])=>latest>=cutoff).map(([thread])=>thread)),isCurrent=item=>activeThreads.has(String(item.thread_id||item.id));
+  return {...snapshot,private_notifications:(snapshot.private_notifications||[]).filter(isCurrent),private_activity:activity.filter(isCurrent)};
 };
 const bodyJson = async (req, max = 24_576) => {
   const chunks=[]; let bytes=0;
@@ -170,12 +172,12 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(url.pathname==='/api/network/messages/stream' && req.method==='GET'){
       let cursor=String(req.headers['last-event-id']||url.searchParams.get('after')||'');
       if(!Number.isFinite(Date.parse(cursor)))cursor=new Date().toISOString();
-      let closed=false;req.on?.('close',()=>{closed=true;});
+      let closed=false;const emitted=new Set();res.on?.('close',()=>{closed=true;});
       res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});
       res.write('retry: 2500\n\n');
-      for(let attempt=0;attempt<12&&!closed;attempt+=1){
-        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>Date.parse(cursor)).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-        if(messages.length){cursor=messages.at(-1).created_at;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,realtime_messages:messages})}\n\n`);}
+      for(let attempt=0;attempt<150&&!closed;attempt+=1){
+        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),cursorTime=Date.parse(cursor),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>=cursorTime&&!emitted.has(String(item.id))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+        if(messages.length){for(const item of messages)emitted.add(String(item.id));cursor=messages.at(-1).created_at;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,realtime_messages:messages})}\n\n`);}
         else res.write(': keep-alive\n\n');
         await new Promise(resolve=>setTimeout(resolve,2000));
       }

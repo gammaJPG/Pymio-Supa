@@ -109,7 +109,21 @@ test('RED Pymio: presenta chat, retención por plan y recepción en tiempo real'
   const migration=await readFile(new URL('../supabase/migrations/025_message_retention.sql',import.meta.url),'utf8');
   assert.match(html,/data-message-retention/);assert.match(source,/data-chat-compose/);assert.match(source,/new EventSource/);
   assert.match(source,/pymio-chat-tray/);assert.match(source,/pending-\$\{crypto\.randomUUID\(\)\}/);assert.match(source,/threadId=form\.dataset\.thread/);assert.match(css,/pymio-chat-popup/);assert.match(css,/color:#8b6900/);assert.match(server,/text\/event-stream/);
+  assert.match(server,/res\.on\?\.\('close'/);assert.doesNotMatch(server,/req\.on\?\.\('close'/);assert.match(server,/Date\.parse\(item\.created_at\)>=cursorTime/);assert.match(server,/attempt<150/);
   assert.match(migration,/interval '7 days'/);assert.match(migration,/is_pymium/);
+});
+
+test('RED Pymio: mantiene un chat por pareja y elimina el hilo completo tras siete días',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const server=await readFile(new URL('./red-pymio.mjs',import.meta.url),'utf8');
+  const migration=await readFile(new URL('../supabase/migrations/026_stable_expiring_chats.sql',import.meta.url),'utf8');
+  assert.match(source,/confirmed\?returned:\[\.\.\.returned,\{\.\.\.optimistic,pending:false\}\]/);
+  assert.match(source,/después de 7 días sin actividad/);
+  assert.match(server,/latestByThread/);
+  assert.match(migration,/keep_direct_messages_in_active_thread/);
+  assert.match(migration,/HAVING max\(activity\.created_at\) >= now\(\) - interval '7 days'/);
+  assert.match(migration,/HAVING max\(expired\.created_at\) < now\(\) - interval '7 days'/);
+  assert.doesNotMatch(migration,/is_pymium/);
 });
 
 test('RED Pymio: al unirse reemplaza el botón por Miembro - Usuario',async()=>{

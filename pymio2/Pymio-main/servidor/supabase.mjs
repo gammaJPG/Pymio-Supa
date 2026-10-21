@@ -135,7 +135,10 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
           requestJson('/rest/v1/rpc/pymio_network',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo consultar RED Pymio.'),
           requestJson('/rest/v1/rpc/pymio_connections',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar las conexiones.'),
           requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar los beneficios de la cuenta.'),
-          requestJson('/rest/v1/rpc/pymio_community_roles',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({company:String(companyId)})},'No se pudieron consultar tus roles de comunidad.'),
+          requestJson('/rest/v1/rpc/pymio_community_roles',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({company:String(companyId)})},'No se pudieron consultar tus roles de comunidad.').catch(error=>{
+            if(error.code==='PGRST202'||/pymio_community_roles/i.test(error.message||''))return {managed_communities:[],community_role_notifications:[]};
+            throw error;
+          }),
         ]);
         return {...network,...connections,...entitlements,...communityRoles};
       }

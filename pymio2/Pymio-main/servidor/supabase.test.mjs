@@ -142,6 +142,14 @@ test('Supabase RED Pymio: cerrar y abrir conserva las respuestas del formulario'
   assert.ok(calls.every(call=>!call.url.pathname.endsWith('/community_form_responses')));
 });
 
+test('Supabase RED Pymio: sigue cargando la red cuando aún falta la migración de roles',async()=>{
+  const calls=[],fetchImpl=async url=>{calls.push(String(url));if(String(url).includes('pymio_community_roles'))return Response.json({code:'PGRST202',message:'Could not find the function public.pymio_community_roles(company) in the schema cache'},{status:404});return Response.json({communities:[{id:'community-1'}],businesses:[{company_id:'2'}]});};
+  const db=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl}),result=await db.network('bootstrap','1',{});
+  assert.equal(result.communities.length,1);assert.equal(result.businesses.length,1);
+  assert.deepEqual(result.managed_communities,[]);assert.deepEqual(result.community_role_notifications,[]);
+  assert.equal(calls.length,4);
+});
+
 test('HTTP Auth: Google entra a la plataforma y completa dentro solo el nombre del negocio',async()=>{
   const registrations=[],updates=[],passwordUpdates=[],marked=[];
   const pool={
