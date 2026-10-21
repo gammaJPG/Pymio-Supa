@@ -10,7 +10,7 @@ function request(path,method='GET',body){
   return {req,url:new URL(path,'http://localhost')};
 }
 async function call(path,method,body,resultOverride){
-  const calls=[],result=resultOverride||{profile:{},businesses:[],communities:[{id:'10000000-0000-4000-8000-000000000001',joined:true}],posts:[]},pool={network:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;}};
+  const calls=[],result=resultOverride||{profile:{},businesses:[],communities:[{id:'10000000-0000-4000-8000-000000000001',joined:true}],posts:[]},pool={network:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},community:async(operation,company,payload)=>{calls.push({operation,company,payload});return result;},entitlements:async(operation,company,payload)=>{calls.push({operation,company,payload});return {can_create_community:true};}};
   let response;const send=(status,data)=>(response={status,data});
   const input=request(path,method,body);await atenderRedPymio(input.req,pool,'7',send,input.url);
   return {calls,response};
@@ -34,7 +34,7 @@ test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()
   assert.equal((await call('/api/network/profile','PUT',{displayName:'Negocio',avatarPath:'archivo.png'})).response.status,400);
   assert.equal((await call('/api/network/communities','POST',{name:' ',description:'Vacía'})).response.status,400);
   const community=await call('/api/network/communities','POST',{name:'Comercio Local',description:'Un espacio para colaborar',industry:'Retail',isOpen:'on'});
-  assert.equal(community.response.status,201);assert.equal(community.calls[0].operation,'community.create');assert.equal(community.calls[0].payload.is_open,true);
+  assert.equal(community.response.status,201);assert.equal(community.calls[0].operation,'community.create');assert.equal(community.calls[0].payload.is_open,true);assert.equal(community.calls[1].operation,'bootstrap');
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos'})).response.status,400);
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos',eventAt:'fecha imposible'})).response.status,400);
   const post=await call('/api/network/posts','POST',{kind:'benefit',title:'Descuento',description:'Oferta para la red'});
@@ -54,11 +54,31 @@ test('RED Pymio: valida el identificador antes de unirse a una comunidad',async(
 test('RED Pymio: conecta empresas y permite responder solicitudes privadas',async()=>{
   assert.equal((await call('/api/network/connections/7','POST')).response.status,400);
   const connected=await call('/api/network/connections/12','POST');
-  assert.equal(connected.response.status,200);assert.deepEqual(connected.calls[0],{operation:'connection.create',company:'7',payload:{target_company_id:'12'}});
+  assert.equal(connected.response.status,200);assert.deepEqual(connected.calls[0],{operation:'connection.request',company:'7',payload:{target_company_id:'12'}});
   const requestId='20000000-0000-4000-8000-000000000002',communityId='10000000-0000-4000-8000-000000000001';
   assert.equal((await call(`/api/network/communities/${communityId}/requests/${requestId}`,'POST',{decision:'otro'})).response.status,400);
   const approved=await call(`/api/network/communities/${communityId}/requests/${requestId}`,'POST',{decision:'approve'});
   assert.equal(approved.response.status,200);assert.deepEqual(approved.calls[0].payload,{community_id:communityId,request_id:requestId,decision:'approve'});
+});
+
+test('RED Pymio: conserva conversaciones privadas, metadatos y estado de lectura',async()=>{
+  const threadId='30000000-0000-4000-8000-000000000003';
+  const sent=await call('/api/network/connections/12/activity','POST',{kind:'quote_request',subject:'Cotización de embalajes',body:'Necesitamos 100 unidades.',threadId,metadata:{deadline:'2026-11-10',budget:'250000'}});
+  assert.equal(sent.response.status,201);assert.equal(sent.calls[0].operation,'activity.create');
+  assert.equal(sent.calls[0].payload.thread_id,threadId);assert.equal(sent.calls[0].payload.metadata.deadline,'2026-11-10');
+  const read=await call(`/api/network/activity/${threadId}/read`,'POST');
+  assert.equal(read.response.status,200);assert.deepEqual(read.calls[0],{operation:'activity.read',company:'7',payload:{thread_id:threadId}});
+  assert.equal((await call('/api/network/connections/12/activity','POST',{kind:'message',subject:'',body:'Sin asunto'})).response.status,400);
+});
+
+test('RED Pymio: ofrece una bandeja de comunicaciones y formularios distintos por acción',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  const migration=await readFile(new URL('../supabase/migrations/020_private_communications_center.sql',import.meta.url),'utf8');
+  for(const label of ['Mensajes y oportunidades','Recibidos','Enviados','Selecciona una conversación'])assert.match(html,new RegExp(label));
+  for(const field of ['Fecha límite','Presupuesto estimado','Válida hasta','Detalle de la solicitud','Condiciones de la oferta'])assert.match(source,new RegExp(field));
+  assert.match(source,/data-thread-reply/);assert.match(source,/activity\/.+\/read/);
+  assert.match(migration,/thread_id uuid/);assert.match(migration,/'private_activity'/);assert.match(migration,/operation='activity\.read'/);
 });
 
 test('RED Pymio: al unirse reemplaza el botón por Miembro - Usuario',async()=>{

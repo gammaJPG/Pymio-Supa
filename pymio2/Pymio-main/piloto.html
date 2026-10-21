@@ -10,12 +10,12 @@
 <meta name="description" content="Pymio: gestión, datos y conexiones para tu pyme en un solo lugar.">
 <meta name="color-scheme" content="light dark">
 <title>Pymio — Gestión inteligente para pymes</title>
-<script src="theme.js?v=1"></script>
+<script src="theme.js?v=2"></script>
 <link rel="stylesheet" href="style.css" type="text/css">
-<link rel="stylesheet" href="ecosistema.css?v=139" type="text/css">
-<link rel="stylesheet" href="pymio.css?v=139" type="text/css">
+<link rel="stylesheet" href="ecosistema.css?v=158" type="text/css">
+<link rel="stylesheet" href="pymio.css?v=153" type="text/css">
 <link rel="stylesheet" href="dashboard.css">
-<link rel="stylesheet" href="inicio.css">
+<link rel="stylesheet" href="inicio.css?v=152">
 <link rel="stylesheet" href="pymium.css">
 <link rel="stylesheet" href="theme.css?v=3">
 <link rel="stylesheet" href="mobile.css?v=152">
@@ -67,7 +67,13 @@
       </div>
       <div class="field credential-field">
         <label for="password">Contraseña</label>
-        <input type="password" id="password" autocomplete="current-password" minlength="8" required placeholder="Tu contraseña">
+        <div class="password-input">
+          <input type="password" id="password" autocomplete="current-password" minlength="8" required placeholder="Tu contraseña">
+          <button type="button" class="password-toggle" id="password-toggle" aria-label="Mostrar contraseña" aria-controls="password" aria-pressed="false" title="Mostrar contraseña">
+            <svg class="password-toggle__show" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></svg>
+            <svg class="password-toggle__hide" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/><path d="m4 4 16 16"/></svg>
+          </button>
+        </div>
       </div>
       <button type="submit" class="btn-primary"><span data-auth-submit>Entrar a Pymio</span><span aria-hidden="true">↗</span></button>
       <div class="auth-divider" id="auth-divider"><span>o continúa con</span></div>
@@ -145,6 +151,7 @@
           <div class="network-nav-menu" aria-label="Secciones de RED Pymio" hidden>
             <button type="button" data-network-view="pymio"><span>Mi Pymio</span></button>
             <button type="button" data-network-view="red"><span>Mi RED</span></button>
+            <button type="button" data-network-view="comunicaciones"><span>Comunicaciones</span></button>
             <button type="button" data-network-view="explorar"><span>Explorar y Matchmaking</span></button>
             <button type="button" data-network-view="eventos"><span>Eventos y Beneficios</span></button>
           </div>
@@ -184,6 +191,7 @@
             </div>
           </button>
           <div class="profile-menu" id="profile-menu" role="menu" hidden>
+            <button type="button" id="profile-communications-btn" role="menuitem">Mensajes y comunicaciones</button>
             <button type="button" id="profile-password-btn" role="menuitem">Establecer o modificar contraseña</button>
           </div>
         </div>
@@ -251,7 +259,7 @@
 
 
 
-<script type="module" src="app.js?v=152"></script>
+<script type="module" src="app.js?v=158"></script>
 <script type="module" src="mobile.js?v=152"></script>
 </body>
 </html>

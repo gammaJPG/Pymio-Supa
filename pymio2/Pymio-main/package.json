@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "npm --prefix servidor start",
-    "test": "npm --prefix servidor test"
+    "test": "npm --prefix servidor test",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs",
+    "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy"
   }
 }

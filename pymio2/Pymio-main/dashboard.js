@@ -60,8 +60,8 @@ function setupInicio(){
   const preview=document.querySelector('.home-preview');
   if(!preview||preview.dataset.ready)return;
   preview.dataset.ready='true';let selected=2;const cards=[...preview.querySelectorAll('[data-preview]')];
-  const select=index=>{selected=(index+cards.length)%cards.length;cards.forEach((card,i)=>{card.dataset.offset=String((i-selected+cards.length+2)%cards.length-2);card.setAttribute('aria-pressed',String(i===selected));});document.getElementById('preview-current').textContent=cards[selected].querySelector('.preview-label').textContent;};
-  cards.forEach((card,i)=>card.addEventListener('click',()=>select(i)));
+  const select=index=>{selected=(index+cards.length)%cards.length;cards.forEach((card,i)=>{const active=i===selected;card.dataset.offset=String((i-selected+cards.length+2)%cards.length-2);card.setAttribute('aria-pressed',String(active));card.tabIndex=active?-1:0;});document.getElementById('preview-current').textContent=cards[selected].querySelector('.preview-label').textContent;};
+  preview.querySelector('.preview-stage').addEventListener('click',event=>{const card=event.target.closest('[data-preview]');if(!card)return;const offset=Number(card.dataset.offset);if(offset<0)select(selected-1);else if(offset>0)select(selected+1);});
   preview.querySelectorAll('[data-preview-step]').forEach(button=>button.addEventListener('click',()=>select(selected+Number(button.dataset.previewStep))));
   preview.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();select(selected+(event.key==='ArrowRight'?1:-1));}});select(selected);
 }

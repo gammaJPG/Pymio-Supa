@@ -10,10 +10,13 @@ test('Tema: landing, acceso y plataforma comparten un selector persistente',asyn
     readFile(new URL('../piloto.html',import.meta.url),'utf8'),
     readFile(new URL('../sw.js',import.meta.url),'utf8'),
   ]);
-  assert.match(script,/pymio:theme/);assert.match(script,/prefers-color-scheme: dark/);
+  assert.match(script,/pymio:theme/);assert.match(script,/savedTheme\(\) \|\| 'light'/);
+  assert.doesNotMatch(script,/prefers-color-scheme: dark/);
   assert.match(script,/Cambiar a modo claro/);assert.match(script,/Cambiar a modo oscuro/);
   assert.match(script,/theme-toggle--login/);assert.match(script,/theme-toggle--app/);
+  assert.match(platform,/id="password-toggle"/);assert.match(platform,/aria-label="Mostrar contraseña"/);
+  assert.match(await readFile(new URL('../app.js',import.meta.url),'utf8'),/setPasswordVisibility/);
   assert.match(styles,/html\[data-theme=dark\]/);assert.match(styles,/prefers-reduced-motion:reduce/);
-  for(const html of [landing,platform]){assert.match(html,/theme\.js\?v=1/);assert.match(html,/theme\.css\?v=3/);}
+  for(const html of [landing,platform]){assert.match(html,/theme\.js\?v=2/);assert.match(html,/theme\.css\?v=3/);}
   assert.match(worker,/theme\.css/);assert.match(worker,/theme\.js/);
 });

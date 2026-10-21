@@ -845,6 +845,10 @@ button{min-height:44px;}
 .inventario-card-placeholder span{font-size:37px;line-height:1;}
 .inventario-card-placeholder small{font-size:10px;}
 .inventario-card-price{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);}
+.inventario-card-action{width:100%;min-height:42px;margin-top:10px;padding:10px 16px;border:1px solid #e3c65f;border-radius:8px;background:var(--accent);color:#34301e;font-family:inherit;font-size:12px;font-weight:600;line-height:1.2;cursor:pointer;box-shadow:none;transition:background 180ms ease,border-color 180ms ease,transform 180ms ease;}
+.inventario-card-action:hover{border-color:#d6b74d;background:#e3c364;color:#34301e;}
+.inventario-card-action:focus-visible{outline:3px solid #d5ac3066;outline-offset:2px;}
+.inventario-card-action:active{transform:translateY(1px);}
 .inventario-simple-mensaje{grid-column:1/-1;margin:0;padding:48px 20px;text-align:center;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--muted);font-size:12px;}
 @media(max-width:600px){.inventario-vista-control{margin-bottom:10px}.inventario-vista-control select{min-height:40px;font-size:12px}.inventario-simple-grid{gap:12px}.inventario-producto-card{min-height:275px}.inventario-card-media{height:185px}}
 

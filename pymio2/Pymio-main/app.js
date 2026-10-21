@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=152';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=158';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
@@ -88,6 +88,7 @@ async function cargarSecciones() {
   let diagnosticNotifications=[];
   let syncNotifications=[];
   let activityNotifications=[];
+  let networkNotifications=[];
   const readNotificationIds=new Set();
 
   function activityNotificationKey(){return `pymio:activity-notifications:${currentSession?.companyId||'unknown'}`;}
@@ -126,6 +127,12 @@ async function cargarSecciones() {
   const authSwitch=document.getElementById('auth-switch'),authDivider=document.getElementById('auth-divider'),loginHint=document.getElementById('login-hint');
   const googleAccount=document.getElementById('google-account'),googleSetupCancel=document.getElementById('google-setup-cancel');
   const credentialFields=[...document.querySelectorAll('.credential-field')],username=document.getElementById('username'),password=document.getElementById('password');
+  const passwordToggle=document.getElementById('password-toggle');
+  function setPasswordVisibility(visible){
+    password.type=visible?'text':'password';passwordToggle.setAttribute('aria-pressed',String(visible));
+    const label=visible?'Ocultar contraseña':'Mostrar contraseña';passwordToggle.setAttribute('aria-label',label);passwordToggle.title=label;
+  }
+  passwordToggle.addEventListener('click',()=>setPasswordVisibility(password.type==='password'));
   const businessName=document.getElementById('business-name'),ownerName=document.getElementById('owner-name');
   const ownerNameField=ownerName.closest('.field');
   loginForm.reset();
@@ -174,7 +181,7 @@ async function cargarSecciones() {
     loginError.style.display='none';
   }
   document.querySelectorAll('[data-auth-mode]').forEach(button=>button.addEventListener('click',()=>{
-    if(authMode!==button.dataset.authMode){loginForm.reset();['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');}
+    if(authMode!==button.dataset.authMode){loginForm.reset();['username','password','business-name','owner-name'].forEach(id=>document.getElementById(id).value='');setPasswordVisibility(false);}
     setAuthMode(button.dataset.authMode);
   }));
   googleSetupCancel.onclick=()=>{const clean=new URL(location.href);clean.searchParams.delete('google_setup');history.replaceState(null,'',clean);loginForm.reset();setAuthMode('login');};
@@ -246,6 +253,9 @@ async function cargarSecciones() {
   });
   document.getElementById('profile-password-btn').addEventListener('click',()=>{
     profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');passwordForm.reset();passwordError.hidden=true;passwordDialog.showModal();
+  });
+  document.getElementById('profile-communications-btn').addEventListener('click',()=>{
+    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
   });
   document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
   businessSetupDialog.addEventListener('cancel',event=>event.preventDefault());
@@ -331,7 +341,7 @@ async function cargarSecciones() {
   bellBtn.setAttribute('aria-controls', 'notif-panel');
 
   function currentNotifications(){
-    return [...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
+    return [...networkNotifications,...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
   }
   function markCurrentNotificationsRead(){
     for(const notification of currentNotifications())if(!notification.requiresResolution)readNotificationIds.add(notification.id);
@@ -369,6 +379,11 @@ async function cargarSecciones() {
         const action=document.createElement('button');action.type='button';action.className='notif-action';action.textContent='Descartar intento';
         action.onclick=async()=>{if(!confirm('Este movimiento fue rechazado y no se aplicó al inventario. ¿Quieres descartarlo de las notificaciones?'))return;action.disabled=true;await discardSyncIssue(notification.issueId);};
         content.append(action);
+      }
+      if(notification.connectionRequestId){
+        const actions=document.createElement('div');actions.className='notif-request-actions';
+        for(const [decision,label] of [['accept','Aceptar'],['reject','Rechazar']]){const action=document.createElement('button');action.type='button';action.className=`notif-action ${decision}`;action.textContent=label;action.onclick=event=>{event.stopPropagation();document.dispatchEvent(new CustomEvent('red-pymio-connection-decision',{detail:{id:notification.connectionRequestId,decision}}));};actions.append(action);}
+        const profile=document.createElement('button');profile.type='button';profile.className='notif-action';profile.textContent='Ver perfil';profile.onclick=event=>{event.stopPropagation();closeNotifications();navigateTo('ecosistema',false,true);mostrarVistaEcosistema('explorar');document.dispatchEvent(new CustomEvent('red-pymio-view-profile',{detail:{companyId:notification.companyId}}));};actions.append(profile);content.append(actions);
       }
       item.append(dot,content);list.append(item);
     }
@@ -434,6 +449,13 @@ async function cargarSecciones() {
     }
   });
   document.addEventListener('diagnostico-actualizado',event=>{diagnosticNotifications=event.detail?.alerts||[];renderNotifications();});
+  document.addEventListener('red-pymio-notifications',event=>{
+    const detail=event.detail||{},kindLabels={message:'Mensaje privado',quote_request:'Solicitud de cotización',offer:'Oferta exclusiva',business_update:'Novedad de negocio'};
+    const requests=(detail.requests||[]).map(request=>({id:`connection-request-${request.id}`,connectionRequestId:request.id,companyId:request.company_id,sev:'info',title:`${request.display_name} quiere conectar contigo`,desc:'Acepta para agregar esta empresa a Mi RED y habilitar las herramientas privadas.',time:new Date(request.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),requiresResolution:true}));
+    const responses=(detail.responses||[]).map(response=>({id:`connection-accepted-${response.id}`,companyId:response.company_id,sev:'success',title:`${response.display_name} aceptó tu solicitud`,desc:'La empresa ya forma parte de Mi RED. Ahora pueden enviarse mensajes, cotizaciones, ofertas y novedades.',time:new Date(response.responded_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),destination:'ecosistema'}));
+    const activity=(detail.activity||[]).map(item=>({id:`private-${item.id}`,companyId:item.company_id,sev:'success',title:`${kindLabels[item.kind]||'Actividad privada'} · ${item.display_name}`,desc:[item.subject,item.body].filter(Boolean).join(' — '),time:new Date(item.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),destination:'ecosistema'}));
+    networkNotifications=[...requests,...responses,...activity];renderNotifications();
+  });
   document.addEventListener('diagnostico-actividad',event=>{
     if(currentSession?.demo)return;
     const detail=event.detail||{};

@@ -1,14 +1,13 @@
 (() => {
   const storageKey = 'pymio:theme';
   const root = document.documentElement;
-  const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)');
   const savedTheme = () => {
     try {
       const value = localStorage.getItem(storageKey);
       return value === 'light' || value === 'dark' ? value : null;
     } catch { return null; }
   };
-  const preferredTheme = () => savedTheme() || (systemDark?.matches ? 'dark' : 'light');
+  const preferredTheme = () => savedTheme() || 'light';
   function updateControls(theme) {
     const dark = theme === 'dark';
     document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
@@ -47,5 +46,4 @@
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountControls, { once: true });
   else mountControls();
-  systemDark?.addEventListener?.('change', (event) => { if (!savedTheme()) applyTheme(event.matches ? 'dark' : 'light'); });
 })();

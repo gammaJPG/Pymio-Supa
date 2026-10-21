@@ -108,6 +108,9 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const postUpdate=/^\/api\/network\/posts\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityDecision=/^\/api\/network\/communities\/([0-9a-f-]{36})\/requests\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const connection=/^\/api\/network\/connections\/([1-9]\d{0,18})$/i.exec(url.pathname);
+    const connectionDecision=/^\/api\/network\/connection-requests\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    const privateActivity=/^\/api\/network\/connections\/([1-9]\d{0,18})\/activity$/i.exec(url.pathname);
+    const privateActivityRead=/^\/api\/network\/activity\/([0-9a-f-]{36})\/read$/i.exec(url.pathname);
     const communityDetail=/^\/api\/network\/communities\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityProfile=/^\/api\/network\/communities\/([0-9a-f-]{36})\/profile$/i.exec(url.pathname);
     const communityImageUpload=/^\/api\/network\/communities\/([0-9a-f-]{36})\/images\/(avatar|banner)$/i.exec(url.pathname);
@@ -125,7 +128,7 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       requireJson(req);return send(200,await pool.network('profile.update',companyId,cleanProfile(await bodyJson(req))));
     }
     if(url.pathname==='/api/network/communities' && req.method==='POST'){
-      requireJson(req);return send(201,await pool.network('community.create',companyId,cleanCommunity(await bodyJson(req))));
+      requireJson(req);await pool.entitlements('community.create',companyId,cleanCommunity(await bodyJson(req)));return send(201,await pool.network('bootstrap',companyId,{}));
     }
     if(communityImagePublic&&req.method==='GET'){
       const [,communityId,kind,id]=communityImagePublic,body=await pool.getCommunityImage(`${communityId}/${kind}/${id}.webp`);res.writeHead(200,{'Content-Type':'image/webp','Content-Length':body.length,'Cache-Control':'public, max-age=86400'});return res.end(body);
@@ -191,10 +194,26 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     }
     if(connection && req.method==='POST'){
       if(String(connection[1])===String(companyId))return send(400,{error:'Tu negocio ya forma parte de tu propia red.'});
-      return send(200,await pool.network('connection.create',companyId,{target_company_id:connection[1]}));
+      return send(200,await pool.network('connection.request',companyId,{target_company_id:connection[1]}));
     }
+    if(connectionDecision && req.method==='POST'){
+      requireJson(req);const data=await bodyJson(req,1024),decision=data.decision==='accept'?'accept':data.decision==='reject'?'reject':'';
+      if(!decision)return send(400,{error:'Selecciona si deseas aceptar o rechazar la solicitud.'});
+      return send(200,await pool.network('connection.respond',companyId,{request_id:connectionDecision[1],decision}));
+    }
+    if(privateActivity && req.method==='POST'){
+      requireJson(req);const data=await bodyJson(req,16*1024),kind=['message','quote_request','offer','business_update'].includes(data.kind)?data.kind:'';
+      const subject=text(data.subject,140),message=text(data.body,5000),threadId=text(data.threadId,36),metadata=data.metadata&&typeof data.metadata==='object'?data.metadata:{};
+      if(!kind||!subject||!message)return send(400,{error:'Completa el asunto y el contenido de la comunicación.'});
+      if(threadId&&!UUID.test(threadId))return send(400,{error:'La conversación seleccionada no es válida.'});
+      const cleanMetadata={deadline:text(metadata.deadline,10),budget:text(metadata.budget,30),valid_until:text(metadata.validUntil,10)};
+      return send(201,await pool.network('activity.create',companyId,{target_company_id:privateActivity[1],kind,subject,body:message,thread_id:threadId||null,metadata:cleanMetadata}));
+    }
+    if(privateActivityRead&&req.method==='POST')return send(200,await pool.network('activity.read',companyId,{thread_id:privateActivityRead[1]}));
     if(url.pathname==='/api/network/posts' && req.method==='POST'){
-      requireJson(req);return send(201,await pool.network('post.create',companyId,cleanPost(await bodyJson(req))));
+      requireJson(req);const post=cleanPost(await bodyJson(req));
+      if(post.kind==='event'&&post.community_id){const detail=await pool.community('detail',companyId,{community_id:post.community_id});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden crear eventos en esta comunidad.'});}
+      return send(201,await pool.network('post.create',companyId,post));
     }
     if(postUpdate && req.method==='PUT'){
       if(!UUID.test(postUpdate[1]))return send(400,{error:'La publicación seleccionada no es válida.'});

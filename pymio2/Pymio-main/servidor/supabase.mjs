@@ -129,6 +129,15 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       }, 'No se encontró un espacio de trabajo para esta cuenta.');
     },
     async network(operation, companyId, data = {}) {
+      const connectionOperation=operation.startsWith('connection.')||operation.startsWith('activity.');
+      if(operation==='bootstrap'){
+        const [network,connections,entitlements]=await Promise.all([
+          requestJson('/rest/v1/rpc/pymio_network',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo consultar RED Pymio.'),
+          requestJson('/rest/v1/rpc/pymio_connections',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar las conexiones.'),
+          requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar los beneficios de la cuenta.'),
+        ]);
+        return {...network,...connections,...entitlements};
+      }
       if(operation==='post.update'){
         const {post_id,...payload}=data;
         const query=`/rest/v1/network_posts?id=eq.${encodeURIComponent(post_id)}&author_company_id=eq.${encodeURIComponent(String(companyId))}`;
@@ -140,10 +149,13 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
           method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation:'bootstrap',company:String(companyId),payload:{}}),
         },'No se pudo actualizar RED Pymio.');
       }
-      return requestJson('/rest/v1/rpc/pymio_network', {
+      return requestJson(connectionOperation?'/rest/v1/rpc/pymio_connections':'/rest/v1/rpc/pymio_network', {
         method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ operation, company: String(companyId), payload: data }),
       }, 'No se pudo consultar RED Pymio. Revisa la configuración de la red.');
+    },
+    async entitlements(operation,companyId,data={}){
+      return requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo validar el plan de la cuenta.');
     },
     async community(operation,companyId,data={}){
       return requestJson('/rest/v1/rpc/pymio_community',{
