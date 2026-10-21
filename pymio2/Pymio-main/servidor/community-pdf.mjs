@@ -1,6 +1,5 @@
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
 import {unzipSync} from 'fflate';
-import sharp from 'sharp';
 
 const PAGE={width:595.28,height:841.89,margin:52};
 const printable=value=>String(value??'').replace(/[^\x09\x0a\x0d\x20-\x7e\xa0-\xff]/g,'?');
@@ -54,7 +53,16 @@ async function addMarkerPage(document,label,{index,response,answer}){
 }
 
 async function addImagePage(document,buffer,name){
-  const png=await sharp(buffer).rotate().png().toBuffer(),image=await document.embedPng(png),page=document.addPage([PAGE.width,PAGE.height]);
+  const ext=extension(name);
+  let image;
+  if(ext==='png')image=await document.embedPng(buffer);
+  else if(ext==='jpg')image=await document.embedJpg(buffer);
+  else{
+    const sharp=(await import('sh'+'arp')).default;
+    const png=await sharp(buffer).rotate().png().toBuffer();
+    image=await document.embedPng(png);
+  }
+  const page=document.addPage([PAGE.width,PAGE.height]);
   const maxWidth=PAGE.width-PAGE.margin*2,maxHeight=PAGE.height-PAGE.margin*2,scale=Math.min(maxWidth/image.width,maxHeight/image.height,1),width=image.width*scale,height=image.height*scale;
   page.drawImage(image,{x:(PAGE.width-width)/2,y:(PAGE.height-height)/2,width,height});
   page.drawText(printable(name),{x:PAGE.margin,y:24,size:8,font:await document.embedFont(StandardFonts.Helvetica),color:rgb(.35,.37,.32)});
