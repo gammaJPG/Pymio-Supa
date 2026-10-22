@@ -77,7 +77,7 @@ DECLARE initial_admin uuid;
 BEGIN
   SELECT user_id INTO initial_admin FROM public.user_accounts WHERE lower(email)='tino@empresas.cl';
   IF initial_admin IS NULL THEN
-    RAISE EXCEPTION 'No existe la cuenta tino@empresas.cl. Crea o verifica la cuenta antes de aplicar 027_support_tickets.sql.';
+    RAISE EXCEPTION 'No existe la cuenta tino@empresas.cl. Crea o verifica la cuenta antes de aplicar 033_support_tickets.sql.';
   END IF;
   INSERT INTO public.pymio_global_admins(user_id,created_by) VALUES(initial_admin,initial_admin) ON CONFLICT(user_id) DO NOTHING;
 END $$;
