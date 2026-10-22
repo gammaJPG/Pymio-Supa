@@ -4,16 +4,17 @@ setupPymium();
 import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=168';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
-import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=152';
+import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=153';
 import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js?v=164';
+import { configureSupport } from './centro-ayuda.js';
 
 const apiUrl=apiBase;
 const browserFetch=window.fetch.bind(window);
 window.fetch=(input,options={})=>browserFetch(input,{...options,credentials:'include'});
 let currentSession=null;
 let businessViewsRefresh=null;
-const validTabs=new Set(['inicio','dashboard','movimientos','inventario','diagnostico','ecosistema']);
+const validTabs=new Set(['inicio','dashboard','movimientos','inventario','diagnostico','ecosistema','ayuda']);
 
 function refreshBusinessViews(){
   if(!currentSession || currentSession.demo)return Promise.resolve();
@@ -31,13 +32,14 @@ document.addEventListener('movimientos-sincronizados',refreshBusinessViews);
 let seccionesCargadas = false;
 async function cargarSecciones() {
   if (seccionesCargadas) return;
-  const vistas = await Promise.all(['inicio', 'dashboard', 'movimientos', 'inventario', 'diagnostico', 'ecosistema'].map(async nombre => {
+  const vistas = await Promise.all(['inicio', 'dashboard', 'movimientos', 'inventario', 'diagnostico', 'ecosistema', 'centro-ayuda'].map(async nombre => {
     const respuesta = await fetch(new URL(nombre + '.html?v=136', import.meta.url));
     if (!respuesta.ok) throw new Error(nombre + ': HTTP ' + respuesta.status);
     return { nombre, html: await respuesta.text() };
   }));
   for (const vista of vistas) {
-    document.querySelector('[data-section="' + vista.nombre + '"]').outerHTML = vista.html;
+    const sectionName=vista.nombre==='centro-ayuda'?'ayuda':vista.nombre;
+    document.querySelector('[data-section="' + sectionName + '"]').outerHTML = vista.html;
   }
   document.querySelectorAll('.filter-menu').forEach(menu => {
     const button = menu.querySelector('[data-filter-toggle]');
@@ -192,6 +194,11 @@ async function cargarSecciones() {
     loadReadNotifications();
     await cargarSecciones();
     await Promise.all([configureDashboard({companyId:session.companyId,demo:session.demo,apiUrl}),configureDiagnostics({companyId:session.companyId,apiUrl})]);
+    await configureSupport({session,apiUrl}).catch(error=>{
+      console.error('No se pudo iniciar el Centro de ayuda:',error);
+      const message=document.querySelector('[data-support-message]');
+      if(message){message.classList.add('error');message.textContent='El Centro de ayuda estará disponible cuando se aplique su migración.';}
+    });
     const business=session.businessName||'Mi negocio', role=session.demo?'Cuenta piloto':'Cuenta personal';
     const initials=business.split(/\s+/).filter(Boolean).slice(0,2).map(word=>word[0]).join('').toUpperCase()||'PY';
     document.getElementById('sidebar-account-type').textContent=role;
@@ -276,7 +283,7 @@ async function cargarSecciones() {
   });
 
   // ---------- NAV TABS ----------
-  const tabTitles = {inicio:'Inicio', dashboard:'Dashboard', diagnostico:'Diagnóstico', movimientos:'Movimientos', inventario:'Inventario', ecosistema:'RED Pymio'};
+  const tabTitles = {inicio:'Inicio', dashboard:'Dashboard', diagnostico:'Diagnóstico', movimientos:'Movimientos', inventario:'Inventario', ecosistema:'RED Pymio', ayuda:'Centro de ayuda'};
   function navigateTo(name, keyboard = false, focus = false) {
     const panel = document.getElementById('tab-' + name);
     if (!panel) return;

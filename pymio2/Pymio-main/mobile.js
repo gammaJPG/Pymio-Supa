@@ -138,6 +138,7 @@ document.querySelector('[data-mobile-pymium]')?.addEventListener('click', () => 
   closeSheets(false);
   document.querySelector('[data-pymium-open]')?.click();
 });
+document.querySelector('[data-mobile-help]')?.addEventListener('click',()=>{closeSheets(false);clickDesktopNav('ayuda');});
 document.querySelector('[data-mobile-logout]')?.addEventListener('click', () => document.getElementById('logout-btn')?.click());
 
 document.querySelectorAll('[data-mobile-action]').forEach(button => button.addEventListener('click', () => {

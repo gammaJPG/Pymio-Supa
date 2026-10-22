@@ -8,6 +8,7 @@ import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createSupabase } from './supabase.mjs';
 import { atenderMovimientos } from './movimientos.mjs';
+import { handleSupport } from './support.mjs';
 import { randomUUID, createHmac, createHash, timingSafeEqual } from 'node:crypto';
 
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
@@ -193,6 +194,7 @@ export function createInventoryServer(pool, origins, options = {}) {
     if (!companyId || !/^[1-9]\d*$/.test(companyId) || companyId.length > 18) {
       return send(400, { error: 'company_id debe ser un entero positivo.' });
     }
+    if(url.pathname.startsWith('/api/support/'))return handleSupport(req,pool,session,send,url);
     if(url.pathname.startsWith('/api/network/')){
       if(session?.demo)return send(403,{error:'La cuenta piloto conserva la vista de demostración de RED Pymio.'});
       return atenderRedPymio(req,pool,companyId,send,url,res);
