@@ -20,6 +20,7 @@
 <link rel="stylesheet" href="theme.css?v=3">
 <link rel="stylesheet" href="mobile.css?v=166">
 <link rel="stylesheet" href="dropdowns.css?v=1">
+<link rel="stylesheet" href="centro-ayuda.css?v=1">
 </head>
 <body>
 <a class="skip-link" href="#login-form">Saltar al contenido</a>
@@ -110,6 +111,7 @@
   <div class="mobile-sheet-handle" aria-hidden="true"></div><div class="mobile-sheet-head"><div><h2 id="mobile-more-title">Tu cuenta</h2><p>Negocio, preferencias y sesión.</p></div><button type="button" data-mobile-sheet-close aria-label="Cerrar">×</button></div>
   <div class="mobile-more-grid">
     <button type="button" data-mobile-pymium><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2L12 3Z" stroke-linejoin="round"/></svg></span><div><strong>Hazte Pymium</strong><small>Beneficios para tu pyme</small></div></button>
+    <button type="button" data-mobile-help><span aria-hidden="true">?</span><div><strong>Centro de ayuda</strong><small>Solicitudes y preguntas frecuentes</small></div></button>
   </div>
   <div class="mobile-account-row"><div class="avatar" data-mobile-avatar>PY</div><div><strong data-mobile-business>Tu negocio</strong><small data-mobile-role>Cuenta Pymio</small></div><button type="button" data-mobile-logout>Cerrar sesión</button></div>
 </section>
@@ -157,6 +159,9 @@
             <button type="button" data-network-view="eventos"><span>Eventos de Comunidades</span></button>
           </div>
         </div>
+        <button class="nav-item" data-tab="ayuda">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.5 2.5 0 0 1 4.8 1c0 1.8-2.5 2-2.5 3.7M12 17.5h.01" stroke-linecap="round"/></svg><span>Centro de ayuda</span>
+        </button>
       </nav>
       <div class="pymium-sidebar"><button type="button" class="pymium-trigger" data-pymium-open aria-label="Hazte Pymium"><span class="sidebar-note-mark bee-outline" aria-hidden="true"></span><span>Hazte Pymium</span></button></div>
       <div class="sidebar-note"><p>Las buenas decisiones<br>empiezan con tus datos.</p><span>Pymio · Gestión inteligente</span></div>
@@ -221,6 +226,7 @@
 
         <!-- ECOSISTEMA PYME -->
         <div data-section="ecosistema"></div>
+        <div data-section="ayuda"></div>
 
 
 
