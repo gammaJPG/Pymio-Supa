@@ -1,5 +1,6 @@
 <section class="tab-panel" id="tab-ecosistema" aria-label="RED Pymio">
-  <p class="ecosistema-feedback" role="status" aria-live="polite" hidden></p>
+  <p class="ecosistema-feedback" role="alert" hidden></p>
+  <p class="sr-only" data-network-live role="status" aria-live="polite"></p>
 
   <section class="subpanel active" id="sub-overview" role="tabpanel">
     <div class="docs-intro"><div><p class="section-kicker">Biblioteca para pymes</p><h2>Respuestas claras para las decisiones de cada día.</h2><p>Una selección de recursos breves para ordenar tu negocio, vender mejor y crecer con menos incertidumbre.</p></div><span class="docs-stamp">Guías Pymio<br><strong>2026</strong></span></div>
@@ -56,6 +57,9 @@
           <button type="button" data-communications-filter="groups" role="tab" aria-selected="false">Grupos</button>
         </div>
         <div class="communications-list" data-communications-list></div>
+        <button type="button" class="mobile-new-chat-button mobile-only" data-mobile-new-chat aria-label="Iniciar una conversación">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 18.5 3.5 21l4-1.25A9 9 0 1 0 3 12.5c0 2.35 1 4.47 2.62 6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v9m-4.5-4.5h9" stroke-linecap="round"/></svg>
+        </button>
       </aside>
       <section class="communications-detail" data-communications-detail aria-live="polite">
         <div class="communications-empty"><span aria-hidden="true">✉</span><h3>Selecciona una conversación</h3><p>Aquí podrás leer el historial completo y responder sin salir de Pymio.</p></div>
@@ -69,6 +73,19 @@
   </section>
 
   <dialog class="network-dialog" id="profile-view-dialog"><div class="public-profile"><button type="button" class="dialog-close profile-view-close" data-dialog-close aria-label="Cerrar">×</button><div class="public-profile-cover"><img data-public-banner-img alt="" hidden></div><div class="public-profile-avatar"><span data-public-initials>PY</span><img data-public-avatar-img alt="" hidden></div><div class="public-profile-body"><span class="section-kicker">Perfil de negocio</span><h2 data-public-name></h2><p class="public-profile-meta" data-public-meta></p><p class="public-profile-description" data-public-description></p><div class="match-badges" data-public-tags></div><section class="profile-community-roles" data-public-community-roles hidden></section><div class="public-profile-actions"><button type="button" class="btn" data-public-connect>Conectar</button></div><div class="social-links social-links-large" data-public-socials></div></div></div></dialog>
+
+  <dialog class="network-dialog mobile-new-chat-dialog" id="mobile-new-chat-dialog" aria-labelledby="mobile-new-chat-title">
+    <div class="mobile-new-chat-head">
+      <div><h2 id="mobile-new-chat-title">Nuevo mensaje</h2><p>Elige una empresa de tu red.</p></div>
+      <button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button>
+    </div>
+    <label class="mobile-recipient-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4" stroke-linecap="round"/></svg>
+      <span class="sr-only">Buscar empresa de tu red</span>
+      <input type="search" data-mobile-recipient-search placeholder="Buscar empresa" autocomplete="off" enterkeyhint="search">
+    </label>
+    <div class="mobile-recipient-list" data-mobile-recipient-list></div>
+  </dialog>
 
   <dialog class="network-dialog" id="private-activity-dialog"><form method="dialog" data-private-activity-form><div class="dialog-head"><div><span class="dialog-kicker" data-private-kicker>Comunicación entre conexiones</span><h2 data-private-title>Enviar mensaje privado</h2><p data-private-recipient></p></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><input type="hidden" name="companyId"><input type="hidden" name="kind"><input type="hidden" name="threadId"><div class="private-kind-fields" data-private-fields></div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn" data-private-submit>Enviar</button></div></form></dialog>
 

@@ -110,10 +110,23 @@ export function iniciarEcosistema({session,apiUrl}={}){
   const get=id=>root.querySelector('#'+id),demo=Boolean(session?.demo);
   let state=demo?structuredClone(demoData):{profile:null,businesses:[],connections:[],connection_requests:[],outgoing_connection_requests:[],connection_responses:[],private_notifications:[],private_activity:[],group_chats:[],communities:[],community_requests:[],posts:[]},products=[];
   let communityFilter='all',communityQuery='',communicationsFilter='all',communicationsQuery='',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null,realtimeSource=null,realtimeCursor='';
+  const mobileMessagingMedia=window.matchMedia('(max-width: 767px), (max-height: 500px) and (max-width: 950px)');
+  const isMobileMessagingViewport=()=>mobileMessagingMedia.matches;
   const favoriteStorageKey=`pymio:favorite-threads:${session?.companyId||'demo'}`;
   let favoriteThreads;try{favoriteThreads=new Set(JSON.parse(localStorage.getItem(favoriteStorageKey)||'[]'));}catch{favoriteThreads=new Set();}
   const feedback=root.querySelector('.ecosistema-feedback');
-  const announce=(message,type='success')=>{feedback.textContent=message;feedback.dataset.type=type;feedback.hidden=false;};
+  const liveStatus=root.querySelector('[data-network-live]');
+  let feedbackTimer=0,liveStatusTimer=0;
+  const hideFeedback=()=>{feedback.hidden=true;feedback.textContent='';delete feedback.dataset.type;};
+  const announce=(message,type='success')=>{
+    clearTimeout(feedbackTimer);clearTimeout(liveStatusTimer);hideFeedback();
+    if(type!=='error'){
+      liveStatus.textContent='';requestAnimationFrame(()=>{liveStatus.textContent=message;});
+      liveStatusTimer=setTimeout(()=>{liveStatus.textContent='';},1500);return;
+    }
+    feedback.textContent=message;feedback.dataset.type='error';feedback.hidden=false;
+    feedbackTimer=setTimeout(hideFeedback,7000);
+  };
   const buttonContent=new WeakMap();
   const setBusy=(button,busy,label)=>{
     if(busy&&!buttonContent.has(button))buttonContent.set(button,button.innerHTML);
@@ -212,6 +225,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   }
   function renderFloatingChats(){document.querySelectorAll('.pymio-floating-chat[data-chat-thread]').forEach(card=>renderFloatingChat(card,card.dataset.chatThread));}
   async function openFloatingChat(threadId){
+    if(isMobileMessagingViewport())return;
     const tray=ensureChatTray(),id=String(threadId),existing=tray.querySelector(`.pymio-floating-chat[data-chat-thread="${CSS.escape(id)}"]`);tray.querySelector(`.pymio-chat-popup[data-notification-thread="${CSS.escape(id)}"]`)?.remove();
     if(existing){renderFloatingChat(existing,id);existing.querySelector('textarea')?.focus();return;}
     const card=document.createElement('section');card.className='pymio-floating-chat';card.dataset.chatThread=id;tray.prepend(card);renderFloatingChat(card,id);updateChatTray(tray);card.querySelector('textarea')?.focus();
@@ -221,10 +235,12 @@ export function iniciarEcosistema({session,apiUrl}={}){
   function showRealtimeMessage(message){
     const threadId=`direct:${message.company_id||message.sender_company_id}`;
     if(currentView==='comunicaciones'&&String(activeThreadId)===threadId&&document.visibilityState==='visible')return;
+    if(isMobileMessagingViewport())return;
     const tray=ensureChatTray(),open=tray.querySelector(`.pymio-floating-chat[data-chat-thread="${CSS.escape(threadId)}"]`);if(open){renderFloatingChat(open,threadId);return;}
     tray.querySelector(`.pymio-chat-popup[data-notification-thread="${CSS.escape(threadId)}"]`)?.remove();const sender=message.display_name||message.sender_name||'RED Pymio',card=document.createElement('article');card.className='pymio-chat-popup';card.dataset.notificationThread=threadId;card.innerHTML=`<span class="chat-popup-avatar" aria-hidden="true">${escapeHTML(initials(sender))}</span><div class="chat-popup-copy"><span class="chat-popup-kicker"><i></i> Mensaje nuevo</span><strong>${escapeHTML(sender)}</strong><p>Te acaba de enviar un mensaje · ${escapeHTML(message.body||'Abre la conversación para leerlo.')}</p></div><button type="button" class="chat-popup-open">Ver chat</button><button type="button" class="chat-popup-close" aria-label="Cerrar">×</button>`;
     card.querySelector('.chat-popup-close').addEventListener('click',()=>{card.remove();updateChatTray(tray);});card.querySelector('.chat-popup-open').addEventListener('click',()=>openFloatingChat(threadId));tray.prepend(card);updateChatTray(tray);setTimeout(()=>{if(card.isConnected){card.remove();updateChatTray(tray);}},15000);
   }
+  mobileMessagingMedia.addEventListener?.('change',event=>{if(event.matches)document.querySelector('.pymio-chat-tray')?.remove();});
   function startRealtimeMessages(){
     if(demo||!window.EventSource||realtimeSource)return;
     const received=(state.private_activity||[]).filter(item=>item.direction==='received').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));realtimeCursor=received[0]?.created_at||new Date().toISOString();
@@ -325,16 +341,30 @@ export function iniciarEcosistema({session,apiUrl}={}){
   root.querySelector('[data-open-own-profile]').addEventListener('click',()=>openPublicProfile(state.profile||{}));
 
   const privateDialog=get('private-activity-dialog'),privateForm=root.querySelector('[data-private-activity-form]');
+  const mobileNewChatDialog=get('mobile-new-chat-dialog'),mobileRecipientSearch=root.querySelector('[data-mobile-recipient-search]'),mobileRecipientList=root.querySelector('[data-mobile-recipient-list]');
+  function renderMobileRecipients(query=''){
+    const normalized=String(query).normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+    const rows=(state.connections||[]).filter(item=>!normalized||`${item.display_name||''} ${item.industry||''} ${item.location||''}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(normalized));
+    mobileRecipientList.innerHTML=rows.length?rows.map(item=>`<button type="button" class="mobile-recipient-row" data-mobile-recipient="${escapeHTML(item.company_id)}"><span class="mobile-recipient-avatar" aria-hidden="true">${avatarMarkup(item)}</span><span><strong>${escapeHTML(item.display_name||'Empresa de tu red')}</strong><small>${escapeHTML([item.industry,item.location].filter(Boolean).join(' · ')||'Conexión en Pymio')}</small></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`).join(''):emptyState(normalized?'No encontramos esa empresa':'Aún no tienes empresas en tu red',normalized?'Prueba con otro nombre.':'Conecta con una empresa para iniciar una conversación.');
+  }
   function openPrivateActivity(companyId,kind='message',threadId=''){
     const business=findBusiness(companyId);if(!business?.connected)return announce('Debes conectar con esta empresa antes de usar herramientas privadas.','error');
     const existing=communicationThreads().find(item=>item.type==='direct'&&String(item.otherId)===String(companyId)),info=privateKindInfo[kind]||privateKindInfo.message;privateForm.reset();privateForm.elements.companyId.value=companyId;privateForm.elements.kind.value=kind;privateForm.elements.threadId.value=existing?.threadId||'';privateDialog.querySelector('[data-private-kicker]').textContent=info.kicker;privateDialog.querySelector('[data-private-title]').textContent=info.title;privateDialog.querySelector('[data-private-recipient]').textContent=`Para ${business.display_name} · se añadirá a su conversación`;privateDialog.querySelector('[data-private-fields]').innerHTML=`<div class="network-form-grid">${info.extras||''}<label class="field field-wide"><span>${escapeHTML(info.body)}</span><textarea name="body" maxlength="5000" rows="6" required placeholder="${escapeHTML(info.bodyPlaceholder)}"></textarea></label></div>`;privateDialog.querySelector('[data-private-submit]').textContent=info.submit;openDialog(privateDialog);
   }
   root.addEventListener('click',event=>{const button=event.target.closest('[data-private-action]');if(button)openPrivateActivity(button.dataset.privateCompany,button.dataset.privateAction);});
+  root.querySelector('[data-mobile-new-chat]')?.addEventListener('click',()=>{mobileRecipientSearch.value='';renderMobileRecipients();openDialog(mobileNewChatDialog);requestAnimationFrame(()=>mobileRecipientSearch.focus());});
+  mobileRecipientSearch?.addEventListener('input',event=>renderMobileRecipients(event.target.value));
+  async function openCommunicationThread(threadId){
+    activeThreadId=String(threadId);renderCommunications();
+    if(demo)return;
+    try{const thread=communicationThreads().find(item=>String(item.id)===String(activeThreadId));if(thread?.type==='group'){const result=await request(`/api/network/communities/${encodeURIComponent(thread.communityId)}/messages/read`,{method:'POST'});state={...state,group_chats:result.group_chats||state.group_chats};}else if(thread?.threadId){const connectionState=await request(`/api/network/activity/${encodeURIComponent(thread.threadId)}/read`,{method:'POST'});state={...state,...connectionState};}renderCommunications();publishNetworkNotifications();}catch{}
+  }
   root.addEventListener('click',async event=>{
     const filter=event.target.closest('[data-communications-filter]');if(filter){communicationsFilter=filter.dataset.communicationsFilter;renderCommunications();return;}
     if(event.target.closest('[data-chat-back]')){activeThreadId='';renderCommunications();root.querySelector('[data-communications-search]')?.focus({preventScroll:true});return;}
     const favorite=event.target.closest('[data-thread-favorite]');if(favorite){const id=String(favorite.dataset.threadFavorite);favoriteThreads.has(id)?favoriteThreads.delete(id):favoriteThreads.add(id);localStorage.setItem(favoriteStorageKey,JSON.stringify([...favoriteThreads]));renderCommunications();return;}
-    const threadButton=event.target.closest('[data-thread-open]');if(threadButton){activeThreadId=threadButton.dataset.threadOpen;renderCommunications();if(!demo){try{const thread=communicationThreads().find(item=>String(item.id)===String(activeThreadId));if(thread?.type==='group'){const result=await request(`/api/network/communities/${encodeURIComponent(thread.communityId)}/messages/read`,{method:'POST'});state={...state,group_chats:result.group_chats||state.group_chats};}else if(thread?.threadId){const connectionState=await request(`/api/network/activity/${encodeURIComponent(thread.threadId)}/read`,{method:'POST'});state={...state,...connectionState};}renderCommunications();publishNetworkNotifications();}catch{}}return;}
+    const recipient=event.target.closest('[data-mobile-recipient]');if(recipient){const companyId=recipient.dataset.mobileRecipient,existing=communicationThreads().find(item=>item.type==='direct'&&String(item.otherId)===String(companyId));closeDialog(mobileNewChatDialog);if(existing)setTimeout(()=>openCommunicationThread(existing.id),190);else setTimeout(()=>openPrivateActivity(companyId,'message'),190);return;}
+    const threadButton=event.target.closest('[data-thread-open]');if(threadButton){await openCommunicationThread(threadButton.dataset.threadOpen);return;}
     const reply=event.target.closest('[data-thread-reply]');if(reply)openPrivateActivity(reply.dataset.privateCompany,reply.dataset.privateKind,activeThreadId);
   });
   root.querySelector('[data-communications-search]')?.addEventListener('input',event=>{communicationsQuery=event.target.value;renderCommunications();});
