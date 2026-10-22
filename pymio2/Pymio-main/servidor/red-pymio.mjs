@@ -4,9 +4,9 @@ import {detectImageFormat,validateImageFormat} from './image-formats.mjs';
 import {summarize,exportResponses} from './community-results.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const FILE_GROUPS={text:new Set(['docx','txt']),pdf:new Set(['pdf']),image:new Set(['jpg','png','webp'])};
+const FILE_GROUPS={text:new Set(['docx','txt']),pdf:new Set(['pdf']),image:new Set(['jpg','png','webp','heic','heif'])};
 const FILE_EXTENSIONS=new Set(Object.values(FILE_GROUPS).flatMap(group=>[...group]));
-const FILE_MIMES={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',txt:'text/plain; charset=utf-8',pdf:'application/pdf',jpg:'image/jpeg',png:'image/png',webp:'image/webp'};
+const FILE_MIMES={docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',txt:'text/plain; charset=utf-8',pdf:'application/pdf',jpg:'image/jpeg',png:'image/png',webp:'image/webp',heic:'image/heic',heif:'image/heif'};
 const crcTable=Array.from({length:256},(_,n)=>{let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
 const crc32=buffer=>{let c=0xffffffff;for(const byte of buffer)c=crcTable[(c^byte)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
 const safeName=value=>String(value||'archivo').normalize('NFKD').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').slice(0,120)||'archivo';
@@ -18,6 +18,10 @@ const validFileBody=(extension,body)=>{
   if(extension==='jpg')return body[0]===0xff&&body[1]===0xd8&&body[2]===0xff;
   if(extension==='png')return body.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]));
   if(extension==='webp')return body.subarray(0,4).toString()==='RIFF'&&body.subarray(8,12).toString()==='WEBP';
+  if(['heic','heif'].includes(extension)){
+    const brand=body.subarray(8,12).toString().toLowerCase();
+    return body.length>=12&&body.subarray(4,8).toString()==='ftyp'&&['heic','heix','hevc','hevx','mif1','msf1'].includes(brand);
+  }
   return false;
 };
 function cleanFormQuestions(input){
@@ -133,13 +137,18 @@ function cleanPost(data){
     if(!Number.isFinite(parsed))throw Object.assign(new Error(message),{status:400});
     return new Date(parsed).toISOString();
   };
-  const schedule=data.schedule==='range'?'range':'single',start=dateValue(data.eventAt,'La fecha inicial del evento no es válida.'),end=schedule==='range'?dateValue(data.endsAt,'La fecha final del evento no es válida.'):null;
-  const result={kind:'event',title:text(data.title,140),description:text(data.description,700),location:text(data.location,160),event_at:start,expires_at:end,community_id:data.communityId||null};
+  const start=dateValue(data.eventAt,'La fecha inicial del evento no es válida.'),duration=['day','week','month','custom'].includes(data.duration)?data.duration:data.schedule==='range'?'custom':'day',eventMode=['online','in_person','hybrid'].includes(data.eventMode)?data.eventMode:'';
+  let end=duration==='custom'?dateValue(data.endsAt,'La fecha final del evento no es válida.'):null;
+  if(start&&duration!=='custom'){const finish=new Date(start);if(duration==='day')finish.setUTCDate(finish.getUTCDate()+1);else if(duration==='week')finish.setUTCDate(finish.getUTCDate()+7);else{const day=finish.getUTCDate();finish.setUTCDate(1);finish.setUTCMonth(finish.getUTCMonth()+1);const lastDay=new Date(Date.UTC(finish.getUTCFullYear(),finish.getUTCMonth()+1,0)).getUTCDate();finish.setUTCDate(Math.min(day,lastDay));}end=finish.toISOString();}
+  const rawLatitude=data.latitude===''||data.latitude==null?null:Number(data.latitude),rawLongitude=data.longitude===''||data.longitude==null?null:Number(data.longitude),hasCoordinates=rawLatitude!==null||rawLongitude!==null;
+  if(!eventMode)throw Object.assign(new Error('Selecciona si el evento es Online, Presencial o Ambos.'),{status:400});
+  if(hasCoordinates&&(!Number.isFinite(rawLatitude)||!Number.isFinite(rawLongitude)||rawLatitude < -90||rawLatitude > 90||rawLongitude < -180||rawLongitude > 180))throw Object.assign(new Error('La ubicación seleccionada en el mapa no es válida.'),{status:400});
+  const result={kind:'event',title:text(data.title,140),description:text(data.description,700),event_mode:eventMode,request_attendance:[true,'true','on','1'].includes(data.requestAttendance),location:eventMode==='online'?'':text(data.location,160),latitude:eventMode==='online'?null:rawLatitude,longitude:eventMode==='online'?null:rawLongitude,event_at:start,expires_at:end,community_id:data.communityId||null};
   if(data.kind&&data.kind!=='event')throw Object.assign(new Error('Solo se pueden publicar eventos de comunidades.'),{status:400});
   if(!result.title || !result.description)throw Object.assign(new Error('Completa el título y la descripción del evento.'),{status:400});
   if(!result.event_at)throw Object.assign(new Error('Indica cuándo comienza el evento.'),{status:400});
   if(!result.community_id||!UUID.test(result.community_id))throw Object.assign(new Error('Selecciona una comunidad válida.'),{status:400});
-  if(schedule==='range'&&!result.expires_at)throw Object.assign(new Error('Indica cuándo termina el evento.'),{status:400});
+  if(duration==='custom'&&!result.expires_at)throw Object.assign(new Error('Indica cuándo termina el evento.'),{status:400});
   if(result.expires_at&&Date.parse(result.expires_at)<=Date.parse(result.event_at))throw Object.assign(new Error('La fecha final debe ser posterior a la fecha de inicio.'),{status:400});
   return result;
 }
@@ -162,16 +171,25 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const communityMessages=/^\/api\/network\/communities\/([0-9a-f-]{36})\/messages$/i.exec(url.pathname);
     const communityMessagesRead=/^\/api\/network\/communities\/([0-9a-f-]{36})\/messages\/read$/i.exec(url.pathname);
     const eventParticipation=/^\/api\/network\/events\/([0-9a-f-]{36})\/participation$/i.exec(url.pathname);
+    const communityMembership=/^\/api\/network\/communities\/([0-9a-f-]{36})\/membership$/i.exec(url.pathname);
     const formStatus=/^\/api\/network\/forms\/([0-9a-f-]{36})\/(close|open)$/i.exec(url.pathname);
     const formResponses=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses$/i.exec(url.pathname);
     const formDelete=/^\/api\/network\/forms\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const formResults=/^\/api\/network\/forms\/([0-9a-f-]{36})\/results$/i.exec(url.pathname);
     const formUpload=/^\/api\/network\/forms\/([0-9a-f-]{36})\/responses\/([0-9a-f-]{36})\/questions\/([0-9a-f-]{36})\/file$/i.exec(url.pathname);
     const formZip=/^\/api\/network\/forms\/([0-9a-f-]{36})\/files\.zip$/i.exec(url.pathname);
+    const communityEvent=/^\/api\/network\/events\/([0-9a-f-]{36})$/i.exec(url.pathname);
+    const communityEventResponse=/^\/api\/network\/events\/([0-9a-f-]{36})\/response$/i.exec(url.pathname);
     if(url.pathname==='/api/network/notifications'&&req.method==='GET')return send(200,{notifications:await pool.getCommunityNotifications(companyId)});
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
       const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],eventParticipations=typeof pool.getEventParticipationSummary==='function'?await pool.getEventParticipationSummary(companyId):[];
       return send(200,{...snapshot,group_chats:groupChats,event_participations:eventParticipations});
+    }
+    if(communityEvent&&req.method==='GET')return send(200,await pool.getCommunityEventDetail(communityEvent[1],companyId));
+    if(communityEventResponse&&req.method==='POST'){
+      requireJson(req);const data=await bodyJson(req,1024),status=['interested','attending','not_attending'].includes(data.status)?data.status:'';
+      if(!status)return send(400,{error:'Selecciona una respuesta válida para el evento.'});
+      return send(200,await pool.setCommunityEventResponse(communityEventResponse[1],companyId,status));
     }
     if(url.pathname==='/api/network/messages/stream' && req.method==='GET'){
       let cursor=String(req.headers['last-event-id']||url.searchParams.get('after')||'');
@@ -192,6 +210,11 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     }
     if(url.pathname==='/api/network/communities' && req.method==='POST'){
       requireJson(req);await pool.entitlements('community.create',companyId,cleanCommunity(await bodyJson(req)));return send(201,await pool.network('bootstrap',companyId,{}));
+    }
+    if(url.pathname==='/api/network/communities/leave'&&req.method==='POST'){
+      requireJson(req);const data=await bodyJson(req,1024),communityId=text(data.communityId,36);
+      if(!UUID.test(communityId))return send(400,{error:'Selecciona una comunidad válida.'});
+      return send(200,await pool.leaveCommunity(communityId,companyId));
     }
     if(communityImagePublic&&req.method==='GET'){
       const [,communityId,kind,id]=communityImagePublic,body=await pool.getCommunityImage(`${communityId}/${kind}/${id}.webp`),format=detectImageFormat(body);if(!format)return send(502,{error:'La imagen almacenada no tiene un formato válido.'});res.writeHead(200,{'Content-Type':format.mime,'Content-Length':body.length,'Cache-Control':'public, max-age=86400'});return res.end(body);
@@ -216,6 +239,8 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(communityMessagesRead&&req.method==='POST')return send(200,{group_chats:await pool.markCommunityChatRead(communityMessagesRead[1],companyId)});
     if(eventParticipation&&req.method==='POST'){requireJson(req);const data=await bodyJson(req,1024),type=data.type==='applicant'?'applicant':data.type==='attendee'?'attendee':'';if(!type)return send(400,{error:'Selecciona c\u00f3mo participar\u00e1s en el evento.'});return send(200,await pool.registerEventParticipation(eventParticipation[1],companyId,type));}
     if(eventParticipation&&req.method==='DELETE')return send(200,await pool.removeEventParticipation(eventParticipation[1],companyId));
+    // Se conserva para clientes anteriores que todavía usan DELETE /membership.
+    if(communityMembership&&req.method==='DELETE')return send(200,await pool.leaveCommunity(communityMembership[1],companyId));
     if(url.pathname==='/api/network/forms' && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024),questions=Array.isArray(data.questions)?data.questions:[];
       return send(201,await pool.community('form.create',companyId,{community_id:data.communityId,title:text(data.title,140),questions:cleanFormQuestions(questions)}));
@@ -232,12 +257,13 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       return send(200,{response:await pool.getCommunityFormResponse(formResponses[1],companyId),createdByCurrentUser:String(meta.created_by_company_id)===String(companyId)});
     }
     if(formResponses && req.method==='POST'){
-      requireJson(req);const data=await bodyJson(req,64*1024);if(!UUID.test(data.responseId||''))return send(400,{error:'La respuesta no es válida.'});
+      requireJson(req);const data=await bodyJson(req,1024*1024);if(!UUID.test(data.responseId||''))return send(400,{error:'La respuesta no es válida.'});
       const detail=await pool.community('form.get',companyId,{form_id:formResponses[1]}),form=detail.forms?.[0];
       if(form?.status!=='open')return send(403,{error:'Este formulario ya está cerrado y no admite cambios.'});
       const meta=await pool.getCommunityFormMeta(formResponses[1]);if(String(meta.created_by_company_id)===String(companyId))return send(403,{error:'La persona que creó el formulario no puede responderlo.'});
       const existing=await pool.getCommunityFormResponse(formResponses[1],companyId),responseId=existing?.id||data.responseId;
-      const answers=(Array.isArray(data.answers)?data.answers:[]).map(answer=>({question_id:answer.questionId,text_value:text(answer.textValue,5000),option_value:text(answer.optionValue,120),file_path:text(answer.filePath,500),file_name:text(answer.fileName,180),mime_type:text(answer.mimeType,120),compressed:Boolean(answer.compressed)}));
+      const rawAnswers=Array.isArray(data.answers)?data.answers:[];if(rawAnswers.some(answer=>String(answer?.textValue??'').length>5000))return send(400,{error:'Cada respuesta de texto admite hasta 5.000 caracteres.'});
+      const answers=rawAnswers.map(answer=>({question_id:answer.questionId,text_value:text(answer.textValue,5000),option_value:text(answer.optionValue,120),file_path:text(answer.filePath,500),file_name:text(answer.fileName,180),mime_type:text(answer.mimeType,120),compressed:Boolean(answer.compressed)}));
       if(answers.some(answer=>!UUID.test(answer.question_id||'')||(answer.file_path&&!answer.file_path.startsWith(`${companyId}/${formResponses[1]}/${responseId}/${answer.question_id}/`))))return send(400,{error:'Las respuestas contienen archivos no válidos.'});
       const saved=await pool.saveCommunityFormResponse(formResponses[1],companyId,responseId,answers,existing),activeFiles=new Set(answers.map(answer=>answer.file_path).filter(Boolean));
       for(const oldPath of saved.previousFiles||[])if(!activeFiles.has(oldPath))await pool.deleteCommunityFile(oldPath).catch(()=>{});
@@ -250,13 +276,13 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
       const originalName=safeName(decodeURIComponent(req.headers['x-file-name']||'archivo')),extension=originalName.split('.').pop().toLowerCase(),allowed=new Set(fileGroups(question).flatMap(group=>[...FILE_GROUPS[group]]));if(!FILE_EXTENSIONS.has(extension)||!allowed.has(extension))return send(415,{error:'El formato de este archivo no está permitido para la pregunta.'});
       const chunks=[];let bytes=0;for await(const chunk of req){bytes+=chunk.length;if(bytes>12*1024*1024)return send(413,{error:'El archivo original es demasiado grande.'});chunks.push(chunk);}const original=Buffer.concat(chunks);
       if(!validFileBody(extension,original))return send(415,{error:'El contenido del archivo no coincide con su extensión.'});
-      const alreadyCompressed=['pdf','docx','webp','jpg','png'].includes(extension),candidate=alreadyCompressed?original:deflateRawSync(original,{level:9}),compressed=!alreadyCompressed&&candidate.length<original.length,stored=compressed?candidate:original;
+      const alreadyCompressed=['pdf','docx','webp','jpg','png','heic','heif'].includes(extension),candidate=alreadyCompressed?original:deflateRawSync(original,{level:9}),compressed=!alreadyCompressed&&candidate.length<original.length,stored=compressed?candidate:original;
       if(stored.length>2.5*1024*1024)return send(413,{error:'El archivo supera 2,5 MB después de comprimirlo.'});
       const path=`${companyId}/${formId}/${responseId}/${questionId}/${randomUUID()}.bin`;await pool.uploadCommunityFile(path,stored);return send(201,{filePath:path,fileName:originalName,mimeType:FILE_MIMES[extension],compressed});
     }
     if(formZip && req.method==='GET'){
       const data=await pool.getCommunityFormResults(formZip[1],companyId);
-      const archive=await exportResponses(data,pool,zipFiles),downloadName=safeName(data.form.title)+'.zip';res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="respuestas.zip"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,'Content-Length':archive.length});return res.end(archive);
+      const archive=await exportResponses(data,pool,zipFiles),downloadName=`Respuestas Formulario - ${safeName(data.form.title)}.zip`,asciiName=downloadName.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^\x20-\x7e]/g,'');res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,'Content-Length':archive.length});return res.end(archive);
     }
     if(communityJoin && req.method==='POST'){
       if(!UUID.test(communityJoin[1]))return send(400,{error:'La comunidad seleccionada no es válida.'});

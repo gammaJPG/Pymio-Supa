@@ -18,6 +18,19 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     }
     return result;
   };
+  const missingEventColumns=error=>error?.code==='42703'||error?.code==='PGRST204'||/event_mode|latitude|longitude|request_attendance/i.test(error?.message||'');
+  const activeEvents=events=>(events||[]).filter(item=>!item.expires_at||Date.parse(item.expires_at)>Date.now());
+  const legacyEventPayload=data=>{const {event_mode,latitude,longitude,request_attendance,...legacy}=data;return legacy;};
+  const purgeExpiredEvents=()=>requestJson(`/rest/v1/network_posts?kind=eq.event&expires_at=not.is.null&expires_at=lte.${encodeURIComponent(new Date().toISOString())}`,{method:'DELETE',headers:{...headers,Prefer:'return=minimal'}},'No se pudieron limpiar los eventos vencidos.').catch(()=>null);
+  const enrichEvents=async events=>{
+    if(!Array.isArray(events)||!events.length)return events||[];
+    const ids=[...new Set(events.map(item=>item.id).filter(Boolean))];if(!ids.length)return events;
+    try{
+      const rows=await requestJson(`/rest/v1/network_posts?id=in.(${encodeURIComponent(ids.join(','))})&select=id,event_mode,request_attendance,location,latitude,longitude,expires_at`,{headers},'No se pudieron completar los datos de los eventos.'),byId=new Map(rows.map(item=>[item.id,item]));
+      return activeEvents(events.map(item=>({...item,event_mode:'online',request_attendance:false,...byId.get(item.id)})));
+    }catch(error){if(!missingEventColumns(error))throw error;const rows=await requestJson(`/rest/v1/network_posts?id=in.(${encodeURIComponent(ids.join(','))})&select=id,location,expires_at`,{headers},'No se pudieron completar las fechas de los eventos.'),byId=new Map(rows.map(item=>[item.id,item]));return activeEvents(events.map(item=>({...item,event_mode:item.event_mode||'online',request_attendance:false,...byId.get(item.id)})));}
+  };
+  const enrichCommunityDetail=async result=>result&&Array.isArray(result.events)?{...result,events:await enrichEvents(result.events)}:result;
   const uploadStorageImage = async (bucket, path, body, mimeType='image/webp') => {
     let response;
     try {
@@ -137,6 +150,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async network(operation, companyId, data = {}) {
       const connectionOperation=operation.startsWith('connection.')||operation.startsWith('activity.');
       if(operation==='bootstrap'){
+        await purgeExpiredEvents();
         const [network,connections,entitlements,communityRoles]=await Promise.all([
           requestJson('/rest/v1/rpc/pymio_network',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo consultar RED Pymio.'),
           requestJson('/rest/v1/rpc/pymio_connections',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudieron consultar las conexiones.'),
@@ -146,7 +160,14 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
             throw error;
           }),
         ]);
-        return {...network,...connections,...entitlements,...communityRoles};
+        network.posts=await enrichEvents(network.posts||[]);return {...network,...connections,...entitlements,...communityRoles};
+      }
+      if(operation==='post.create'){
+        const insert=payload=>requestJson('/rest/v1/network_posts',{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({author_company_id:String(companyId),...payload})},'No se pudo publicar el evento.');
+        let created;try{created=await insert(data);}catch(error){if(!missingEventColumns(error))throw error;created=await insert(legacyEventPayload(data));}
+        if(!Array.isArray(created)||!created.length)throw Object.assign(new Error('No se pudo publicar el evento.'),{status:502});
+        const result=await requestJson('/rest/v1/rpc/pymio_network',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation:'bootstrap',company:String(companyId),payload:{}})},'No se pudo actualizar RED Pymio.');
+        result.posts=await enrichEvents(result.posts||[]);return result;
       }
       if(operation==='post.update'){
         const {post_id,...payload}=data;
@@ -155,13 +176,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         if(payload.community_id!==existing[0].community_id)throw Object.assign(new Error('No puedes mover el evento a otra comunidad.'),{status:400});
         await this.requireCommunityAdmin(existing[0].community_id,companyId);
         const query=`/rest/v1/network_posts?id=eq.${encodeURIComponent(post_id)}&community_id=eq.${encodeURIComponent(existing[0].community_id)}&kind=eq.event`;
-        const updated=await requestJson(query,{
-          method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(payload),
-        },'No se pudo actualizar la publicación.');
+        const patch=body=>requestJson(query,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)},'No se pudo actualizar la publicación.');
+        let updated;try{updated=await patch(payload);}catch(error){if(!missingEventColumns(error))throw error;updated=await patch(legacyEventPayload(payload));}
         if(!Array.isArray(updated)||!updated.length)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
-        return requestJson('/rest/v1/rpc/pymio_network',{
+        const result=await requestJson('/rest/v1/rpc/pymio_network',{
           method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation:'bootstrap',company:String(companyId),payload:{}}),
-        },'No se pudo actualizar RED Pymio.');
+        },'No se pudo actualizar RED Pymio.');result.posts=await enrichEvents(result.posts||[]);return result;
       }
       if(operation==='post.delete'){
         const existing=await requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(data.post_id)}&kind=eq.event&select=id,community_id&limit=1`,{headers},'No se pudo identificar el evento.');
@@ -180,12 +200,21 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       return requestJson('/rest/v1/rpc/pymio_entitlements',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data})},'No se pudo validar el plan de la cuenta.');
     },
     async community(operation,companyId,data={}){
+      if(operation==='profile.update'){
+        const communityId=data.community_id,{community_id,...profile}=data;
+        await this.requireCommunityAdmin(communityId,companyId);
+        const updated=await requestJson(`/rest/v1/communities?id=eq.${encodeURIComponent(communityId)}`,{
+          method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(profile),
+        },'No se pudo actualizar la comunidad.');
+        if(!Array.isArray(updated)||!updated.length)throw Object.assign(new Error('La comunidad ya no está disponible.'),{status:404});
+        return this.community('detail',companyId,{community_id:communityId});
+      }
       if(operation==='admin.set'){
         const roleRequest={company:String(companyId),community_id:data.community_id,target_company_id:String(data.target_company_id),is_admin:Boolean(data.is_admin)};
         try{
-          return await requestJson('/rest/v1/rpc/pymio_community_admin_set',{
+          return await enrichCommunityDetail(await requestJson('/rest/v1/rpc/pymio_community_admin_set',{
             method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(roleRequest),
-          },'No se pudo actualizar el rol de este miembro.');
+          },'No se pudo actualizar el rol de este miembro.'));
         }catch(error){
           if(error.code!=='PGRST202'&&!/pymio_community_admin_set/i.test(error.message||''))throw error;
           const actor=encodeURIComponent(String(companyId)),target=encodeURIComponent(String(data.target_company_id)),community=encodeURIComponent(data.community_id);
@@ -195,19 +224,62 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
           if(!targetMember)throw Object.assign(new Error('La empresa no pertenece a esta comunidad.'),{status:404});
           if(targetMember.role==='owner')throw Object.assign(new Error('No puedes modificar el rol del creador de la comunidad.'),{status:409});
           if(!roleRequest.is_admin&&targetMember.role==='admin'&&actorMember.role!=='owner')throw Object.assign(new Error('Solo el creador de la comunidad puede retirar administradores.'),{status:403});
-          return requestJson('/rest/v1/rpc/pymio_community',{
+          return enrichCommunityDetail(await requestJson('/rest/v1/rpc/pymio_community',{
             method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
-          },'No se pudo actualizar el rol de este miembro.');
+          },'No se pudo actualizar el rol de este miembro.'));
         }
       }
-      return requestJson('/rest/v1/rpc/pymio_community',{
+      return enrichCommunityDetail(await requestJson('/rest/v1/rpc/pymio_community',{
         method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
-      },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.');
+      },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.'));
+    },
+    async leaveCommunity(communityId,companyId){
+      const community=encodeURIComponent(communityId),company=encodeURIComponent(String(companyId));
+      const memberships=await requestJson(`/rest/v1/community_members?community_id=eq.${community}&company_id=eq.${company}&select=role&limit=1`,{headers},'No se pudo verificar tu membresía en la comunidad.'),membership=memberships[0];
+      if(!membership)throw Object.assign(new Error('Ya no perteneces a esta comunidad.'),{status:404});
+      if(membership.role==='owner')throw Object.assign(new Error('El creador no puede salirse de su comunidad.'),{status:403});
+      const deleted=await requestJson(`/rest/v1/community_members?community_id=eq.${community}&company_id=eq.${company}`,{method:'DELETE',headers:{...headers,Prefer:'return=representation'}},'No fue posible salir de la comunidad.');
+      if(!Array.isArray(deleted)||!deleted.length)throw Object.assign(new Error('Ya no perteneces a esta comunidad.'),{status:404});
+      return this.network('bootstrap',companyId,{});
     },
     async requireCommunityAdmin(communityId,companyId){
       const rows=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(communityId)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=role&limit=1`,{headers},'No se pudieron verificar tus permisos en la comunidad.');
       if(!['owner','admin'].includes(rows[0]?.role))throw Object.assign(new Error('Solo los administradores de la comunidad pueden crear o modificar eventos.'),{status:403});
       return true;
+    },
+    async getCommunityEventDetail(eventId,companyId){
+      const query=select=>requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(eventId)}&kind=eq.event&select=${select}&limit=1`,{headers},'No se pudo consultar el evento.');
+      let events;try{events=await query('id,community_id,title,description,event_mode,request_attendance,location,latitude,longitude,event_at,expires_at');}catch(error){if(!missingEventColumns(error))throw error;events=await query('id,community_id,title,description,location,event_at,expires_at');events=events.map(item=>({...item,event_mode:'online',request_attendance:false,latitude:null,longitude:null}));}const event=events[0];
+      if(!event?.community_id)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
+      if(event.expires_at&&Date.parse(event.expires_at)<=Date.now()){
+        await requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(eventId)}&kind=eq.event`,{method:'DELETE',headers:{...headers,Prefer:'return=minimal'}},'No se pudo retirar el evento vencido.').catch(()=>null);
+        throw Object.assign(new Error('El evento ya terminó y no está disponible.'),{status:404});
+      }
+      const [communities,viewerMembership,responses]=await Promise.all([
+        requestJson(`/rest/v1/communities?id=eq.${encodeURIComponent(event.community_id)}&select=id,name&limit=1`,{headers},'No se pudo identificar la comunidad.'),
+        requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(event.community_id)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=company_id,role&limit=1`,{headers},'No se pudo verificar tu membresía.'),
+        requestJson(`/rest/v1/community_event_responses?event_id=eq.${encodeURIComponent(eventId)}&select=company_id,status`,{headers},'No se pudieron consultar las respuestas al evento.'),
+      ]);
+      const isMember=Boolean(viewerMembership[0]),viewerResponse=responses.find(item=>String(item.company_id)===String(companyId))?.status||null,result={event:{...event,event_mode:event.event_mode||'online',request_attendance:Boolean(event.request_attendance)},community:communities[0]||{id:event.community_id,name:'Comunidad'},isMember,viewerResponse,interestedCount:responses.filter(item=>item.status==='interested').length};
+      if(!isMember||!result.event.request_attendance)return result;
+      const members=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(event.community_id)}&select=company_id,role`,{headers},'No se pudieron consultar los miembros.'),ids=members.map(item=>item.company_id);
+      const [accounts,profiles]=ids.length?await Promise.all([
+        requestJson(`/rest/v1/user_accounts?company_id=in.(${encodeURIComponent(ids.join(','))})&select=company_id,business_name,owner_name`,{headers},'No se pudieron identificar los miembros.'),
+        requestJson(`/rest/v1/business_profiles?company_id=in.(${encodeURIComponent(ids.join(','))})&select=company_id,display_name`,{headers},'No se pudieron identificar los perfiles.'),
+      ]):[[],[]],accountById=new Map(accounts.map(item=>[String(item.company_id),item])),profileById=new Map(profiles.map(item=>[String(item.company_id),item])),statusById=new Map(responses.map(item=>[String(item.company_id),item.status]));
+      const namedMembers=members.map(member=>{const id=String(member.company_id),account=accountById.get(id),profile=profileById.get(id);return {companyId:member.company_id,name:profile?.display_name||account?.owner_name||account?.business_name||'Usuario'};});
+      result.attendance={attending:namedMembers.filter(item=>statusById.get(String(item.companyId))==='attending'),notAttending:namedMembers.filter(item=>statusById.get(String(item.companyId))==='not_attending'),pending:namedMembers.filter(item=>!['attending','not_attending'].includes(statusById.get(String(item.companyId))))};return result;
+    },
+    async setCommunityEventResponse(eventId,companyId,status){
+      const query=select=>requestJson(`/rest/v1/network_posts?id=eq.${encodeURIComponent(eventId)}&kind=eq.event&select=${select}&limit=1`,{headers},'No se pudo consultar el evento.');
+      let events;try{events=await query('id,community_id,request_attendance');}catch(error){if(!missingEventColumns(error))throw error;events=await query('id,community_id');events=events.map(item=>({...item,request_attendance:false}));}const event=events[0];
+      if(!event?.community_id)throw Object.assign(new Error('El evento ya no está disponible.'),{status:404});
+      const memberships=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(event.community_id)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=company_id&limit=1`,{headers},'No se pudo verificar tu membresía.'),isMember=Boolean(memberships[0]);
+      if(isMember&&!event.request_attendance)throw Object.assign(new Error('Este evento no solicita confirmación de asistencia.'),{status:403});
+      if(isMember&&!['attending','not_attending'].includes(status))throw Object.assign(new Error('Selecciona si asistirás o no asistirás.'),{status:400});
+      if(!isMember&&status!=='interested')throw Object.assign(new Error('Quienes no son miembros solo pueden marcar que les interesa.'),{status:403});
+      await requestJson('/rest/v1/community_event_responses?on_conflict=event_id,company_id',{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({event_id:eventId,company_id:String(companyId),status,updated_at:new Date().toISOString()})},'No se pudo guardar tu respuesta.');
+      return this.getCommunityEventDetail(eventId,companyId);
     },
     async getCommunityNotifications(companyId){
       const memberships=await requestJson(`/rest/v1/community_members?company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id,role,joined_at,role_since`,{headers},'No se pudieron consultar tus comunidades.');

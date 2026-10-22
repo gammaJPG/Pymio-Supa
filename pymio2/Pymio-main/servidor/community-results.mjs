@@ -2,6 +2,7 @@ import {inflateRawSync} from 'node:zlib';
 import {consolidatedFilesPdf} from './community-pdf.mjs';
 
 export const safeComponent=value=>String(value||'Sin nombre').normalize('NFC').replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/[. ]+$/g,'').slice(0,180)||'Sin nombre';
+export const safeQuestionComponent=value=>String(value||'Sin nombre').normalize('NFC').replace(/[\\/:*?"<>|\x00-\x1f]/g,'').replace(/\s+/g,' ').trim().replace(/[. ]+$/g,'').slice(0,180)||'Sin nombre';
 export function summarize({form,responses}){
   const total=responses.length;
   return {total,questions:form.questions.filter(q=>q.type==='select').map(q=>({id:q.id,title:q.title,position:q.position,options:[...new Set(q.options)].map(option=>{
@@ -26,9 +27,6 @@ function textResponses(question,responses){
       '='.repeat(72),
       `INICIO DE RESPUESTA ${index+1}`,
       `Usuario: ${response.name}`,
-      `Empresa: ${response.company_id}`,
-      `Identificador de respuesta: ${response.id}`,
-      `Fecha: ${response.submitted_at}`,
       '',
       'Texto:',
       ...String(answer?.text_value||'Sin respuesta').split(/\r?\n/),
@@ -43,7 +41,7 @@ function textResponses(question,responses){
 export async function exportResponses(data,pool,zip){
   const {form,responses}=data,summary=summarize(data),files=[];
   for(const q of [...form.questions].sort((a,b)=>a.position-b.position)){
-    const folder=`Pregunta ${q.position} - ${safeComponent(q.title)}`;
+    const folder=`Pregunta ${q.position} - ${safeQuestionComponent(q.title)}`;
     files.push({name:folder+'/',body:Buffer.alloc(0)});
     if(q.type==='select'){
       const result=summary.questions.find(item=>item.id===q.id);
@@ -54,8 +52,8 @@ export async function exportResponses(data,pool,zip){
       const attachments=[];
       for(const r of responses){
         const a=r.answers?.find(a=>a.question_id===q.id);if(!a?.file_path)continue;
-        const stored=await pool.getCommunityFile(a.file_path),body=a.compressed?inflateRawSync(stored):stored;
-        files.push({name:`${folder}/${r.id} - ${safeComponent(r.name).slice(0,50)} - ${safeComponent(a.file_name).slice(0,80)}`,body});
+        const stored=await pool.getCommunityFile(a.file_path),body=a.compressed?inflateRawSync(stored):stored,extension=String(a.file_name||'').match(/\.(docx|txt|pdf|jpg|png|webp|heic|heif)$/i)?.[0].toLowerCase()||'';
+        files.push({name:`${folder}/Respuesta a Pregunta ${q.position} - ${safeComponent(r.name).slice(0,100)}${extension}`,body});
         attachments.push({response:r,answer:a,body});
       }
       files.push({name:`${folder}/Respuestas consolidadas.pdf`,body:await consolidatedFilesPdf(q,attachments)});

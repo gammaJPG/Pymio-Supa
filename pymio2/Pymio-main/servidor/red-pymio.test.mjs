@@ -45,32 +45,55 @@ test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()
   const community=await call('/api/network/communities','POST',{name:'Comercio Local',description:'Un espacio para colaborar',industry:'Retail',isOpen:'on'});
   assert.equal(community.response.status,201);assert.equal(community.calls[0].operation,'community.create');assert.equal(community.calls[0].payload.is_open,true);assert.equal(community.calls[1].operation,'bootstrap');
   assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos'})).response.status,400);
-  assert.equal((await call('/api/network/posts','POST',{kind:'event',title:'Encuentro',description:'Nos reunimos',eventAt:'fecha imposible'})).response.status,400);
+  assert.equal((await call('/api/network/posts','POST',{kind:'event',eventMode:'online',title:'Encuentro',description:'Nos reunimos',eventAt:'fecha imposible'})).response.status,400);
   const communityId='10000000-0000-4000-8000-000000000001';
-  assert.equal((await call('/api/network/posts','POST',{kind:'benefit',communityId,title:'Descuento',description:'Oferta para la red',eventAt:'2026-11-02T15:00:00-03:00'})).response.status,400);
-  assert.equal((await call('/api/network/posts','POST',{kind:'event',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'range',eventAt:'2026-11-02T15:00:00-03:00',endsAt:'2026-11-02T14:00:00-03:00'})).response.status,400);
-  const post=await call('/api/network/posts','POST',{kind:'event',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'range',eventAt:'2026-11-02T15:00:00-03:00',endsAt:'2026-11-03T00:59:00-03:00'});
+  assert.equal((await call('/api/network/posts','POST',{kind:'benefit',eventMode:'online',communityId,title:'Descuento',description:'Oferta para la red',eventAt:'2026-11-02T15:00:00-03:00'})).response.status,400);
+  assert.equal((await call('/api/network/posts','POST',{kind:'event',eventMode:'online',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'range',eventAt:'2026-11-02T15:00:00-03:00',endsAt:'2026-11-02T14:00:00-03:00'})).response.status,400);
+  const post=await call('/api/network/posts','POST',{kind:'event',eventMode:'hybrid',requestAttendance:'on',communityId,title:'Encuentro',description:'Nos reunimos',location:'Centro',latitude:'-33.45',longitude:'-70.66',schedule:'range',eventAt:'2026-11-02T15:00:00-03:00',endsAt:'2026-11-03T00:59:00-03:00'});
   assert.equal(post.response.status,201);assert.equal(post.calls[0].operation,'post.create');
   assert.equal(post.calls[0].payload.expires_at,'2026-11-03T03:59:00.000Z');
-  const updated=await call('/api/network/posts/10000000-0000-4000-8000-000000000001','PUT',{kind:'event',communityId,title:'Encuentro actualizado',description:'Nueva información',schedule:'single',eventAt:'2026-11-02T15:00:00-03:00'});
+  assert.equal(post.calls[0].payload.event_mode,'hybrid');assert.equal(post.calls[0].payload.request_attendance,true);assert.equal(post.calls[0].payload.latitude,-33.45);assert.equal(post.calls[0].payload.longitude,-70.66);
+  const updated=await call('/api/network/posts/10000000-0000-4000-8000-000000000001','PUT',{kind:'event',eventMode:'online',communityId,title:'Encuentro actualizado',description:'Nueva información',duration:'day',eventAt:'2026-11-02T15:00:00-03:00'});
   assert.equal(updated.response.status,200);assert.equal(updated.calls[0].operation,'post.update');
   assert.equal(updated.calls[0].payload.post_id,'10000000-0000-4000-8000-000000000001');
   assert.equal(updated.calls[0].payload.title,'Encuentro actualizado');
+  assert.equal(updated.calls[0].payload.expires_at,'2026-11-03T18:00:00.000Z');assert.equal(updated.calls[0].payload.request_attendance,false);
+  const weekly=await call('/api/network/posts','POST',{kind:'event',eventMode:'online',communityId,title:'Semana',description:'Evento semanal',duration:'week',eventAt:'2026-11-02T15:00:00-03:00'});
+  assert.equal(weekly.calls[0].payload.expires_at,'2026-11-09T18:00:00.000Z');
+  const monthly=await call('/api/network/posts','POST',{kind:'event',eventMode:'online',communityId,title:'Mes',description:'Evento mensual',duration:'month',eventAt:'2026-01-31T15:00:00-03:00'});
+  assert.equal(monthly.calls[0].payload.expires_at,'2026-02-28T18:00:00.000Z');
   const deleted=await call('/api/network/posts/10000000-0000-4000-8000-000000000001','DELETE');
   assert.equal(deleted.response.status,200);assert.deepEqual(deleted.calls[0],{operation:'post.delete',company:'7',payload:{post_id:'10000000-0000-4000-8000-000000000001'}});
 });
 
 test('RED Pymio: solo administradores de la comunidad pueden publicar eventos',async()=>{
-  const communityId='10000000-0000-4000-8000-000000000001',input=request('/api/network/posts','POST',{kind:'event',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'single',eventAt:'2026-11-02T15:00:00-03:00'});let response,created=false;
+  const communityId='10000000-0000-4000-8000-000000000001',input=request('/api/network/posts','POST',{kind:'event',eventMode:'online',communityId,title:'Encuentro',description:'Nos reunimos',schedule:'single',eventAt:'2026-11-02T15:00:00-03:00'});let response,created=false;
   const pool={requireCommunityAdmin:async()=>{throw Object.assign(new Error('Solo los administradores de la comunidad pueden crear o modificar eventos.'),{status:403});},network:async()=>{created=true;}};
   await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);
   assert.equal(response.status,403);assert.equal(created,false);
+});
+
+test('RED Pymio: abre eventos públicos y registra interés o asistencia',async()=>{
+  const eventId='10000000-0000-4000-8000-000000000001',detail={event:{id:eventId,title:'Encuentro'},community:{name:'Comercio Local'},isMember:false,interestedCount:2},calls=[];let response;
+  const pool={getCommunityEventDetail:async(id,company)=>{calls.push({kind:'get',id,company});return detail;},setCommunityEventResponse:async(id,company,status)=>{calls.push({kind:'set',id,company,status});return {...detail,viewerResponse:status,interestedCount:3};}};
+  let input=request(`/api/network/events/${eventId}`);await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);assert.equal(response.status,200);assert.equal(response.data.interestedCount,2);
+  input=request(`/api/network/events/${eventId}/response`,'POST',{status:'interested'});await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);assert.equal(response.status,200);assert.equal(response.data.viewerResponse,'interested');assert.deepEqual(calls.at(-1),{kind:'set',id:eventId,company:'7',status:'interested'});
+  input=request(`/api/network/events/${eventId}/response`,'POST',{status:'otro'});await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);assert.equal(response.status,400);
 });
 
 test('RED Pymio: valida el identificador antes de unirse a una comunidad',async()=>{
   assert.equal((await call('/api/network/communities/no-valida/join','POST')).response.status,404);
   const joined=await call('/api/network/communities/10000000-0000-4000-8000-000000000001/join','POST');
   assert.equal(joined.response.status,200);assert.equal(joined.calls[0].operation,'community.join');
+});
+
+test('RED Pymio: permite que un miembro se salga de una comunidad',async()=>{
+  const communityId='10000000-0000-4000-8000-000000000001',input=request('/api/network/communities/leave','POST',{communityId}),calls=[];let response;
+  const pool={leaveCommunity:async(id,company)=>{calls.push({id,company});return {communities:[]};}};
+  await atenderRedPymio(input.req,pool,'7',(status,data)=>response={status,data},input.url);
+  assert.equal(response.status,200);assert.deepEqual(response.data,{communities:[]});assert.deepEqual(calls,[{id:communityId,company:'7'}]);
+  const invalid=request('/api/network/communities/leave','POST',{communityId:'no-valida'});await atenderRedPymio(invalid.req,pool,'7',(status,data)=>response={status,data},invalid.url);assert.equal(response.status,400);assert.equal(calls.length,1);
+  const legacy=request(`/api/network/communities/${communityId}/membership`,'DELETE');await atenderRedPymio(legacy.req,pool,'7',(status,data)=>response={status,data},legacy.url);assert.equal(response.status,200);assert.equal(calls.length,2);
 });
 
 test('RED Pymio: conecta empresas y permite responder solicitudes privadas',async()=>{
@@ -186,11 +209,15 @@ test('RED Pymio: consulta una comunidad y crea formularios de hasta 20 preguntas
 
 test('RED Pymio: valida la extensión configurada y el contenido del archivo',async()=>{
   const formId='10000000-0000-4000-8000-000000000001',responseId='20000000-0000-4000-8000-000000000002',questionId='30000000-0000-4000-8000-000000000003';
-  const upload=async(name,body)=>{const req=Readable.from([body]);req.method='POST';req.headers={'x-file-name':encodeURIComponent(name),'content-type':'application/octet-stream'};let response,stored;const pool={community:async()=>({forms:[{status:'open',questions:[{id:questionId,type:'file',options:['pdf']}]}]}),getCommunityFormMeta:async()=>({created_by_company_id:'8'}),uploadCommunityFile:async(path,value)=>stored={path,value}};await atenderRedPymio(req,pool,'7',(status,data)=>response={status,data},new URL(`http://localhost/api/network/forms/${formId}/responses/${responseId}/questions/${questionId}/file`));return {response,stored};};
+  const upload=async(name,body,options=['pdf'])=>{const req=Readable.from([body]);req.method='POST';req.headers={'x-file-name':encodeURIComponent(name),'content-type':'application/octet-stream'};let response,stored;const pool={community:async()=>({forms:[{status:'open',questions:[{id:questionId,type:'file',options}]}]}),getCommunityFormMeta:async()=>({created_by_company_id:'8'}),uploadCommunityFile:async(path,value)=>stored={path,value}};await atenderRedPymio(req,pool,'7',(status,data)=>response={status,data},new URL(`http://localhost/api/network/forms/${formId}/responses/${responseId}/questions/${questionId}/file`));return {response,stored};};
   assert.equal((await upload('respuesta.txt',Buffer.from('texto'))).response.status,415);
   assert.equal((await upload('respuesta.pdf',Buffer.from('no es pdf'))).response.status,415);
   const valid=await upload('respuesta.pdf',Buffer.from('%PDF-1.4\n%%EOF'));
   assert.equal(valid.response.status,201);assert.equal(valid.response.data.mimeType,'application/pdf');assert.ok(valid.stored.path.endsWith('.bin'));
+  const heic=Buffer.concat([Buffer.from([0,0,0,24]),Buffer.from('ftypheic'),Buffer.alloc(12)]),heif=Buffer.concat([Buffer.from([0,0,0,24]),Buffer.from('ftypmif1'),Buffer.alloc(12)]);
+  const validHeic=await upload('foto.heic',heic,['image']),validHeif=await upload('foto.heif',heif,['image']);
+  assert.equal(validHeic.response.status,201);assert.equal(validHeic.response.data.mimeType,'image/heic');assert.equal(validHeic.response.data.compressed,false);
+  assert.equal(validHeif.response.status,201);assert.equal(validHeif.response.data.mimeType,'image/heif');assert.equal((await upload('foto.heic',Buffer.from('no es una imagen'),['image'])).response.status,415);
 });
 
 test('RED Pymio: actualiza la respuesta existente y bloquea cambios al cerrar el formulario',async()=>{
@@ -212,6 +239,13 @@ test('RED Pymio: actualiza la respuesta existente y bloquea cambios al cerrar el
   assert.equal(open.calls[1][2],existingId);assert.equal(open.calls[1][4].id,existingId);
   const closed=await submit('closed');
   assert.equal(closed.response.status,403);assert.deepEqual(closed.calls,[]);
+});
+
+test('RED Pymio: limita cada respuesta de texto a 5.000 caracteres',async()=>{
+  const formId='10000000-0000-4000-8000-000000000001',responseId='20000000-0000-4000-8000-000000000002',questionId='30000000-0000-4000-8000-000000000003';let response,saved;
+  const submit=async textValue=>{const input=request(`/api/network/forms/${formId}/responses`,'POST',{responseId,answers:[{questionId,textValue}]});response=undefined;saved=undefined;await atenderRedPymio(input.req,{community:async()=>({forms:[{id:formId,status:'open'}]}),getCommunityFormMeta:async()=>({created_by_company_id:'8'}),getCommunityFormResponse:async()=>null,saveCommunityFormResponse:async(...args)=>{saved=args[3];return {id:responseId,submittedAt:'2026-10-22T12:00:00Z',previousFiles:[]};}},'7',(status,data)=>response={status,data},input.url);};
+  await submit('a'.repeat(5000));assert.equal(response.status,200);assert.equal(saved[0].text_value.length,5000);
+  await submit('a'.repeat(5001));assert.equal(response.status,400);assert.match(response.data.error,/5\.000 caracteres/);assert.equal(saved,undefined);
 });
 
 test('RED Pymio: el creador no puede responder y solo administradores pueden eliminar',async()=>{
@@ -244,7 +278,7 @@ test('RED Pymio: exige membresía para ver incluso una comunidad abierta',async(
   assert.deepEqual(detail.calls.map(item=>item.operation),['bootstrap']);
 });
 
-test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar el fondo',async()=>{
+test('RED Pymio: los formularios y eventos no se cierran al pulsar el fondo ni Escape',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
   const server=await readFile(new URL('./red-pymio.mjs',import.meta.url),'utf8');
@@ -252,10 +286,22 @@ test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar
   assert.match(source,/Escribe cada opción en una línea separada\./);
   assert.match(source,/data-text-preview/);assert.match(source,/data-file-preview/);
   for(const label of ['Archivo de texto','Documento PDF','Imagen'])assert.match(source,new RegExp(label));
-  for(const extensions of ['docx','txt','pdf','jpg','png','webp'])assert.match(source,new RegExp(extensions));
+  for(const extensions of ['docx','txt','pdf','jpg','png','webp','heic','heif'])assert.match(source,new RegExp(extensions));
+  assert.match(source,/help:'Acepta \.jpg, \.png, \.webp, \.heic y \.heif'/);
+  assert.match(source,/\. Máximo 2,5 MB por archivo\./);
+  assert.match(source,/No pudmos leer la imagen seleccionada, intenta en otro navegador/);
   assert.match(source,/fileAccept\(question\)/);assert.match(server,/FILE_GROUPS/);
   assert.match(html,/Descargar respuestas/);
-  assert.match(source,/dialog\.id!==['"]community-form-builder['"]/);
+  assert.match(source,/downloadName=`Respuestas Formulario - \$\{safeTitle\}\.zip`/);
+  assert.match(source,/setAttribute\('download',downloadName\)/);
+  assert.match(source,/replace\(\/\[<>:/);
+  assert.match(server,/downloadName=`Respuestas Formulario - \$\{safeName\(data\.form\.title\)\}\.zip`/);
+  assert.doesNotMatch(server,/filename="respuestas\.zip"/i);
+  assert.match(source,/backdropLockedDialogs=new Set\(\['community-form-builder','community-form-view','post-dialog'\]\)/);
+  assert.match(source,/manualCloseOnlyDialogs=new Set\(\['community-form-view','post-dialog'\]\)/);
+  assert.match(source,/event\.target===dialog&&!backdropLockedDialogs\.has\(dialog\.id\)/);
+  assert.match(source,/manualCloseOnlyDialogs\.has\(dialog\.id\).*addEventListener\('cancel',event=>event\.preventDefault\(\)\)/);
+  const eventDialog=html.match(/<dialog class="network-dialog" id="post-dialog">[\s\S]*?<\/dialog>/)?.[0]||'';assert.match(eventDialog,/class="dialog-close" data-dialog-close aria-label="Cerrar"/);assert.doesNotMatch(eventDialog,/>Cancelar</);
   assert.match(source,/Ya respondiste este formulario\. Puedes modificar tu respuesta mientras siga abierto\./);
   assert.match(source,/Guardar cambios/);
   assert.match(source,/El formulario está cerrado y ya no puede modificarse/);
@@ -263,12 +309,15 @@ test('RED Pymio: el constructor muestra controles por tipo y no cierra al pulsar
   assert.match(source,/selectDisabled=editable\|\|creator/);
   assert.doesNotMatch(source,/Vista de las opciones disponibles\. No se enviará ninguna respuesta\./);
   assert.match(source,/data-form-delete/);assert.match(source,/¿Eliminar el formulario/);assert.match(source,/Reanudar formulario/);
+  assert.match(source,/next==='close'\?'Pausando…':'Reanudando…'/);
   assert.match(html,/data-form-download[^>]*>.*Descargar respuestas<\/span><\/button><button[^>]*data-form-status/s);
   assert.match(html,/data-form-status[^>]*>.*Pausar formulario<\/span><\/button><button[^>]*data-form-delete/s);
   assert.match(source,/submit\.hidden=!editable/);
   assert.match(source,/Archivo actual:/);
+  assert.match(source,/maxlength="5000" data-text-answer/);assert.match(source,/data-text-count/);assert.match(source,/addEventListener\('input',updateCounter\)/);assert.match(source,/5\.000 caracteres/);
   assert.match(source,/activeResponse\?\.id\|\|crypto\.randomUUID/);
   assert.match(server,/updated:Boolean\(existing\)/);
+  assert.match(server,/textValue\?\?''\)\.length>5000/);assert.match(server,/text\(answer\.textValue,5000\)/);
   assert.match(server,/exportResponses/);
 });
 
@@ -276,6 +325,9 @@ test('RED Pymio: el estado de carga conserva el marcado del botón de formulario
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   assert.match(source,/buttonContent\.set\(button,button\.innerHTML\)/);
   assert.match(source,/button\.innerHTML=buttonContent\.get\(button\)/);
+  assert.match(source,/data-form-delete[^\n]+finally\{setBusy\(button,false\);\}/);
+  assert.match(source,/buttonContent\.delete\(deleteButton\);deleteButton\.disabled=false;deleteButton\.innerHTML=.*<span>Eliminar<\/span>/);
+  assert.match(source,/finally\{setBusy\(button,false\);\}if\(updated\)\{activeCommunity=updated;activeForm=null/);
   assert.doesNotMatch(source,/button\.dataset\.label=button\.textContent/);
 });
 
@@ -303,19 +355,31 @@ test('RED Pymio: la campana informa cambios de permisos administrativos',async()
   assert.match(app,/Tus permisos de administrador fueron retirados/);
 });
 
-test('RED Pymio: crea eventos dentro de comunidades con fecha puntual o duración',async()=>{
+test('RED Pymio: crea eventos con duración diaria, semanal, mensual o personalizada',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8'),pilot=await readFile(new URL('../piloto.html',import.meta.url),'utf8');
   assert.match(html,/data-community-event-create[\s\S]*?Crear Evento/);assert.doesNotMatch(html,/data-post-create/);
-  assert.match(html,/name="schedule" value="single"/);assert.match(html,/name="schedule" value="range"/);assert.doesNotMatch(html,/name="kind" value="benefit"/);
-  assert.match(source,/setHours\(0,59,0,0\)/);assert.match(source,/Solo los administradores pueden crear eventos/);
+  assert.match(html,/name="duration" required/);for(const option of ['day','week','month','custom'])assert.match(html,new RegExp(`value="${option}"`));assert.match(html,/data-end-field hidden/);assert.doesNotMatch(html,/name="kind" value="benefit"/);
+  assert.match(html,/Fecha y Hora de Inicio/);
+  assert.match(source,/eventDurationForPost/);assert.match(source,/duration!=='custom'/);assert.match(source,/Solo los administradores pueden crear eventos/);
+  assert.match(source,/eventIsActive/);assert.match(source,/scheduleEventExpiryRefresh/);
   assert.match(source,/data-community-event-edit/);assert.match(source,/data-community-event-delete/);
   assert.match(source,/Solo los administradores pueden modificar eventos/);assert.match(source,/Solo los administradores pueden eliminar eventos/);
   assert.match(html,/Eventos de Comunidades/);assert.match(html,/Explorar Tiendas/);assert.match(pilot,/Eventos de Comunidades/);assert.match(pilot,/Explorar Tiendas/);
 });
 
+test('RED Pymio: eventos incluyen modalidad, mapa, asistencia opcional e interacción por membresía',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8'),css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8'),server=await readFile(new URL('./red-pymio.mjs',import.meta.url),'utf8'),sql=await readFile(new URL('../supabase/migrations/035_community_event_details_and_attendance.sql',import.meta.url),'utf8'),attendanceSql=await readFile(new URL('../supabase/migrations/037_optional_event_attendance.sql',import.meta.url),'utf8');
+  for(const label of ['Online','Presencial','Ambos','Me interesa','Asistiré','No asistiré'])assert.match(html+source,new RegExp(label));assert.match(html,/Dirección específica \(opcional\)/);
+  assert.doesNotMatch(html,/Aún no responden|data-event-pending/);assert.doesNotMatch(source,/data-event-pending|attendance\?\.pending/);
+  assert.match(html,/name="eventMode" required/);assert.match(html,/name="requestAttendance" type="checkbox"/);assert.match(html,/Solicitar asistencia a los miembros/);assert.match(html,/data-event-location-map/);assert.match(source,/requestAttendance\.checked=Boolean\(post\.request_attendance\)/);assert.match(source,/requestAttendance\.checked=false/);assert.match(source,/eventMap\.on\('click'/);assert.match(source,/eventExcerpt\(item\.description\)/);assert.match(source,/data-event-open/);assert.match(source,/interestedCount/);assert.match(source,/requestsAttendance=Boolean\(event\.request_attendance\)/);assert.match(source,/member-row event-attendee/);assert.match(css,/#post-dialog \.community-access\{align-items:center\}/);assert.match(css,/input\[name="requestAttendance"\]\{flex:0 0 16px;width:16px;height:16px;min-height:0;margin:0;padding:0\}/);assert.match(css,/\.event-response-actions :is\(\.btn,\.btn-outline\)\{font:650 12px 'IBM Plex Sans',sans-serif\}/);assert.match(css,/\.event-attendance\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);assert.match(css,/\.event-attendance \.event-attendee\{padding:14px 12px;border:1px solid var\(--line\);border-radius:11px;background:#fff\}/);
+  assert.match(server,/getCommunityEventDetail/);assert.match(server,/setCommunityEventResponse/);assert.match(sql,/event_mode IN \('online','in_person','hybrid'\)/);assert.match(sql,/community_event_responses/);assert.match(sql,/status IN \('interested','attending','not_attending'\)/);
+  assert.match(sql,/NOTIFY pgrst, 'reload schema'/);assert.match(server,/request_attendance:\[true,'true','on','1'\]\.includes\(data\.requestAttendance\)/);assert.match(attendanceSql,/request_attendance boolean NOT NULL DEFAULT false/);assert.match(attendanceSql,/NOTIFY pgrst, 'reload schema'/);
+});
+
 test('RED Pymio: los resultados no muestran la aclaración por empresa',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/una respuesta por empresa/);
+  assert.doesNotMatch(source,/Porcentajes sobre el total de participantes/);
   assert.match(source,/usuarios han respondido\.<\/p>/);
 });
 
@@ -336,6 +400,8 @@ test('RED Pymio: los administradores actualizan identidad, redes e imágenes de 
   assert.equal(updated.response.status,200);assert.equal(updated.calls[0].operation,'profile.update');
   assert.equal(updated.calls[0].payload.name,'Comunidad Comercio Local');
   assert.equal(updated.calls[0].payload.avatar_path,avatar);assert.equal(updated.calls[0].payload.is_open,true);
+  const closed=await call(`/api/network/communities/${id}/profile`,'PUT',{name:'Comunidad Comercio Local',description:'Descripción',isOpen:false});
+  assert.equal(closed.response.status,200);assert.equal(closed.calls[0].payload.is_open,false);
   assert.equal((await call(`/api/network/communities/${id}/profile`,'PUT',{name:'Comunidad',description:'Descripción',website:'ftp://archivo'})).response.status,400);
   assert.equal((await call(`/api/network/communities/${id}/profile`,'PUT',{name:'Comunidad',description:'Descripción',avatarPath:'avatar.png'})).response.status,400);
 });
@@ -347,15 +413,46 @@ test('RED Pymio: el centro de comunidad conserva recursos y añade gestión oper
   assert.match(source,/activeCommunityRequests/);assert.match(source,/respondCommunityRequest/);
   assert.match(source,/openCommunityEventComposer/);assert.match(source,/exportCommunityMembers/);assert.match(source,/shareActiveCommunity/);
   assert.match(source,/data-community-pane-jump/);assert.match(source,/data-community-request-count/);
+  assert.match(source,/item\.owned&&!item\.is_open&&requests\.length/);
+  assert.match(source,/pane==='requests'&&\(!canAdmin\(\)\|\|isOpenCommunity\(\)\)/);
+  assert.match(source,/data-community-request-metric[^\n]+\.hidden=!canAdmin\(\)\|\|openCommunity/);
+  assert.match(source,/canAdmin\(\)&&!openCommunity&&requests\.length/);
 });
 
 test('RED Pymio: la comunidad permite editar marca, redes y administradores',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  const css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8');
   for(const label of ['Editar comunidad','Foto de perfil','Banner de la comunidad','Sitio web','Instagram','YouTube','TikTok','Facebook','LinkedIn'])assert.match(html,new RegExp(label));
   assert.match(html,/id="community-edit-dialog"/);assert.match(html,/data-community-edit-form/);
   assert.match(source,/communityImageUrl/);assert.match(source,/uploadCommunityImage/);assert.match(source,/communities\/\$\{community\.id\}\/profile/);
   assert.match(source,/mayChangeRole=canAdmin\(\)&&item\.role!==['"]owner['"]&&!isSelf/);
+  assert.match(css,/\.profile-media-card:not\(\.banner-media-card\) \.profile-media-copy\{display:flex;align-self:stretch;flex-direction:column;justify-content:center\}/);
+  assert.match(css,/\.media-remove\{display:inline-flex;align-items:center;align-self:flex-start;gap:6px/);
+  assert.match(css,/\.media-remove input\{width:14px!important;height:14px;min-height:0!important;margin:0;padding:0!important/);
+  assert.match(css,/\.community-manager-badges\{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 31px\}/);
+});
+
+test('RED Pymio: los miembros no creadores pueden salirse con confirmación',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8'),css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8');
+  assert.match(html,/data-community-share[\s\S]+data-community-leave hidden/);assert.match(html,/Salirse de la Comunidad/);assert.match(html,/M6 6l12 12M18 6 6 18/);
+  assert.match(source,/community\.role==='owner'/);assert.match(source,/confirm\(`¿Quieres salirte de/);assert.match(source,/\/api\/network\/communities\/leave',\{method:'POST',body:JSON\.stringify\(\{communityId:community\.id\}\)\}/);assert.match(source,/Saliendo…/);
+  assert.match(css,/#tab-ecosistema \.community-sidebar-actions \.community-leave-button,#tab-ecosistema \.form-view-actions \.form-delete-button\{border-color:#9f3028;background:#b13c32;color:#fff;font-weight:650\}/);
+});
+
+test('Interfaz: todas las equis de cierre quedan centradas',async()=>{
+  const [ecosystemCss,dashboardCss,pymioCss,mobileCss]=await Promise.all([
+    readFile(new URL('../ecosistema.css',import.meta.url),'utf8'),
+    readFile(new URL('../dashboard.css',import.meta.url),'utf8'),
+    readFile(new URL('../pymio.css',import.meta.url),'utf8'),
+    readFile(new URL('../mobile.css',import.meta.url),'utf8')
+  ]);
+  assert.match(ecosystemCss,/\.dialog-close\{display:inline-flex;align-items:center;justify-content:center;[^}]*padding:0;[^}]*line-height:1;text-align:center/);
+  assert.match(ecosystemCss,/\.chat-popup-close\{[^}]*display:inline-flex;align-items:center;justify-content:center;[^}]*padding:0;[^}]*line-height:1;text-align:center/);
+  assert.match(dashboardCss,/\.dialog-close\{display:grid;place-items:center;[^}]*padding:0;[^}]*line-height:1;text-align:center/);
+  assert.match(pymioCss,/\.account-dialog-close\{[^}]*display:grid;place-items:center;[^}]*padding:0;[^}]*line-height:1;text-align:center/);
+  assert.match(mobileCss,/\.mobile-sheet-head>button\{display:grid;place-items:center;[^}]*padding:0;[^}]*line-height:1;text-align:center/);
+  assert.match(mobileCss,/\.mobile-dialog-dismiss,\.dialog-close,\.account-dialog-close\{display:grid;place-items:center;[^}]*padding:0;[^}]*line-height:1;text-align:center/);
 });
 
 test('RED Pymio: solo el creador puede quitar administradores y el cambio se notifica',async()=>{
@@ -382,6 +479,11 @@ test('RED Pymio: migración define roles, formularios y almacenamiento privado',
   assert.match(sql,/role IN \('owner','admin','member'\)/);
   assert.match(sql,/community_form_questions/);assert.match(sql,/BETWEEN 1 AND 20/);
   assert.match(sql,/community-form-files','community-form-files',false,2621440/);
+});
+
+test('RED Pymio: la base de datos limita las respuestas nuevas de texto a 5.000 caracteres',async()=>{
+  const sql=await readFile(new URL('../supabase/migrations/036_reduce_form_text_answer_limit.sql',import.meta.url),'utf8');
+  assert.match(sql,/char_length\(text_value\) <= 5000/);assert.match(sql,/NOT VALID/);
 });
 
 test('RED Pymio: migración amplía identidad visual, redes y gestión delegada',async()=>{

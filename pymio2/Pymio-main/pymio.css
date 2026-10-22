@@ -833,7 +833,7 @@ button{min-height:44px;}
 .account-dialog label{margin-top:4px;font-size:11px;font-weight:600;color:#626754}
 .account-dialog input{width:100%;min-height:44px;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:#fff;font:inherit;font-size:14px;color:var(--ink)}
 .account-dialog .primary-btn{min-height:44px;margin-top:6px;border:0;border-radius:9px;background:var(--ink);color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
-.account-dialog-close{position:absolute;right:18px;top:18px;width:32px;height:32px;border:0;border-radius:50%;background:#eceee3;color:var(--ink);font-size:20px;cursor:pointer}
+.account-dialog-close{position:absolute;right:18px;top:18px;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:#eceee3;color:var(--ink);font-size:20px;line-height:1;text-align:center;cursor:pointer}
 .account-dialog .form-error{margin:0;color:#a73532}
 @media(max-width:600px){.topbar-right .user-chip{display:flex}.topbar-right .user-chip>div:last-child{display:none}.profile-menu{position:fixed;right:12px;top:58px;width:min(260px,calc(100vw - 24px))}.account-dialog form{padding:25px 20px}}
 .inventario-card-stock,.inventario-card-price{margin:0;color:var(--ink);font-size:12px;line-height:1.4;}

@@ -59,7 +59,7 @@ button.pie-legend-item:hover,button.pie-legend-item:focus-visible{background:var
 .category-dialog-content{padding:28px}
 .dialog-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .dialog-head h2{font-size:24px;overflow-wrap:anywhere}
-.dialog-close{width:44px;height:44px;flex-shrink:0;border:1px solid var(--line);border-radius:50%;background:var(--paper);font-size:24px;color:var(--ink)}
+.dialog-close{display:grid;place-items:center;width:44px;height:44px;padding:0;flex-shrink:0;border:1px solid var(--line);border-radius:50%;background:var(--paper);font-size:24px;line-height:1;text-align:center;color:var(--ink)}
 .dialog-period{font-size:13px;color:var(--muted);margin:6px 0 20px}
 .dialog-summary{background:var(--accent-soft);border-radius:16px;padding:18px;margin-bottom:24px}
 .dialog-summary strong{font-family:'Space Grotesk',sans-serif;font-size:30px;color:var(--accent-dark)}

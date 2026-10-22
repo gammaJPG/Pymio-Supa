@@ -27,24 +27,26 @@ test('Exportación: crea un TXT único por cada pregunta de texto',async()=>{
   const source=await PDFDocument.create();source.addPage();const sourcePdf=Buffer.from(await source.save());
   const files=unzip(await exportResponses(data,{getCommunityFile:async path=>path==='a'?sourcePdf:Buffer.from('Contenido del archivo de Luis')},zipFiles));
   assert.equal([...files.keys()].filter(n=>n.endsWith('/')).length,4);
-  assert.ok(files.has('Pregunta 2 - Comentario _ opinión/'));
-  const results=files.get('Pregunta 1 - ¿Qué prefieres_/Resultados.txt').toString();
+  assert.ok(files.has('Pregunta 2 - Comentario opinión/'));
+  const results=files.get('Pregunta 1 - ¿Qué prefieres/Resultados.txt').toString();
   assert.match(results,/\| Opción\s+\| Cantidad de usuarios\s+\| Porcentaje del total\s+\|/);
   assert.match(results,/\| A\s+\| 2\s+\| 66,67 %\s+\|/);
   assert.match(results,/\| C\s+\| 0\s+\| 0 %\s+\|/);
-  assert.deepEqual(files.get('Pregunta 3 - Adjunto/r1 - Ana & Pérez - archivo.pdf'),sourcePdf);
-  assert.equal(files.get('Pregunta 3 - Adjunto/r2 - Luis - notas.txt').toString(),'Contenido del archivo de Luis');
+  assert.deepEqual(files.get('Pregunta 3 - Adjunto/Respuesta a Pregunta 3 - Ana & Pérez.pdf'),sourcePdf);
+  assert.equal(files.get('Pregunta 3 - Adjunto/Respuesta a Pregunta 3 - Luis.txt').toString(),'Contenido del archivo de Luis');
+  assert.doesNotMatch([...files.keys()].join('\n'),/\/r[12] - |archivo\.pdf|notas\.txt/);
   const consolidated=files.get('Pregunta 3 - Adjunto/Respuestas consolidadas.pdf');
   assert.equal(consolidated.subarray(0,5).toString(),'%PDF-');
-  assert.ok((await PDFDocument.load(consolidated)).getPageCount()>=6);
+  assert.equal((await PDFDocument.load(consolidated)).getPageCount(),2);
   assert.equal(files.get('Pregunta 4 - Vacía/Respuestas consolidadas.pdf').subarray(0,5).toString(),'%PDF-');
   const textFiles=[...files.keys()].filter(n=>n.endsWith('/Respuestas.txt'));
-  assert.deepEqual(textFiles,['Pregunta 2 - Comentario _ opinión/Respuestas.txt']);
+  assert.deepEqual(textFiles,['Pregunta 2 - Comentario opinión/Respuestas.txt']);
   const responses=files.get(textFiles[0]).toString();
   assert.match(responses,/Pregunta 2 - Comentario \/ opinión/);
-  assert.match(responses,/INICIO DE RESPUESTA 1[\s\S]*Usuario: Ana & Pérez[\s\S]*Empresa: 1[\s\S]*Identificador de respuesta: r1[\s\S]*Primera línea\r?\n<Segunda>[\s\S]*FIN DE RESPUESTA 1/);
+  assert.match(responses,/INICIO DE RESPUESTA 1[\s\S]*Usuario: Ana & Pérez[\s\S]*Primera línea\r?\n<Segunda>[\s\S]*FIN DE RESPUESTA 1/);
   assert.match(responses,/INICIO DE RESPUESTA 2[\s\S]*Usuario: Luis[\s\S]*Otra respuesta[\s\S]*FIN DE RESPUESTA 2/);
   assert.match(responses,/INICIO DE RESPUESTA 3[\s\S]*Usuario: María[\s\S]*Sin respuesta[\s\S]*FIN DE RESPUESTA 3/);
+  assert.doesNotMatch(responses,/Empresa:|Identificador de respuesta:|Fecha:/);
   assert.equal([...files.keys()].filter(n=>n.endsWith('.docx')).length,0);
 });
 test('Resultados: autorización denegada impide leer respuestas con service role',async()=>{
@@ -58,4 +60,20 @@ test('API de resultados y ZIP propagan denegación de permisos',async()=>{
     await atenderRedPymio({method:'GET'},{getCommunityFormResults:async()=>{throw Object.assign(new Error('Solo administradores'),{status:403});}},'7',(status,data)=>result={status,data},new URL(`http://localhost/api/network/forms/10000000-0000-4000-8000-000000000001/${suffix}`));
     assert.equal(result.status,403);
   }
+});
+test('Descarga ZIP: informa el título del formulario como nombre del archivo',async()=>{
+  const formId='10000000-0000-4000-8000-000000000001';let status,headers,archive;
+  const res={writeHead:(code,value)=>{status=code;headers=value;},end:value=>{archive=value;}};
+  await atenderRedPymio({method:'GET'},{getCommunityFormResults:async()=>({form:{title:'Encuesta anual',questions:[]},responses:[]})},'7',()=>{},new URL(`http://localhost/api/network/forms/${formId}/files.zip`),res);
+  assert.equal(status,200);assert.equal(headers['Content-Type'],'application/zip');assert.match(headers['Content-Disposition'],/filename="Respuestas Formulario - Encuesta anual\.zip"/);assert.match(headers['Content-Disposition'],/filename\*=UTF-8''Respuestas%20Formulario%20-%20Encuesta%20anual\.zip/);assert.equal(headers['Content-Length'],archive.length);
+});
+
+test('Exportación: conserva imágenes HEIC y HEIF dentro del ZIP',async()=>{
+  const files=unzip(await exportResponses({form:{title:'Fotos',questions:[{id:'q1',position:1,title:'Imagen',type:'file',options:['image']}]},responses:[
+    {id:'r1',name:'Ana',answers:[{question_id:'q1',file_path:'a',file_name:'captura.heic'}]},
+    {id:'r2',name:'Luis',answers:[{question_id:'q1',file_path:'b',file_name:'captura.heif'}]},
+  ]},{getCommunityFile:async path=>Buffer.from(path)},zipFiles));
+  assert.ok(files.has('Pregunta 1 - Imagen/Respuesta a Pregunta 1 - Ana.heic'));
+  assert.ok(files.has('Pregunta 1 - Imagen/Respuesta a Pregunta 1 - Luis.heif'));
+  assert.equal(files.get('Pregunta 1 - Imagen/Respuestas consolidadas.pdf').subarray(0,5).toString(),'%PDF-');
 });

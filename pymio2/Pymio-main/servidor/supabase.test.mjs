@@ -77,6 +77,54 @@ test('Supabase RED Pymio: usa la función protegida y mantiene el alcance empres
   const deletion=sent.at(-2);assert.equal(deletion.url.pathname,'/rest/v1/network_posts');assert.equal(deletion.options.method,'DELETE');assert.equal(deletion.url.searchParams.get('community_id'),`eq.${communityId}`);
 });
 
+test('Supabase RED Pymio: reintenta editar eventos mientras se actualiza el caché de columnas',async()=>{
+  const calls=[],postId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002';let patchCount=0;
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options={})=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/community_members'))return Response.json([{role:'admin'}]);
+    if(url.pathname.endsWith('/network_posts')&&options.method==='PATCH'){
+      patchCount++;if(patchCount===1)return Response.json({code:'PGRST204',message:"Could not find the 'event_mode' column of 'network_posts' in the schema cache"},{status:400});
+      return Response.json([{id:postId,community_id:communityId}]);
+    }
+    if(url.pathname.endsWith('/network_posts'))return Response.json([{id:postId,community_id:communityId}]);
+    return Response.json({posts:[],communities:[],businesses:[]});
+  }});
+  await client.network('post.update',7,{post_id:postId,community_id:communityId,kind:'event',title:'Actualizado',event_mode:'hybrid',request_attendance:true,latitude:-33.45,longitude:-70.66});
+  const patches=calls.filter(call=>call.url.pathname.endsWith('/network_posts')&&call.options.method==='PATCH');
+  assert.equal(patches.length,2);assert.equal(JSON.parse(patches[0].options.body).event_mode,'hybrid');assert.equal(JSON.parse(patches[0].options.body).request_attendance,true);assert.equal('event_mode' in JSON.parse(patches[1].options.body),false);assert.equal('request_attendance' in JSON.parse(patches[1].options.body),false);
+});
+
+test('Supabase RED Pymio: protege los listados de asistencia y valida respuestas al evento',async()=>{
+  const eventId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002',calls=[];
+  const fetchImpl=async(url,options={})=>{calls.push({url,options});
+    if(url.pathname.endsWith('/network_posts'))return Response.json([{id:eventId,community_id:communityId,title:'Feria',description:'Descripción completa',event_mode:'hybrid',request_attendance:true,location:'Centro',latitude:-33.45,longitude:-70.66,event_at:'2026-11-02T18:00:00Z',expires_at:null}]);
+    if(url.pathname.endsWith('/communities'))return Response.json([{id:communityId,name:'Comercio Local'}]);
+    if(url.pathname.endsWith('/community_event_responses'))return options.method==='POST'?Response.json({}):Response.json([{company_id:7,status:'attending'},{company_id:9,status:'interested'}]);
+    if(url.pathname.endsWith('/community_members'))return url.searchParams.has('company_id')?Response.json([{company_id:7,role:'member'}]):Response.json([{company_id:7,role:'member'},{company_id:8,role:'member'}]);
+    if(url.pathname.endsWith('/user_accounts'))return Response.json([{company_id:7,owner_name:'Ana',business_name:'A'},{company_id:8,owner_name:'Luis',business_name:'B'}]);
+    if(url.pathname.endsWith('/business_profiles'))return Response.json([]);return Response.json([]);
+  };
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl}),detail=await client.getCommunityEventDetail(eventId,7);
+  assert.equal(detail.isMember,true);assert.equal(detail.interestedCount,1);assert.deepEqual(detail.attendance.attending.map(item=>item.name),['Ana']);assert.deepEqual(detail.attendance.pending.map(item=>item.name),['Luis']);
+  const saved=await client.setCommunityEventResponse(eventId,7,'not_attending');assert.equal(saved.isMember,true);assert.ok(calls.some(call=>call.url.pathname.endsWith('/community_event_responses')&&call.options.method==='POST'));
+  const outsiderCalls=[],outsider=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url)=>{outsiderCalls.push(url.pathname);if(url.pathname.endsWith('/network_posts'))return Response.json([{id:eventId,community_id:communityId,title:'Feria',description:'Completa',event_mode:'online',event_at:'2026-11-02T18:00:00Z'}]);if(url.pathname.endsWith('/communities'))return Response.json([{id:communityId,name:'Comercio Local'}]);if(url.pathname.endsWith('/community_members'))return Response.json([]);if(url.pathname.endsWith('/community_event_responses'))return Response.json([]);return Response.json({});}});
+  const publicDetail=await outsider.getCommunityEventDetail(eventId,10);assert.equal(publicDetail.isMember,false);assert.equal('attendance' in publicDetail,false);assert.equal(outsiderCalls.includes('/rest/v1/user_accounts'),false);await assert.rejects(outsider.setCommunityEventResponse(eventId,10,'attending'),{status:403});
+});
+
+test('Supabase RED Pymio: oculta y bloquea la asistencia cuando el evento no la solicita',async()=>{
+  const eventId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002',calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url)=>{calls.push(url.pathname);if(url.pathname.endsWith('/network_posts'))return Response.json([{id:eventId,community_id:communityId,title:'Feria',description:'Descripción',event_mode:'online',request_attendance:false,event_at:'2026-11-02T18:00:00Z'}]);if(url.pathname.endsWith('/communities'))return Response.json([{id:communityId,name:'Comercio Local'}]);if(url.pathname.endsWith('/community_members'))return Response.json([{company_id:7,role:'member'}]);if(url.pathname.endsWith('/community_event_responses'))return Response.json([]);return Response.json([]);}});
+  const detail=await client.getCommunityEventDetail(eventId,7);assert.equal(detail.isMember,true);assert.equal(detail.event.request_attendance,false);assert.equal('attendance' in detail,false);assert.equal(calls.includes('/rest/v1/user_accounts'),false);
+  await assert.rejects(client.setCommunityEventResponse(eventId,7,'attending'),{status:403,message:'Este evento no solicita confirmación de asistencia.'});
+});
+
+test('Supabase RED Pymio: los eventos vencidos dejan de estar disponibles',async()=>{
+  const eventId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002',calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options={})=>{calls.push({url,options});return url.pathname.endsWith('/network_posts')?Response.json([{id:eventId,community_id:communityId,event_at:'2020-01-01T00:00:00Z',expires_at:'2020-01-02T00:00:00Z'}]):Response.json([]);}});
+  await assert.rejects(client.getCommunityEventDetail(eventId,7),{status:404,message:'El evento ya terminó y no está disponible.'});
+  assert.equal(calls.at(-1).options.method,'DELETE');assert.equal(calls.at(-1).url.searchParams.get('id'),`eq.${eventId}`);
+});
+
 test('Supabase RED Pymio: notifica formularios y eventos creados después de unirse',async()=>{
   const calls=[];
   const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async url=>{
@@ -148,6 +196,39 @@ test('Supabase RED Pymio: verifica el rol antes de publicar eventos comunitarios
   await assert.rejects(member.requireCommunityAdmin(communityId,7),{status:403});
 });
 
+test('Supabase RED Pymio: un miembro o administrador puede salir pero el creador no',async()=>{
+  const calls=[],communityId='10000000-0000-4000-8000-000000000001';
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options={})=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/community_members'))return options.method==='DELETE'?Response.json([{community_id:communityId,company_id:7,role:'admin'}]):Response.json([{role:'admin'}]);
+    if(url.pathname.endsWith('/pymio_network'))return Response.json({profile:{},businesses:[],communities:[],posts:[]});
+    if(url.pathname.endsWith('/pymio_connections'))return Response.json({});
+    if(url.pathname.endsWith('/pymio_entitlements'))return Response.json({});
+    if(url.pathname.endsWith('/pymio_community_roles'))return Response.json({managed_communities:[],community_role_notifications:[]});
+    return Response.json({});
+  }});
+  const result=await client.leaveCommunity(communityId,7);assert.deepEqual(result.communities,[]);
+  const deletion=calls.find(call=>call.options.method==='DELETE'&&call.url.pathname.endsWith('/community_members'));assert.ok(deletion);assert.equal(deletion.url.searchParams.get('community_id'),`eq.${communityId}`);assert.equal(deletion.url.searchParams.get('company_id'),'eq.7');assert.equal(deletion.options.headers.Prefer,'return=representation');
+  const owner=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async()=>Response.json([{role:'owner'}])});
+  await assert.rejects(owner.leaveCommunity(communityId,7),{status:403,message:'El creador no puede salirse de su comunidad.'});
+});
+
+test('Supabase RED Pymio: permite cerrar una comunidad sin depender de profile.update en el RPC',async()=>{
+  const calls=[],communityId='10000000-0000-4000-8000-000000000001';
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/community_members'))return Response.json([{role:'admin'}]);
+    if(url.pathname.endsWith('/communities'))return Response.json([{id:communityId,is_open:false}]);
+    if(url.pathname.endsWith('/pymio_community'))return Response.json({community:{id:communityId,is_open:false},members:[],events:[],forms:[]});
+    return Response.json({});
+  }});
+  const result=await client.community('profile.update',7,{community_id:communityId,name:'Comunidad',description:'Descripción',industry:'',is_open:false});
+  const update=calls.find(call=>call.url.pathname.endsWith('/communities'));
+  assert.equal(update.options.method,'PATCH');assert.equal(JSON.parse(update.options.body).is_open,false);
+  assert.equal(JSON.parse(update.options.body).community_id,undefined);assert.equal(result.community.is_open,false);
+  assert.equal(calls.some(call=>call.url.pathname.endsWith('/pymio_community')&&JSON.parse(call.options.body).operation==='profile.update'),false);
+});
+
 test('Supabase RED Pymio: cerrar y abrir conserva las respuestas del formulario',async()=>{
   const calls=[],formId='10000000-0000-4000-8000-000000000001',communityId='20000000-0000-4000-8000-000000000002';
   const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{
@@ -164,11 +245,11 @@ test('Supabase RED Pymio: cerrar y abrir conserva las respuestas del formulario'
 });
 
 test('Supabase RED Pymio: sigue cargando la red cuando aún falta la migración de roles',async()=>{
-  const calls=[],fetchImpl=async url=>{calls.push(String(url));if(String(url).includes('pymio_community_roles'))return Response.json({code:'PGRST202',message:'Could not find the function public.pymio_community_roles(company) in the schema cache'},{status:404});return Response.json({communities:[{id:'community-1'}],businesses:[{company_id:'2'}]});};
+  const calls=[],fetchImpl=async(url,options={})=>{calls.push({url,options});if(String(url).includes('pymio_community_roles'))return Response.json({code:'PGRST202',message:'Could not find the function public.pymio_community_roles(company) in the schema cache'},{status:404});return Response.json({communities:[{id:'community-1'}],businesses:[{company_id:'2'}]});};
   const db=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl}),result=await db.network('bootstrap','1',{});
   assert.equal(result.communities.length,1);assert.equal(result.businesses.length,1);
   assert.deepEqual(result.managed_communities,[]);assert.deepEqual(result.community_role_notifications,[]);
-  assert.equal(calls.length,4);
+  assert.equal(calls.length,5);assert.equal(calls[0].options.method,'DELETE');
 });
 
 test('Supabase RED Pymio: asigna administradores aunque aún falte la función nueva',async()=>{
@@ -309,6 +390,15 @@ async function listen(server) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 async function close(server) { server.closeAllConnections(); await new Promise(resolve=>server.close(resolve)); }
+
+test('HTTP RED Pymio: la ruta para salirse de una comunidad llega al servidor',async()=>{
+  const calls=[],communityId='10000000-0000-4000-8000-000000000001',pool={leaveCommunity:async(id,company)=>{calls.push({id,company});return {communities:[]};}};
+  const server=createInventoryServer(pool,[]),base=await listen(server);
+  try{
+    const response=await fetch(`${base}/api/network/communities/leave?company_id=7`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({communityId})});
+    assert.equal(response.status,200);assert.deepEqual(await response.json(),{communities:[]});assert.deepEqual(calls,[{id:communityId,company:'7'}]);
+  }finally{await close(server);}
+});
 
 test('HTTP: validation, company scope, CORS, CRUD routing and Supabase failures', async () => {
   const calls=[];

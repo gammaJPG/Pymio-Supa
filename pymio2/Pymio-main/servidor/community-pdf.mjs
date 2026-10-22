@@ -32,10 +32,10 @@ function wrappedLines(value,font,size,width){
   return result;
 }
 
-async function addTextPages(document,title,body){
-  const font=await document.embedFont(StandardFonts.Helvetica),bold=await document.embedFont(StandardFonts.HelveticaBold),size=10,lineHeight=15,maxWidth=PAGE.width-PAGE.margin*2;
+async function addTextPages(document,body){
+  const font=await document.embedFont(StandardFonts.Helvetica),size=10,lineHeight=15,maxWidth=PAGE.width-PAGE.margin*2;
   let page,y;
-  const newPage=()=>{page=document.addPage([PAGE.width,PAGE.height]);y=PAGE.height-PAGE.margin;page.drawText(printable(title),{x:PAGE.margin,y,size:14,font:bold,color:rgb(.12,.15,.1)});y-=30;};
+  const newPage=()=>{page=document.addPage([PAGE.width,PAGE.height]);y=PAGE.height-PAGE.margin;};
   newPage();
   for(const line of wrappedLines(body,font,size,maxWidth)){
     if(y<PAGE.margin){newPage();}
@@ -44,12 +44,12 @@ async function addTextPages(document,title,body){
   }
 }
 
-async function addMarkerPage(document,label,{index,response,answer}){
-  const page=document.addPage([PAGE.width,PAGE.height]),bold=await document.embedFont(StandardFonts.HelveticaBold),font=await document.embedFont(StandardFonts.Helvetica);
-  page.drawRectangle({x:0,y:0,width:PAGE.width,height:PAGE.height,color:rgb(.965,.961,.933)});
-  page.drawText(printable(`${label} ${index}`),{x:PAGE.margin,y:PAGE.height-120,size:22,font:bold,color:rgb(.12,.15,.1)});
-  const lines=[`Usuario: ${response.name}`,`Empresa: ${response.company_id}`,`Identificador de respuesta: ${response.id}`,`Fecha: ${response.submitted_at}`,`Archivo: ${answer.file_name}`];
-  lines.forEach((line,lineIndex)=>page.drawText(printable(line),{x:PAGE.margin,y:PAGE.height-175-lineIndex*24,size:11,font,color:rgb(.25,.28,.22)}));
+export const fileFooterLabel=(index,user)=>`Archivo ${index} (Usuario: ${user})`;
+
+function fitFooter(value,font,size,maxWidth){
+  const text=printable(value);if(font.widthOfTextAtSize(text,size)<=maxWidth)return text;
+  let shortened=text;while(shortened.length&&font.widthOfTextAtSize(`${shortened}...`,size)>maxWidth)shortened=shortened.slice(0,-1);
+  return `${shortened}...`;
 }
 
 async function addImagePage(document,buffer,name){
@@ -65,7 +65,6 @@ async function addImagePage(document,buffer,name){
   const page=document.addPage([PAGE.width,PAGE.height]);
   const maxWidth=PAGE.width-PAGE.margin*2,maxHeight=PAGE.height-PAGE.margin*2,scale=Math.min(maxWidth/image.width,maxHeight/image.height,1),width=image.width*scale,height=image.height*scale;
   page.drawImage(image,{x:(PAGE.width-width)/2,y:(PAGE.height-height)/2,width,height});
-  page.drawText(printable(name),{x:PAGE.margin,y:24,size:8,font:await document.embedFont(StandardFonts.Helvetica),color:rgb(.35,.37,.32)});
 }
 
 async function addFileContent(document,attachment){
@@ -75,25 +74,31 @@ async function addFileContent(document,attachment){
     pages.forEach(page=>document.addPage(page));
   }else if(ext==='docx'){
     const value=docxText(attachment.body);
-    await addTextPages(document,attachment.answer.file_name,value||'[Documento sin texto extraíble]');
+    await addTextPages(document,value||'[Documento sin texto extraíble]');
   }else if(ext==='txt'){
-    await addTextPages(document,attachment.answer.file_name,new TextDecoder('utf-8',{fatal:false}).decode(attachment.body));
-  }else if(['jpg','png','webp'].includes(ext)){
+    await addTextPages(document,new TextDecoder('utf-8',{fatal:false}).decode(attachment.body));
+  }else if(['jpg','png','webp','heic','heif'].includes(ext)){
     await addImagePage(document,attachment.body,attachment.answer.file_name);
   }else throw new Error('Extensión no compatible con la conversión.');
 }
 
 export async function consolidatedFilesPdf(question,attachments){
-  const document=await PDFDocument.create();
+  const document=await PDFDocument.create(),fileByPage=new Map();
   if(!attachments.length){
-    await addTextPages(document,`Pregunta ${question.position} - ${question.title}`,'Sin archivos adjuntos.');
+    await addTextPages(document,'Sin archivos adjuntos.');
   }
   for(const [offset,attachment] of attachments.entries()){
-    const index=offset+1;
-    await addMarkerPage(document,'INICIO DEL ARCHIVO',{index,...attachment});
+    const index=offset+1,start=document.getPageCount();
     try{await addFileContent(document,attachment);}
-    catch(error){await addTextPages(document,attachment.answer.file_name,`No fue posible convertir este archivo.\n${error.message}`);}
-    await addMarkerPage(document,'FIN DEL ARCHIVO',{index,...attachment});
+    catch{await addTextPages(document,'No fue posible convertir este archivo.');}
+    for(let pageIndex=start;pageIndex<document.getPageCount();pageIndex++)fileByPage.set(pageIndex,fileFooterLabel(index,attachment.response.name));
   }
+  const numberFont=await document.embedFont(StandardFonts.Helvetica),pages=document.getPages();
+  pages.forEach((page,index)=>{
+    const {width}=page.getSize(),pageLabel=`Página ${index+1}`,pageLabelWidth=numberFont.widthOfTextAtSize(pageLabel,8.5),footer=fileByPage.get(index),left=32,right=32,gap=20;
+    page.drawLine({start:{x:left,y:38},end:{x:width-right,y:38},thickness:.55,color:rgb(.78,.79,.74)});
+    if(footer)page.drawText(fitFooter(footer,numberFont,8.5,Math.max(40,width-left-right-pageLabelWidth-gap)),{x:left,y:20,size:8.5,font:numberFont,color:rgb(.35,.37,.32)});
+    page.drawText(pageLabel,{x:width-right-pageLabelWidth,y:20,size:8.5,font:numberFont,color:rgb(.35,.37,.32)});
+  });
   return Buffer.from(await document.save({useObjectStreams:false}));
 }
