@@ -41,9 +41,14 @@
   </section>
 
   <section class="subpanel" id="sub-comunicaciones" role="tabpanel">
-    <div class="section-intro communications-intro"><p class="section-kicker">Centro privado</p><h2>Mensajes y oportunidades</h2><p>Revisa conversaciones, cotizaciones, ofertas y novedades compartidas con las empresas de tu red.</p><small class="message-retention-note" data-message-retention></small></div>
+    <div class="section-intro communications-intro"><p class="section-kicker">Centro privado</p><h2><span class="communications-title-desktop">Mensajes y oportunidades</span><span class="communications-title-mobile mobile-only">Chats</span></h2><p>Revisa conversaciones, cotizaciones, ofertas y novedades compartidas con las empresas de tu red.</p><small class="message-retention-note" data-message-retention></small></div>
     <div class="communications-shell">
       <aside class="communications-sidebar">
+        <label class="mobile-chat-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4" stroke-linecap="round"/></svg>
+          <span class="sr-only">Buscar chats</span>
+          <input type="search" data-communications-search placeholder="Buscar chats" autocomplete="off" enterkeyhint="search">
+        </label>
         <div class="communications-tabs" role="tablist" aria-label="Filtrar comunicaciones">
           <button type="button" class="active" data-communications-filter="all" role="tab" aria-selected="true">Todos</button>
           <button type="button" data-communications-filter="unread" role="tab" aria-selected="false">No leídos <span data-unread-count>0</span></button>

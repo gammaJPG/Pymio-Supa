@@ -97,11 +97,15 @@ test('RED Pymio: conserva una conversación por destinatario, metadatos y estado
 test('RED Pymio: ofrece una bandeja de comunicaciones y formularios distintos por acción',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  const mobile=await readFile(new URL('../mobile.js',import.meta.url),'utf8');
+  const mobileCss=await readFile(new URL('../mobile.css',import.meta.url),'utf8');
   const migration=await readFile(new URL('../supabase/migrations/020_private_communications_center.sql',import.meta.url),'utf8');
   const singleConversationMigration=await readFile(new URL('../supabase/migrations/031_single_direct_conversation.sql',import.meta.url),'utf8');
   for(const label of ['Mensajes y oportunidades','Todos','No leídos','Favoritos','Grupos','Selecciona una conversación'])assert.match(html,new RegExp(label));
   for(const field of ['Fecha límite','Presupuesto estimado','Válida hasta','Detalle de la solicitud','Condiciones de la oferta'])assert.match(source,new RegExp(field));
   assert.doesNotMatch(source,/name="subject"/);assert.match(source,/id=`direct:\$\{otherId\}`/);assert.match(source,/activity\/.+\/read/);
+  assert.match(html,/data-communications-search/);assert.match(mobile,/mobile-chat-trigger/);assert.match(mobile,/pymio-show-chat-list/);
+  assert.match(source,/data-chat-back/);assert.match(source,/pymio-chat-count/);assert.match(mobileCss,/communications-shell\.is-chat-open/);assert.match(mobileCss,/mobile-network-tabs\{display:none\}/);
   assert.match(migration,/thread_id uuid/);assert.match(migration,/'private_activity'/);assert.match(migration,/operation='activity\.read'/);
   assert.match(singleConversationMigration,/GROUP BY 1,2/);assert.match(singleConversationMigration,/NEW\.subject=''/);
 });

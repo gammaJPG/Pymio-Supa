@@ -367,6 +367,7 @@
 .communication-thread-group .communication-kind{background:#e5f0df;color:#315e34}
 .communications-detail-title{display:flex;align-items:center;gap:10px}
 .communications-detail-title .communication-favorite{position:static;flex:none}
+.mobile-chat-search,.communications-title-mobile,.communication-avatar,.communication-detail-avatar,.mobile-thread-unread{display:none}.communication-thread-content{display:block;min-width:0}.communication-favorite svg{width:18px;height:18px}
 @media(max-width:900px){.communications-shell{height:calc(100dvh - 190px);min-height:480px;max-height:720px}.communications-tabs{padding:8px;gap:2px}.communications-tabs button{padding:9px 4px;font-size:10px}}
 @media(max-width:720px){.communications-shell{display:flex;height:calc(100dvh - 150px);min-height:560px;max-height:none;flex-direction:column}.communications-sidebar{height:42%;min-height:215px;border-bottom:1px solid #dedfd4}.communications-detail{height:58%;min-height:300px}.communications-list{max-height:none}.communications-detail-head{padding:12px 14px}.communication-messages{padding:12px}.chat-composer{grid-template-columns:minmax(0,1fr) 48px;padding:9px 10px max(9px,env(safe-area-inset-bottom))}.chat-composer textarea{font-size:16px}.chat-composer .btn{min-width:48px;padding:0;font-size:0}.chat-composer .btn:after{content:'➤';font-size:16px}}
 

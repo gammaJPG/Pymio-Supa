@@ -91,6 +91,19 @@ function installMobileHub() {
   button.addEventListener('click', event => { refreshAccountSheet(); openSheet('mobile-more-sheet', event.currentTarget); });
   topbar.append(button);
 }
+function installMobileChatShortcut() {
+  const topbar=document.querySelector('.topbar-right');
+  if(!topbar||topbar.querySelector('.mobile-chat-trigger'))return;
+  const button=document.createElement('button');button.type='button';button.className='mobile-chat-trigger mobile-only';button.setAttribute('aria-label','Abrir chats');button.setAttribute('aria-controls','sub-comunicaciones');
+  button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 18.5 3.5 21l4-1.25c1.3.8 2.85 1.25 4.5 1.25 4.97 0 9-3.8 9-8.5S16.97 4 12 4s-9 3.8-9 8.5c0 2.35 1 4.47 2.62 6" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 12.5h8M8 9.5h5" stroke-linecap="round"/></svg><span class="mobile-chat-badge" hidden>0</span>';
+  button.addEventListener('click',()=>{
+    document.dispatchEvent(new CustomEvent('pymio-show-chat-list'));
+    document.getElementById('profile-communications-btn')?.click();
+  });
+  topbar.insertBefore(button,document.getElementById('profile-menu-btn'));
+  const current=Number(document.querySelector('[data-unread-count]')?.textContent||0);button.querySelector('.mobile-chat-badge').textContent=current;button.querySelector('.mobile-chat-badge').hidden=!current;
+}
+document.addEventListener('pymio-chat-count',event=>{const badge=document.querySelector('.mobile-chat-badge'),count=Number(event.detail?.unread||0);if(!badge)return;badge.textContent=count>99?'99+':String(count);badge.hidden=!count;});
 document.querySelectorAll('[data-mobile-sheet-close]').forEach(button => button.addEventListener('click', () => closeSheets()));
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && document.body.classList.contains('mobile-sheet-open')) closeSheets();
@@ -262,6 +275,7 @@ function addDashboardFilterTrigger() {
 
 function enhanceLoadedViews() {
   installMobileHub();
+  installMobileChatShortcut();
   syncMobileOnlyContent();
   syncMobileChrome();
   buildNetworkTabs();

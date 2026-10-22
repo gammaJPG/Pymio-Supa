@@ -1,5 +1,5 @@
 /* Pymio mobile workspace: one responsive owner, desktop modules stay intact. */
-.mobile-nav,.mobile-sheet,.mobile-sheet-backdrop,.mobile-network-tabs,.mobile-filter-trigger,.mobile-today,.mobile-hub-trigger,.mobile-only,.mobile-sort-control{display:none}
+.mobile-nav,.mobile-sheet,.mobile-sheet-backdrop,.mobile-network-tabs,.mobile-filter-trigger,.mobile-today,.mobile-hub-trigger,.mobile-chat-trigger,.mobile-only,.mobile-sort-control{display:none}
 @media(max-width:767px),(max-height:500px) and (max-width:950px){
 :root{--m-ink:#20251c;--m-muted:#60685b;--m-paper:#f3f4ee;--m-surface:#fff;--m-soft:#eeefe6;--m-line:#dcded3;--m-honey:#f1cf54;--m-honey-soft:#f9efc4;--m-critical:#a23b34;--m-top:60px;--m-nav:70px;--m-pad:20px;--m-radius:14px}
 html[data-theme=dark]{--m-ink:#f1f3e9;--m-muted:#b2baaa;--m-paper:#141812;--m-surface:#1d221a;--m-soft:#272e22;--m-line:#3b4434;--m-honey-soft:#383220;--m-critical:#ffaba0}
@@ -270,4 +270,74 @@ body.mobile-keyboard-open .mobile-nav{display:none}.mobile-keyboard-open .conten
    exclusive to touch-oriented devices while allowing the local phone preview. */
 @media (hover:hover) and (pointer:fine){
   html:not(.mobile-preview-mode) .mobile-nav{display:none!important}
+}
+
+/* Mobile messaging: a focused inbox and conversation flow above Pymio's existing navigation. */
+@media(max-width:767px),(max-height:500px) and (max-width:950px){
+  .mobile-chat-trigger{position:relative;display:grid;place-items:center;width:44px;min-width:44px;min-height:44px;padding:0;border:0;border-radius:12px;background:transparent;color:var(--m-ink);touch-action:manipulation;user-select:none}
+  .mobile-chat-trigger svg{width:23px;height:23px}.mobile-chat-trigger:active{background:var(--m-soft);transform:scale(.96)}
+  .mobile-chat-badge{position:absolute;top:2px;right:1px;display:grid;min-width:17px;height:17px;place-items:center;padding:0 4px;border:2px solid var(--m-surface);border-radius:10px;background:#b54a35;color:#fff;font-size:9px;font-weight:700;font-variant-numeric:tabular-nums}
+  .content:has(#sub-comunicaciones.active){overflow:hidden;padding:0 0 calc(var(--m-nav) + env(safe-area-inset-bottom) + 16px)!important}
+  #tab-ecosistema:has(#sub-comunicaciones.active)>.mobile-network-tabs{display:none}
+  #tab-ecosistema:has(#sub-comunicaciones.active),#sub-comunicaciones.active{height:100%;min-height:0}
+  #sub-comunicaciones.active{display:flex!important;flex-direction:column;background:var(--m-paper)}
+  #sub-comunicaciones .communications-intro{flex:none;margin:0;padding:14px var(--m-pad) 8px}
+  #sub-comunicaciones .communications-intro .section-kicker,#sub-comunicaciones .communications-intro>p,#sub-comunicaciones .message-retention-note,.communications-title-desktop{display:none!important}
+  #sub-comunicaciones .communications-title-mobile{display:block!important;font-size:28px;line-height:1.1;letter-spacing:-.035em}
+  #sub-comunicaciones .communications-shell{display:flex;min-height:0;height:auto;max-height:none;flex:1;border:0;border-radius:0;background:var(--m-paper);box-shadow:none;overflow:hidden}
+  #sub-comunicaciones .communications-sidebar{display:flex;width:100%;height:100%;min-height:0;flex-direction:column;border:0;background:var(--m-paper)}
+  #sub-comunicaciones .mobile-chat-search{display:flex;align-items:center;gap:10px;flex:none;margin:0 var(--m-pad) 10px;padding:0 14px;border:1px solid transparent;border-radius:14px;background:var(--m-soft);color:var(--m-muted)}
+  #sub-comunicaciones .mobile-chat-search:focus-within{border-color:#9d7b0f;background:var(--m-surface)}
+  #sub-comunicaciones .mobile-chat-search svg{width:21px;height:21px}
+  #sub-comunicaciones .mobile-chat-search input{width:100%;min-height:48px;padding:0;border:0!important;outline:0;background:transparent!important;color:var(--m-ink);font-size:16px;box-shadow:none!important}
+  #sub-comunicaciones .mobile-chat-search input::placeholder{color:var(--m-muted);opacity:.85}
+  #sub-comunicaciones .communications-tabs{display:flex;flex:none;gap:8px;padding:0 var(--m-pad) 12px;border:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;scroll-snap-type:x proximity}
+  #sub-comunicaciones .communications-tabs::-webkit-scrollbar{display:none}
+  #sub-comunicaciones .communications-tabs button{flex:0 0 auto;min-height:40px;padding:0 15px;border:1px solid var(--m-line);border-radius:999px;background:transparent;color:var(--m-muted);font-size:14px;font-weight:600;scroll-snap-align:start;touch-action:manipulation}
+  #sub-comunicaciones .communications-tabs button.active{border-color:#3f6b45;background:#dcebdc;color:#244f2d}
+  html[data-theme=dark] #sub-comunicaciones .communications-tabs button.active{border-color:#54795a;background:#273d2b;color:#cbe6cf}
+  #sub-comunicaciones .communications-tabs span{min-width:20px;height:20px;margin-left:4px;background:var(--m-honey);color:#20251c;font-size:11px}
+  #sub-comunicaciones .communications-list{min-height:0;max-height:none;flex:1;overflow-y:auto;padding:0 var(--m-pad);overscroll-behavior:contain;scrollbar-width:thin}
+  #sub-comunicaciones .communication-thread-row{min-height:78px;border:0;background:transparent;box-shadow:none}
+  #sub-comunicaciones .communication-thread-row+.communication-thread-row{border-top:1px solid var(--m-line)}
+  #sub-comunicaciones .communication-thread-row.active{background:transparent;box-shadow:none}
+  #sub-comunicaciones .communication-thread{display:grid;grid-template-columns:54px minmax(0,1fr) auto;width:100%;min-height:78px;align-items:center;gap:12px;padding:10px 36px 10px 0;background:transparent!important;box-shadow:none!important;text-align:left;touch-action:manipulation}
+  #sub-comunicaciones .communication-thread:active{opacity:.72}
+  #sub-comunicaciones .communication-avatar,#sub-comunicaciones .communication-detail-avatar{display:grid;place-items:center;overflow:hidden;border-radius:50%;background:#dfe3d7;color:#36402f;font-size:15px;font-weight:700}
+  #sub-comunicaciones .communication-avatar{width:54px;height:54px;grid-row:1}
+  #sub-comunicaciones .communication-avatar img,#sub-comunicaciones .communication-detail-avatar img{width:100%;height:100%;object-fit:cover}
+  #sub-comunicaciones .communication-thread-content{min-width:0}
+  #sub-comunicaciones .communication-thread-top{align-items:baseline;gap:10px}
+  #sub-comunicaciones .communication-thread-top strong{min-width:0;overflow:hidden;color:var(--m-ink);font-size:16px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+  #sub-comunicaciones .communication-thread time{flex:none;color:var(--m-muted);font-size:12px;font-variant-numeric:tabular-nums}
+  #sub-comunicaciones .communication-thread-row.unread time{color:#397a4b;font-weight:700}
+  #sub-comunicaciones .communication-kind,#sub-comunicaciones .communication-thread b{display:none}
+  #sub-comunicaciones .communication-thread small{margin-top:5px;color:var(--m-muted);font-size:14px;line-height:1.35}
+  #sub-comunicaciones .mobile-thread-unread{display:grid;min-width:22px;height:22px;place-items:center;padding:0 6px;border-radius:11px;background:#4b8d59;color:#fff;font-size:11px;font-weight:700}
+  #sub-comunicaciones .communication-favorite{top:auto;right:1px;bottom:8px;width:36px;height:36px;color:var(--m-muted);touch-action:manipulation}
+  #sub-comunicaciones .communication-favorite.active{background:transparent;color:#947000}
+  #sub-comunicaciones .communications-list .network-empty{min-height:220px;background:transparent}
+  #sub-comunicaciones .communications-detail{display:none;width:100%;height:100%;min-height:0;background:var(--m-paper)}
+  #sub-comunicaciones .communications-shell.is-chat-open .communications-sidebar{display:none}
+  #sub-comunicaciones .communications-shell.is-chat-open .communications-detail{display:flex}
+  #sub-comunicaciones .communications-detail-head{display:grid;grid-template-columns:44px 40px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:64px;padding:8px 12px;border-bottom:1px solid var(--m-line);background:var(--m-surface)}
+  #sub-comunicaciones .mobile-chat-back{display:grid!important;width:44px;height:44px;place-items:center;padding:0;border:0;border-radius:12px;background:transparent;color:var(--m-ink);touch-action:manipulation}
+  #sub-comunicaciones .mobile-chat-back:active{background:var(--m-soft)}#sub-comunicaciones .mobile-chat-back svg{width:24px;height:24px}
+  #sub-comunicaciones .communication-detail-avatar{width:40px;height:40px;font-size:12px}
+  #sub-comunicaciones .communications-detail-person{min-width:0}
+  #sub-comunicaciones .communications-detail-person>.communication-kind,#sub-comunicaciones .communications-detail-person>p{display:none}
+  #sub-comunicaciones .communications-detail-title{min-width:0;gap:4px}
+  #sub-comunicaciones .communications-detail-title h3{overflow:hidden;font-size:16px;text-overflow:ellipsis;white-space:nowrap}
+  #sub-comunicaciones .communications-detail-title .communication-favorite{display:none}
+  #sub-comunicaciones .chat-live-status{justify-self:end;font-size:0}#sub-comunicaciones .chat-live-status i{width:8px;height:8px}
+  #sub-comunicaciones .communication-messages{min-height:0;flex:1;padding:14px 12px 18px;background:var(--m-soft);gap:8px}
+  #sub-comunicaciones .communication-message{max-width:84%;padding:9px 11px;border:0;border-radius:12px 12px 12px 3px;background:var(--m-surface);box-shadow:0 1px 1px rgba(20,30,15,.08)}
+  #sub-comunicaciones .communication-message.sent{border:0;border-radius:12px 12px 3px 12px;background:var(--m-honey-soft)}
+  #sub-comunicaciones .communication-message>div{gap:8px}#sub-comunicaciones .communication-message strong{font-size:11px}#sub-comunicaciones .communication-message time{font-size:10px}
+  #sub-comunicaciones .communication-message p{margin-top:4px;font-size:14px;line-height:1.42}
+  #sub-comunicaciones .chat-composer{grid-template-columns:minmax(0,1fr) 48px;gap:8px;padding:8px 10px max(8px,env(safe-area-inset-bottom));border-top:1px solid var(--m-line);background:var(--m-surface)}
+  #sub-comunicaciones .chat-composer textarea{min-height:46px;max-height:112px;padding:11px 14px;border:1px solid var(--m-line);border-radius:16px;background:var(--m-paper)!important;color:var(--m-ink);font-size:16px;resize:none}
+  #sub-comunicaciones .chat-composer .btn{display:grid;min-width:48px;min-height:48px;place-items:center;padding:0;border:0;border-radius:50%;background:var(--m-honey);color:#20251c}
+  #sub-comunicaciones .chat-composer .btn span{display:none}#sub-comunicaciones .chat-composer .btn svg{display:block;width:21px;height:21px}
+  body:has(#sub-comunicaciones.active) .pymio-chat-tray{display:none}
 }
