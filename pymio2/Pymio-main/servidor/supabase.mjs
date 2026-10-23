@@ -75,6 +75,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     return Buffer.from(await response.arrayBuffer());
   };
   return {
+    async liveVersion(companyId){
+      return requestJson('/rest/v1/rpc/pymio_live_version',{
+        method:'POST',headers:{...headers,'Content-Type':'application/json'},
+        body:JSON.stringify({target_company:String(companyId)}),
+      },'No se pudo consultar la versión de sincronización.');
+    },
     async support(operation,userId,companyId,data={}) {
       return requestJson('/rest/v1/rpc/pymio_support',{
         method:'POST',headers:{...headers,'Content-Type':'application/json'},

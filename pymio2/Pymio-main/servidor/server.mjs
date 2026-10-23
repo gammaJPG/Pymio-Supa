@@ -194,6 +194,21 @@ export function createInventoryServer(pool, origins, options = {}) {
     if (!companyId || !/^[1-9]\d*$/.test(companyId) || companyId.length > 18) {
       return send(400, { error: 'company_id debe ser un entero positivo.' });
     }
+    if(url.pathname==='/api/live/stream'&&req.method==='GET'){
+      if(session?.demo)return send(403,{error:'La cuenta piloto usa datos de demostración.'});
+      let closed=false,lastVersion='';res.on?.('close',()=>{closed=true;});
+      res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});
+      res.write('retry: 3000\n\n');
+      try{
+        for(let attempt=0;attempt<150&&!closed;attempt+=1){
+          const version=await pool.liveVersion(companyId),serialized=JSON.stringify(version);
+          if(serialized!==lastVersion){lastVersion=serialized;res.write(`event: business\nid: ${Date.now()}\ndata: ${serialized}\n\n`);}
+          else res.write(': keep-alive\n\n');
+          await new Promise(resolve=>setTimeout(resolve,3000));
+        }
+      }catch(error){if(!closed)res.write(`event: sync-error\ndata: ${JSON.stringify({message:'Sincronización temporalmente no disponible.'})}\n\n`);}
+      if(!closed)res.end();return;
+    }
     if(url.pathname.startsWith('/api/support/'))return handleSupport(req,pool,session,send,url);
     if(url.pathname.startsWith('/api/network/')){
       if(session?.demo)return send(403,{error:'La cuenta piloto conserva la vista de demostración de RED Pymio.'});

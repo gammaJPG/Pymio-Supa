@@ -8,6 +8,9 @@ import { configureDashboard, renderDashboard, renderInicio } from './dashboard.j
 import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js?v=164';
 import { configureSupport } from './centro-ayuda.js';
+import { startLiveSync, stopLiveSync } from './live-sync.js';
+import { setupInstallPrompt } from './install-prompt.js';
+setupInstallPrompt();
 
 const apiUrl=apiBase;
 const browserFetch=window.fetch.bind(window);
@@ -27,6 +30,11 @@ function refreshBusinessViews(){
 }
 document.addEventListener('inventario-actualizado',refreshBusinessViews);
 document.addEventListener('movimientos-sincronizados',refreshBusinessViews);
+document.addEventListener('pymio-live-business',()=>{
+  document.dispatchEvent(new Event('inventario-actualizado'));
+  document.dispatchEvent(new Event('movimientos-sincronizados'));
+  document.dispatchEvent(new Event('pymio-support-refresh'));
+});
 
 // Inserta las vistas antes de iniciar sus controladores. Conserva el DOM al volver a entrar.
 let seccionesCargadas = false;
@@ -216,6 +224,7 @@ async function cargarSecciones() {
       const diagnosisLink=[...document.querySelectorAll('.home-feature-list small')].find(element=>element.textContent.includes('diagnóstico'));if(diagnosisLink)diagnosisLink.textContent='Encuentra señales cuando tu operación tenga datos suficientes.';
     }
     startOffline(session.companyId);
+    startLiveSync({apiUrl,demo:session.demo});
     iniciarMovimientos({companyId:session.companyId});
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
     const storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(storedTab)?storedTab:'inicio';
@@ -241,7 +250,7 @@ async function cargarSecciones() {
 
 
 
-  document.getElementById('logout-btn').addEventListener('click', async () => {stopOffline();sessionStorage.removeItem('pymio:last-tab');await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
+  document.getElementById('logout-btn').addEventListener('click', async () => {stopLiveSync();stopOffline();sessionStorage.removeItem('pymio:last-tab');await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
 
   const profileMenuButton=document.getElementById('profile-menu-btn'),profileMenu=document.getElementById('profile-menu');
   const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');
@@ -351,7 +360,7 @@ async function cargarSecciones() {
     return [...networkNotifications,...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
   }
   function markCurrentNotificationsRead(){
-    for(const notification of currentNotifications())if(!notification.requiresResolution)readNotificationIds.add(notification.id);
+    for(const notification of currentNotifications())if(notification.id!=null)readNotificationIds.add(String(notification.id));
     saveReadNotifications();
   }
   function closeNotifications({markRead=true}={}){
@@ -395,7 +404,7 @@ async function cargarSecciones() {
       }
       item.append(dot,content);list.append(item);
     }
-    const unread=visible.filter(notification=>notification.requiresResolution||!readNotificationIds.has(notification.id)).length;
+    const unread=visible.filter(notification=>!readNotificationIds.has(String(notification.id))).length;
     notifBadge.style.display = unread && !notifPanel.classList.contains('open') ? 'flex' : 'none';
     notifBadge.textContent = unread;
   }
@@ -505,6 +514,7 @@ async function cargarSecciones() {
     if(notifPanel.classList.contains('open'))return closeNotifications();
     notifPanel.classList.add('open');
     bellBtn.setAttribute('aria-expanded','true');
+    markCurrentNotificationsRead();
     renderNotifications();
   });
   document.addEventListener('click', (e) => {

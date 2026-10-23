@@ -22,6 +22,16 @@ test('Supabase: HTTPS RPC, secret stays server-side, error mapping and timeout',
   await assert.rejects(offline.rpc('product.list',1),{status:503,message:'No se pudo conectar con el servidor. Reintenta cuando vuelva la conexión.'});
 });
 
+test('Supabase: obtiene una firma ligera para sincronización empresarial',async()=>{
+  let sent;
+  const expected={products:[3,'2026-10-22T12:00:00Z'],movements:[8,'2026-10-22T12:01:00Z','',4]};
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{sent={url,options};return Response.json(expected);}});
+  assert.deepEqual(await client.liveVersion('7'),expected);
+  assert.equal(sent.url.pathname,'/rest/v1/rpc/pymio_live_version');
+  assert.equal(sent.options.method,'POST');
+  assert.deepEqual(JSON.parse(sent.options.body),{target_company:'7'});
+});
+
 test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del servidor', async()=>{
   const calls=[];
   const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});if(url.pathname.includes('/admin/users'))return Response.json({id:'user-1',email:'pyme@example.com'});if(url.pathname.endsWith('/pymio_register_account'))return Response.json({company_id:9,business_name:'Mi Pyme',owner_name:'Ana'});return Response.json({user:{id:'user-1',email:'pyme@example.com'}});}});

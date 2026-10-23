@@ -194,12 +194,12 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(url.pathname==='/api/network/messages/stream' && req.method==='GET'){
       let cursor=String(req.headers['last-event-id']||url.searchParams.get('after')||'');
       if(!Number.isFinite(Date.parse(cursor)))cursor=new Date().toISOString();
-      let closed=false,groupCursor='';const emitted=new Set();res.on?.('close',()=>{closed=true;});
+      let closed=false,groupCursor='',networkCursor='';const emitted=new Set();res.on?.('close',()=>{closed=true;});
       res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-cache, no-transform','Connection':'keep-alive','X-Accel-Buffering':'no'});
       res.write('retry: 2500\n\n');
       for(let attempt=0;attempt<150&&!closed;attempt+=1){
-        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],nextGroupCursor=JSON.stringify(groupChats.map(chat=>[chat.community_id,chat.items?.at(-1)?.id||'',chat.unread_count||0])),groupsChanged=nextGroupCursor!==groupCursor,cursorTime=Date.parse(cursor),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>=cursorTime&&!emitted.has(String(item.id))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-        if(messages.length||groupsChanged){for(const item of messages)emitted.add(String(item.id));if(messages.length)cursor=messages.at(-1).created_at;groupCursor=nextGroupCursor;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,group_chats:groupChats,realtime_messages:messages})}\n\n`);}
+        const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],nextGroupCursor=JSON.stringify(groupChats.map(chat=>[chat.community_id,chat.items?.at(-1)?.id||'',chat.unread_count||0])),groupsChanged=nextGroupCursor!==groupCursor,nextNetworkCursor=JSON.stringify([snapshot.profile,snapshot.connections,snapshot.connection_requests,snapshot.connection_responses,snapshot.communities,snapshot.community_requests,snapshot.posts,snapshot.community_role_notifications]),networkChanged=nextNetworkCursor!==networkCursor,cursorTime=Date.parse(cursor),messages=(snapshot.private_notifications||[]).filter(item=>Date.parse(item.created_at)>=cursorTime&&!emitted.has(String(item.id))).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+        if(messages.length||groupsChanged||networkChanged){for(const item of messages)emitted.add(String(item.id));if(messages.length)cursor=messages.at(-1).created_at;groupCursor=nextGroupCursor;networkCursor=nextNetworkCursor;res.write(`id: ${cursor}\ndata: ${JSON.stringify({...snapshot,group_chats:groupChats,realtime_messages:messages,network_changed:networkChanged})}\n\n`);}
         else res.write(': keep-alive\n\n');
         await new Promise(resolve=>setTimeout(resolve,2000));
       }

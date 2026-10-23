@@ -244,8 +244,8 @@ export function iniciarEcosistema({session,apiUrl}={}){
   function startRealtimeMessages(){
     if(demo||!window.EventSource||realtimeSource)return;
     const received=(state.private_activity||[]).filter(item=>item.direction==='received').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));realtimeCursor=received[0]?.created_at||new Date().toISOString();
-    realtimeSource=new EventSource(`${apiUrl}/api/network/messages/stream?after=${encodeURIComponent(realtimeCursor)}`);
-    realtimeSource.addEventListener('message',event=>{try{const update=JSON.parse(event.data),messages=update.realtime_messages||[],hasGroups=Array.isArray(update.group_chats);if(!messages.length&&!hasGroups)return;const existing=new Set((state.private_activity||[]).map(item=>String(item.id)));state={...state,...update};renderCommunications();publishNetworkNotifications();for(const message of messages)if(!existing.has(String(message.id)))showRealtimeMessage(message);}catch{}});
+    realtimeSource=new EventSource(`${apiUrl}/api/network/messages/stream?after=${encodeURIComponent(realtimeCursor)}`,{withCredentials:true});
+    realtimeSource.addEventListener('message',async event=>{try{const update=JSON.parse(event.data),messages=update.realtime_messages||[],hasGroups=Array.isArray(update.group_chats);if(!messages.length&&!hasGroups&&!update.network_changed)return;const existing=new Set((state.private_activity||[]).map(item=>String(item.id)));state={...state,...update};renderAll();if(update.network_changed&&activeCommunity?.community?.id){activeCommunity=await request(`/api/network/communities/${encodeURIComponent(activeCommunity.community.id)}`);renderCommunityDetail();}for(const message of messages)if(!existing.has(String(message.id)))showRealtimeMessage(message);}catch{}});
     realtimeSource.addEventListener('error',()=>{if(realtimeSource?.readyState===EventSource.CLOSED){realtimeSource=null;setTimeout(startRealtimeMessages,2500);}});
   }
   function updateFilters(){
@@ -705,6 +705,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
     if(detail.kind?.startsWith('form')){selectCommunityPane('forms');if(detail.resourceId)openCommunityForm(detail.resourceId,root.querySelector(`[data-form-open="${detail.resourceId}"]`));return;}
     if(detail.kind?.startsWith('event')){selectCommunityPane('events');const target=[...root.querySelectorAll('[data-community-event-id]')].find(item=>item.dataset.communityEventId===detail.resourceId);if(!target)return announce('Este evento fue eliminado. Estás viendo la agenda actual de la comunidad.','info');target.tabIndex=-1;target.classList.add('notification-target');target.focus({preventScroll:true});target.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>target.classList.remove('notification-target'),1800);}
   }).catch(error=>announce(error.message,'error'));});
+  document.addEventListener('pymio-live-business',()=>{products=[];if(currentView==='pymio')loadProducts();});
   for(const id of ['match-search','industry-filter','product-filter'])get(id).addEventListener(id==='match-search'?'input':'change',renderMatches);
   if(demo)root.classList.add('is-demo');
   load();
