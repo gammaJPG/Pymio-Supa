@@ -48,14 +48,34 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.equal(parsed.display,'standalone');
   assert.ok(parsed.icons.some(icon=>icon.sizes==='192x192'&&icon.type==='image/png'));
   assert.ok(parsed.icons.some(icon=>icon.sizes==='512x512'&&icon.type==='image/png'));
+  assert.equal(parsed.icons.some(icon=>icon.type==='image/jpeg'),false);
   assert.match(prompt,/beforeinstallprompt/);
   assert.match(prompt,/deferredPrompt\.prompt\(\)/);
   assert.match(prompt,/appinstalled/);
   assert.match(prompt,/display-mode: standalone/);
   assert.match(prompt,/Agregar a pantalla de inicio/);
+  assert.match(prompt,/pymio-icon-transparent\.png/);
   assert.match(html,/apple-mobile-web-app-capable/);
   assert.match(styles,/\.pwa-install-prompt\{/);
   assert.match(worker,/'live-sync\.js','install-prompt\.js'/);
+  assert.match(worker,/pymio-icon-transparent\.png/);
+});
+
+test('Marca: los iconos web e instalables conservan transparencia RGBA',async()=>{
+  const [master,small,large,index,platform]=await Promise.all([
+    readFile(new URL('../assets/pymio-icon-transparent.png',import.meta.url)),
+    readFile(new URL('../icon-192.png',import.meta.url)),
+    readFile(new URL('../icon-512.png',import.meta.url)),
+    read('../index.html'),read('../piloto.html'),
+  ]);
+  for(const image of [master,small,large]){
+    assert.equal(image.subarray(1,4).toString(),'PNG');
+    assert.equal(image[25],6,'El PNG debe usar color RGBA con canal alfa');
+  }
+  assert.match(index,/pymio-icon-transparent\.png/);
+  assert.match(platform,/pymio-icon-transparent\.png/);
+  assert.doesNotMatch(index,/pymio-icon\.jpeg/);
+  assert.doesNotMatch(platform,/pymio-icon\.jpeg/);
 });
 
 test('Supabase: las funciones internas no quedan expuestas como RPC públicas',async()=>{

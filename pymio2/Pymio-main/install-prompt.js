@@ -10,7 +10,7 @@ export function setupInstallPrompt(){
   const show=()=>{
     if(card||dismissed()||isStandalone())return;
     card=document.createElement('aside');card.className='pwa-install-prompt';card.setAttribute('role','region');card.setAttribute('aria-label','Instalar Pymio');
-    card.innerHTML=`<img src="assets/pymio-icon.jpeg" alt=""><div><strong>Instala Pymio en tu celular</strong><p>${manual?'Abre el menú del navegador y elige “Agregar a pantalla de inicio”.':'Accede más rápido y úsala incluso con conexión inestable.'}</p></div><button type="button" class="pwa-install-action">${manual?'Entendido':'Instalar'}</button><button type="button" class="pwa-install-close" aria-label="Cerrar sugerencia">×</button>`;
+    card.innerHTML=`<img src="assets/pymio-icon-transparent.png" alt=""><div><strong>Instala Pymio en tu celular</strong><p>${manual?'Abre el menú del navegador y elige “Agregar a pantalla de inicio”.':'Accede más rápido y úsala incluso con conexión inestable.'}</p></div><button type="button" class="pwa-install-action">${manual?'Entendido':'Instalar'}</button><button type="button" class="pwa-install-close" aria-label="Cerrar sugerencia">×</button>`;
     card.querySelector('.pwa-install-close').onclick=()=>close(true);
     card.querySelector('.pwa-install-action').onclick=async()=>{
       if(!deferredPrompt){close(true);return;}

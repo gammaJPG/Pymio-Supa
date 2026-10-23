@@ -147,7 +147,7 @@ function networkAndDiagnostics() {
 export function enhanceWorkspace() {
   if(!document.querySelector('.mobile-brand')){
     const brand=button('',()=>document.querySelector('.sidebar [data-tab="inicio"]')?.click(),'mobile-brand mobile-only');
-    brand.setAttribute('aria-label','Pymio: ir a Inicio');const icon=document.createElement('img');icon.src='assets/pymio-icon.jpeg';icon.alt='';
+    brand.setAttribute('aria-label','Pymio: ir a Inicio');const icon=document.createElement('img');icon.src='assets/pymio-icon-transparent.png';icon.alt='';
     const name=document.createElement('span');name.textContent='Pymio';brand.append(icon,name);document.querySelector('.topbar')?.prepend(brand);
   }
   home();inventory();activity();analysis();forms();networkAndDiagnostics();
