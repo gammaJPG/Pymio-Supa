@@ -41,8 +41,8 @@ test('Tiempo real: el servidor transmite la firma empresarial por SSE',async()=>
 });
 
 test('Instalación móvil: ofrece instalación nativa y una guía segura cuando no está disponible',async()=>{
-  const [prompt,manifest,html,styles,worker]=await Promise.all([
-    read('../install-prompt.js'),read('../manifest.webmanifest'),read('../piloto.html'),read('../mobile.css'),read('../sw.js'),
+  const [prompt,manifest,html,styles,worker,cloudflareBuild]=await Promise.all([
+    read('../install-prompt.js'),read('../manifest.webmanifest'),read('../piloto.html'),read('../mobile.css'),read('../sw.js'),read('../scripts/build-cloudflare.mjs'),
   ]);
   const parsed=JSON.parse(manifest);
   assert.equal(parsed.display,'standalone');
@@ -64,6 +64,7 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.match(worker,/'live-sync\.js','install-prompt\.js'/);
   assert.match(worker,/pymio-icon-transparent\.png/);
   assert.match(worker,/splash-01-ruta-inteligente\.png/);
+  assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
 });
 
 test('Marca: los iconos web e instalables conservan transparencia RGBA',async()=>{

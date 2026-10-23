@@ -18,11 +18,19 @@ for (const entry of await readdir(root, { withFileTypes: true })) {
 
 const sourceAssets = join(root, 'assets');
 const outputAssets = join(output, 'assets');
-await mkdir(outputAssets, { recursive: true });
-for (const entry of await readdir(sourceAssets, { withFileTypes: true })) {
-  if (entry.isFile() && publicAssetExtensions.has(extname(entry.name))) {
-    await cp(join(sourceAssets, entry.name), join(outputAssets, entry.name));
+const copyPublicAssets = async (source, destination) => {
+  await mkdir(destination, { recursive: true });
+  for (const entry of await readdir(source, { withFileTypes: true })) {
+    const sourcePath = join(source, entry.name);
+    const destinationPath = join(destination, entry.name);
+    if (entry.isDirectory()) {
+      await copyPublicAssets(sourcePath, destinationPath);
+    } else if (entry.isFile() && publicAssetExtensions.has(extname(entry.name))) {
+      await cp(sourcePath, destinationPath);
+    }
   }
-}
+};
+
+await copyPublicAssets(sourceAssets, outputAssets);
 
 console.log('Archivos públicos de Pymio preparados para Cloudflare.');
