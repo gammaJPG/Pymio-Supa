@@ -20,3 +20,11 @@ test('Tema: landing, acceso y plataforma comparten un selector persistente',asyn
   for(const html of [landing,platform]){assert.match(html,/theme\.js\?v=2/);assert.match(html,/theme\.css\?v=4/);}
   assert.match(worker,/theme\.css/);assert.match(worker,/theme\.js/);
 });
+
+test('Móvil: permite actualizar al arrastrar desde el límite superior',async()=>{
+  const mobile=await readFile(new URL('../mobile.css',import.meta.url),'utf8');
+  assert.match(mobile,/html\{[^}]*overscroll-behavior-x:none;overscroll-behavior-y:auto/);
+  assert.match(mobile,/body\{[^}]*overscroll-behavior-x:none;overscroll-behavior-y:auto/);
+  assert.match(mobile,/\.content\{[^}]*overscroll-behavior-x:none;overscroll-behavior-y:auto/);
+  assert.match(mobile,/\.mobile-sheet\{[^}]*overscroll-behavior:contain/);
+});
