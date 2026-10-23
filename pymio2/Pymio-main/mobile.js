@@ -1,4 +1,5 @@
 import { enhanceWorkspace } from './mobile-workspace.js?v=152';
+import { canInstallPymio, requestPymioInstall } from './install-prompt.js?v=199';
 const mobileQuery = matchMedia('(max-width: 767px), (max-height: 500px) and (max-width: 950px)');
 const backdrop = document.querySelector('.mobile-sheet-backdrop');
 const sheets = [...document.querySelectorAll('.mobile-sheet')];
@@ -79,6 +80,7 @@ function refreshAccountSheet() {
   document.querySelector('[data-mobile-avatar]').textContent = initials;
   const security = document.querySelector('[data-mobile-security]');
   if (security) security.hidden = Boolean(document.getElementById('profile-password-btn')?.hidden);
+  syncInstallAction();
 }
 function installMobileHub() {
   const topbar = document.querySelector('.topbar-right');
@@ -375,6 +377,11 @@ function enhanceMobileTasks(){
 
 // Proxy existing actions: never duplicate authorization, refresh or theme state.
 const moreGrid=document.querySelector('.mobile-more-grid');
+const installAction=document.querySelector('[data-mobile-install]');
+function syncInstallAction(){if(installAction)installAction.hidden=!isMobile()||!canInstallPymio();}
+if(installAction)installAction.onclick=async()=>{closeSheets(false);await requestPymioInstall();syncInstallAction();};
+window.addEventListener('pymio:install-state',syncInstallAction);
+syncInstallAction();
 for(const [key,title,copy,selector] of [
   ['refresh','Actualizar datos','Sincroniza tu espacio','.data-sync-refresh'],
   ['theme','Apariencia','Cambiar entre claro y oscuro','.theme-toggle--app'],

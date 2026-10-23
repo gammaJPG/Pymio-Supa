@@ -40,9 +40,9 @@ test('Tiempo real: el servidor transmite la firma empresarial por SSE',async()=>
   }
 });
 
-test('Instalación móvil: ofrece instalación nativa y una guía segura cuando no está disponible',async()=>{
-  const [prompt,manifest,html,styles,worker,cloudflareBuild]=await Promise.all([
-    read('../install-prompt.js'),read('../manifest.webmanifest'),read('../piloto.html'),read('../mobile.css'),read('../sw.js'),read('../scripts/build-cloudflare.mjs'),
+test('Instalación móvil: ofrece únicamente la instalación nativa cuando está disponible',async()=>{
+  const [prompt,manifest,html,styles,worker,cloudflareBuild,mobile]=await Promise.all([
+    read('../install-prompt.js'),read('../manifest.webmanifest'),read('../piloto.html'),read('../mobile.css'),read('../sw.js'),read('../scripts/build-cloudflare.mjs'),read('../mobile.js'),
   ]);
   const parsed=JSON.parse(manifest);
   assert.equal(parsed.display,'standalone');
@@ -55,11 +55,15 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.match(prompt,/beforeinstallprompt/);
   assert.match(prompt,/dismissed-until:v2/);
   assert.match(prompt,/24\*60\*60\*1000/);
-  assert.match(prompt,/deferredPrompt\.prompt\(\)/);
+  assert.match(prompt,/prompt\.prompt\(\)/);
   assert.match(prompt,/appinstalled/);
   assert.match(prompt,/display-mode: standalone/);
-  assert.match(prompt,/Agregar a pantalla de inicio/);
+  assert.doesNotMatch(prompt,/Agregar a pantalla de inicio|Entendido|setTimeout/);
+  assert.match(prompt,/requestPymioInstall/);
   assert.match(prompt,/pymio-icon-transparent\.png/);
+  assert.match(html,/data-mobile-install hidden/);
+  assert.match(mobile,/canInstallPymio/);
+  assert.match(mobile,/requestPymioInstall/);
   assert.match(html,/apple-mobile-web-app-capable/);
   assert.match(html,/splash-01-ruta-inteligente\.png/);
   assert.match(styles,/\.pwa-install-prompt\{/);
@@ -68,7 +72,7 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.match(worker,/splash-01-ruta-inteligente\.png/);
   assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
   const app=await read('../app.js');
-  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=198'\)/);
+  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=199'\)/);
 });
 
 test('Marca: los iconos web e instalables conservan transparencia RGBA',async()=>{
