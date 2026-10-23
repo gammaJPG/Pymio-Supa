@@ -46,6 +46,9 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   ]);
   const parsed=JSON.parse(manifest);
   assert.equal(parsed.display,'standalone');
+  assert.equal(parsed.name,'Pymio');
+  assert.equal(parsed.background_color,'#FFF7DA');
+  assert.equal(parsed.theme_color,'#FFF7DA');
   assert.ok(parsed.icons.some(icon=>icon.sizes==='192x192'&&icon.type==='image/png'));
   assert.ok(parsed.icons.some(icon=>icon.sizes==='512x512'&&icon.type==='image/png'));
   assert.equal(parsed.icons.some(icon=>icon.type==='image/jpeg'),false);
@@ -56,9 +59,11 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.match(prompt,/Agregar a pantalla de inicio/);
   assert.match(prompt,/pymio-icon-transparent\.png/);
   assert.match(html,/apple-mobile-web-app-capable/);
+  assert.match(html,/splash-01-ruta-inteligente\.png/);
   assert.match(styles,/\.pwa-install-prompt\{/);
   assert.match(worker,/'live-sync\.js','install-prompt\.js'/);
   assert.match(worker,/pymio-icon-transparent\.png/);
+  assert.match(worker,/splash-01-ruta-inteligente\.png/);
 });
 
 test('Marca: los iconos web e instalables conservan transparencia RGBA',async()=>{

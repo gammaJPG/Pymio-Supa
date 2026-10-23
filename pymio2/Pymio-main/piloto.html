@@ -8,8 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" type="image/png" href="assets/pymio-icon-transparent.png">
-<link rel="manifest" href="manifest.webmanifest?v=2">
+<link rel="manifest" href="manifest.webmanifest?v=3">
 <link rel="apple-touch-icon" href="icon-192.png?v=2">
+<link rel="preload" as="image" href="assets/splash-concepts/splash-01-ruta-inteligente.png" fetchpriority="high">
 <meta name="description" content="Pymio: gestión, datos y conexiones para tu pyme en un solo lugar.">
 <meta name="color-scheme" content="light dark">
 <title>Pymio — Gestión inteligente para pymes</title>
@@ -29,7 +30,10 @@
 </head>
 <body>
 <a class="skip-link" href="#login-form">Saltar al contenido</a>
-<div id="boot-screen" role="status" aria-live="polite"><img src="assets/pymio-icon-transparent.png" alt=""><span>Preparando tu espacio…</span></div>
+<div id="boot-screen" role="status" aria-live="polite">
+  <img class="boot-splash-art" src="assets/splash-concepts/splash-01-ruta-inteligente.png" alt="" fetchpriority="high" decoding="async">
+  <span class="boot-status-copy">Preparando tu espacio…</span>
+</div>
 
 <!-- ================= LOGIN ================= -->
 <div id="login-screen">
