@@ -318,8 +318,8 @@ body.mobile-keyboard-open .mobile-nav{display:none}.mobile-keyboard-open .conten
   #sub-comunicaciones .communication-favorite{top:auto;right:1px;bottom:8px;width:36px;height:36px;color:var(--m-muted);touch-action:manipulation}
   #sub-comunicaciones .communication-favorite.active{background:transparent;color:#947000}
   #sub-comunicaciones .communications-list .network-empty{min-height:220px;background:transparent}
-  #sub-comunicaciones .mobile-new-chat-button{position:fixed;right:20px;bottom:calc(var(--m-nav) + env(safe-area-inset-bottom) + 20px);z-index:70;display:grid!important;width:56px;height:56px;place-items:center;padding:0;border:0;border-radius:16px;background:var(--m-honey);color:#20251c;box-shadow:0 10px 24px rgba(42,38,18,.22);touch-action:manipulation}
-  #sub-comunicaciones .mobile-new-chat-button:active{transform:scale(.95)}#sub-comunicaciones .mobile-new-chat-button svg{width:25px;height:25px}
+  #sub-comunicaciones .mobile-new-chat-button{position:fixed;right:max(20px,env(safe-area-inset-right));bottom:calc(var(--m-nav) + env(safe-area-inset-bottom) + 20px);z-index:70;display:grid!important;width:56px;min-width:56px;max-width:56px;height:56px;min-height:56px;max-height:56px;flex:0 0 56px;place-items:center;overflow:hidden;padding:0;border:0;border-radius:50%;background:var(--m-honey);color:#20251c;box-shadow:0 10px 24px rgba(42,38,18,.22);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  #sub-comunicaciones .mobile-new-chat-button:active{transform:scale(.94)}#sub-comunicaciones .mobile-new-chat-button svg{display:block;width:24px;max-width:24px;height:24px;max-height:24px;overflow:visible}
   #sub-comunicaciones .communications-detail{display:none;width:100%;height:100%;min-height:0;background:var(--m-paper)}
   #sub-comunicaciones .communications-shell.is-chat-open .communications-sidebar{display:none}
   #sub-comunicaciones .communications-shell.is-chat-open .communications-detail{position:fixed;inset:0;z-index:1900;display:flex;width:100vw;height:100dvh;min-height:0;padding:env(safe-area-inset-top) 0 0;background:var(--m-paper)}

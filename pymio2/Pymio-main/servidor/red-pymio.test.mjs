@@ -130,7 +130,7 @@ test('RED Pymio: ofrece una bandeja de comunicaciones y formularios distintos po
   assert.match(html,/data-communications-search/);assert.match(mobile,/mobile-chat-trigger/);assert.match(mobile,/pymio-show-chat-list/);
   assert.match(source,/data-chat-back/);assert.match(source,/pymio-chat-count/);assert.match(mobileCss,/communications-shell\.is-chat-open/);assert.match(mobileCss,/mobile-network-tabs\{display:none\}/);
   assert.match(html,/data-mobile-new-chat/);assert.match(html,/data-mobile-recipient-list/);assert.match(source,/state\.connections\|\|\[\]/);assert.match(source,/isMobileMessagingViewport\(\)\)return/);
-  assert.match(mobileCss,/\.pymio-chat-tray\{display:none!important\}/);assert.match(mobileCss,/communications-shell\.is-chat-open \.communications-detail\{position:fixed;inset:0/);assert.match(mobileCss,/mobile-new-chat-button/);
+  assert.match(mobileCss,/\.pymio-chat-tray\{display:none!important\}/);assert.match(mobileCss,/communications-shell\.is-chat-open \.communications-detail\{position:fixed;inset:0/);assert.match(mobileCss,/mobile-new-chat-button\{position:fixed/);assert.match(mobileCss,/mobile-new-chat-button[^}]*max-width:56px[^}]*border-radius:50%/);
   assert.match(migration,/thread_id uuid/);assert.match(migration,/'private_activity'/);assert.match(migration,/operation='activity\.read'/);
   assert.match(singleConversationMigration,/GROUP BY 1,2/);assert.match(singleConversationMigration,/NEW\.subject=''/);
 });
