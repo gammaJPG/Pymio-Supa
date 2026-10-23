@@ -1,4 +1,5 @@
-const DISMISS_KEY='pymio:install-dismissed-until';
+const DISMISS_KEY='pymio:install-dismissed-until:v2';
+const DISMISS_TIME=24*60*60*1000;
 const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
 const isMobileSurface=()=>matchMedia('(pointer: coarse)').matches&&matchMedia('(max-width: 950px)').matches;
 
@@ -6,7 +7,7 @@ export function setupInstallPrompt(){
   if(isStandalone()||!isMobileSurface())return;
   let deferredPrompt=null,manual=false,card=null;
   const dismissed=()=>Number(localStorage.getItem(DISMISS_KEY)||0)>Date.now();
-  const close=(remember=true)=>{card?.remove();card=null;if(remember)localStorage.setItem(DISMISS_KEY,String(Date.now()+7*24*60*60*1000));};
+  const close=(remember=true)=>{card?.remove();card=null;if(remember)localStorage.setItem(DISMISS_KEY,String(Date.now()+DISMISS_TIME));};
   const show=()=>{
     if(card||dismissed()||isStandalone())return;
     card=document.createElement('aside');card.className='pwa-install-prompt';card.setAttribute('role','region');card.setAttribute('aria-label','Instalar Pymio');
@@ -25,5 +26,5 @@ export function setupInstallPrompt(){
     show();
   });
   window.addEventListener('appinstalled',()=>close(false));
-  setTimeout(()=>{if(!deferredPrompt){manual=true;show();}},4500);
+  setTimeout(()=>{if(!deferredPrompt){manual=true;show();}},2500);
 }

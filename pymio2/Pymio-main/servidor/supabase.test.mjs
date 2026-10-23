@@ -300,6 +300,11 @@ test('HTTP Auth: Google entra a la plataforma y completa dentro solo el nombre d
   try{
     const start=await fetch(base+'/api/auth/google/start?return_to='+encodeURIComponent('http://localhost:5500/piloto.html'),{redirect:'manual'});
     assert.equal(start.status,302);const oauthCookie=start.headers.get('set-cookie').split(';')[0],authorize=new URL(start.headers.get('location'));
+    const expired=await fetch(base+'/api/auth/google/callback?state=expired',{redirect:'manual'});
+    const expiredLocation=new URL(expired.headers.get('location'));
+    assert.equal(expiredLocation.origin,base);
+    assert.equal(expiredLocation.pathname,'/piloto.html');
+    assert.equal(expiredLocation.searchParams.has('auth_error'),true);
     const callback=new URL(authorize.searchParams.get('redirect_to'));callback.searchParams.set('state',authorize.searchParams.get('state'));callback.searchParams.set('code','code-1');
     const result=await fetch(callback,{headers:{Cookie:oauthCookie},redirect:'manual'});
     assert.equal(result.status,302);assert.equal(result.headers.get('location'),'http://localhost:5500/piloto.html');

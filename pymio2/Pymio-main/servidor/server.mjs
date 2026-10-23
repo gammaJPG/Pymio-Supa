@@ -127,7 +127,11 @@ export function createInventoryServer(pool, origins, options = {}) {
           return redirect(pool.googleAuthorizeUrl(callback.href,state,challenge));
         }
         if(url.pathname==='/api/auth/google/callback' && req.method==='GET'){
-          const flow=decodeSession(namedCookie(req,'pymio_oauth'),sessionSecret),fallback=origins[0]+'/piloto.html';
+          // Si la cookie temporal se pierde o expira, conserva al usuario en el
+          // mismo origen que recibió el callback. Usar origins[0] podía enviarlo
+          // a un dominio antiguo aunque el acceso comenzara desde otro host.
+          const callbackOrigin=`${secureCookie?'https':'http'}://${req.headers.host}`;
+          const flow=decodeSession(namedCookie(req,'pymio_oauth'),sessionSecret),fallback=new URL('/piloto.html',callbackOrigin).href;
           const returnTo=flow?.returnTo||fallback;
           if(url.searchParams.get('error'))return returnWithError(returnTo,'Google no pudo completar el acceso. Inténtalo nuevamente.');
           if(!flow || !safeEqual(flow.state,url.searchParams.get('state')) || !url.searchParams.get('code'))return returnWithError(returnTo,'La solicitud de acceso venció. Inténtalo nuevamente.');

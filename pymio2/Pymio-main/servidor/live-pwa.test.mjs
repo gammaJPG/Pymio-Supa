@@ -53,6 +53,8 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.ok(parsed.icons.some(icon=>icon.sizes==='512x512'&&icon.type==='image/png'));
   assert.equal(parsed.icons.some(icon=>icon.type==='image/jpeg'),false);
   assert.match(prompt,/beforeinstallprompt/);
+  assert.match(prompt,/dismissed-until:v2/);
+  assert.match(prompt,/24\*60\*60\*1000/);
   assert.match(prompt,/deferredPrompt\.prompt\(\)/);
   assert.match(prompt,/appinstalled/);
   assert.match(prompt,/display-mode: standalone/);
@@ -65,6 +67,8 @@ test('Instalación móvil: ofrece instalación nativa y una guía segura cuando 
   assert.match(worker,/pymio-icon-transparent\.png/);
   assert.match(worker,/splash-01-ruta-inteligente\.png/);
   assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
+  const app=await read('../app.js');
+  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=198'\)/);
 });
 
 test('Marca: los iconos web e instalables conservan transparencia RGBA',async()=>{
