@@ -31,7 +31,7 @@ async function finishBootScreen(){
 // solo ofrece el prompt cuando el service worker ya está preparado para este
 // origen, por lo que no puede depender de la sesión de la empresa.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=201').catch(error => {
+  navigator.serviceWorker.register('./sw.js?v=202').catch(error => {
     console.warn('No se pudo preparar la instalación de Pymio:', error);
   });
 }

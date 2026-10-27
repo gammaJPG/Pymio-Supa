@@ -65,14 +65,18 @@ test('Instalación móvil: ofrece únicamente la instalación nativa cuando est�
   assert.match(mobile,/canInstallPymio/);
   assert.match(mobile,/requestPymioInstall/);
   assert.match(html,/apple-mobile-web-app-capable/);
-  assert.match(html,/pymio-preview-bee\.png/);
+  assert.match(html,/splash-mobile-background-v2\.png/);
+  assert.match(html,/splash-mobile-bee-v2\.png/);
+  assert.match(html,/splash-mobile-wordmark-v2\.png/);
   assert.match(styles,/\.pwa-install-prompt\{/);
   assert.match(worker,/'live-sync\.js','install-prompt\.js'/);
   assert.match(worker,/pymio-icon-transparent\.png/);
-  assert.match(worker,/pymio-preview-bee\.png/);
+  assert.match(worker,/splash-mobile-background-v2\.png/);
+  assert.match(worker,/splash-mobile-bee-v2\.png/);
+  assert.match(worker,/splash-mobile-wordmark-v2\.png/);
   assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
   const app=await read('../app.js');
-  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=201'\)/);
+  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=202'\)/);
 });
 
 test('Splash: conserva la pieza móvil y ofrece un arranque animado de escritorio',async()=>{
@@ -86,7 +90,7 @@ test('Splash: conserva la pieza móvil y ofrece un arranque animado de escritori
   assert.match(styles,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(styles,/@media\(max-width:767px\)/);
   assert.match(styles,/@keyframes boot-mobile-bee-in/);
-  assert.match(styles,/@keyframes boot-mobile-wave-in/);
+  assert.match(styles,/@keyframes boot-mobile-background-in/);
   assert.match(app,/minimumVisibleTime=reducedMotion\?220:\(mobileLayout\?1400:1550\)/);
   assert.match(app,/bootScreen\.classList\.add\('is-leaving'\)/);
   assert.match(devServer,/assets\\\/\(\?:\[a-zA-Z0-9_-\]\+\\\/\)\*/);

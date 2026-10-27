@@ -49,23 +49,22 @@
   html.auth-pending #boot-screen{display:block;}
   html.auth-pending #login-screen,html.auth-pending #app-screen{display:none!important;}
   .boot-mobile{display:none;position:relative;width:100%;height:100%;overflow:hidden;align-items:center;justify-content:center;background:#fff9e5;color:#11170f;isolation:isolate;}
-  .boot-mobile-light{position:absolute;inset:-18% -38% 38%;border-radius:50%;background:#fff;opacity:.76;transform:rotate(-12deg);}
-  .boot-mobile-route{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
-  .boot-mobile-route path{stroke:#efbd12;stroke-width:3;stroke-linecap:round;stroke-dasharray:.018 .026;stroke-dashoffset:1;animation:boot-mobile-route-in 980ms 130ms cubic-bezier(.23,1,.32,1) forwards;}
-  .boot-mobile-bee-wrap{position:absolute;top:17%;left:50%;width:min(67vw,290px);aspect-ratio:1;transform:translateX(-50%);animation:boot-mobile-bee-in 720ms 100ms cubic-bezier(.23,1,.32,1) both;}
+  .boot-mobile-background{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;animation:boot-mobile-background-in 760ms cubic-bezier(.23,1,.32,1) both;}
+  .boot-mobile-route{position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:1;}
+  .boot-mobile-route path{stroke:#f1bd00;stroke-width:4;stroke-linecap:round;stroke-dasharray:.022 .027;stroke-dashoffset:1;animation:boot-mobile-route-in 1080ms 180ms cubic-bezier(.23,1,.32,1) forwards;}
+  .boot-mobile-route-bottom{animation-delay:320ms!important;}
+  .boot-mobile-bee-wrap{position:absolute;top:18.5%;left:50%;width:min(72vw,310px);aspect-ratio:1.5;transform:translateX(-50%);z-index:2;animation:boot-mobile-bee-in 760ms 120ms cubic-bezier(.23,1,.32,1) both;}
   .boot-mobile-bee-wrap img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 20px 24px rgba(76,57,0,.16));animation:boot-mobile-bee-hover 1300ms 780ms ease-in-out infinite;}
-  .boot-mobile-brand{position:absolute;left:24px;right:24px;top:61%;display:flex;flex-direction:column;align-items:center;z-index:2;animation:boot-mobile-brand-in 480ms 560ms cubic-bezier(.23,1,.32,1) both;}
-  .boot-mobile-brand strong{font-family:'Space Grotesk',sans-serif;font-size:clamp(58px,18vw,76px);font-weight:700;line-height:1;letter-spacing:-.04em;}
-  .boot-mobile-brand span{width:54px;height:5px;margin-top:10px;border-radius:5px;background:#efbd12;transform-origin:left;animation:boot-mobile-mark-in 520ms 780ms cubic-bezier(.77,0,.175,1) both;}
-  .boot-mobile-brand p{margin:14px 0 0;color:#596153;font-size:14px;font-weight:600;letter-spacing:.01em;}
-  .boot-mobile-hexes{position:absolute;display:flex;gap:8px;z-index:1;}
-  .boot-mobile-hexes--top{right:-8px;top:7%;align-items:flex-end;}
-  .boot-mobile-hexes--side{left:-7px;top:43%;transform:rotate(-16deg);}
-  .boot-mobile-hexes i{display:block;width:30px;height:34px;background:#f1cf54;clip-path:polygon(25% 7%,75% 7%,100% 50%,75% 93%,25% 93%,0 50%);animation:boot-mobile-hex-in 360ms cubic-bezier(.23,1,.32,1) both;}
-  .boot-mobile-hexes i:nth-child(2){width:44px;height:50px;background:#ffd941;animation-delay:260ms}.boot-mobile-hexes i:nth-child(3){width:24px;height:28px;background:#fae78e;animation-delay:430ms}.boot-mobile-hexes--side i:first-child{animation-delay:480ms}.boot-mobile-hexes--side i:last-child{animation-delay:620ms}
-  .boot-mobile-waves{position:absolute;left:-18%;right:-18%;bottom:-9%;height:32%;z-index:-1;}
-  .boot-mobile-waves i{position:absolute;left:0;right:0;bottom:0;height:100%;border-radius:50% 50% 0 0/42% 42% 0 0;background:#f7d65d;transform-origin:center bottom;animation:boot-mobile-wave-in 720ms 380ms cubic-bezier(.23,1,.32,1) both;}
-  .boot-mobile-waves i:nth-child(2){bottom:-23%;height:92%;background:#f2c62c;animation-delay:500ms}.boot-mobile-waves i:nth-child(3){bottom:-48%;height:88%;background:#e8ae08;animation-delay:620ms}
+  .boot-mobile-brand{position:absolute;left:24px;right:24px;top:62.5%;display:flex;flex-direction:column;align-items:center;z-index:3;animation:boot-mobile-brand-in 480ms 650ms cubic-bezier(.23,1,.32,1) both;}
+  .boot-mobile-brand img{display:block;width:min(82vw,330px);height:auto;}
+  .boot-mobile-brand p{margin:8px 0 0;color:#12161c;font-size:15px;font-weight:600;letter-spacing:0;}
+  .boot-mobile-hexes{position:absolute;display:flex;align-items:center;gap:8px;z-index:1;}
+  .boot-mobile-hexes--top{right:2%;top:6%;align-items:flex-end;}
+  .boot-mobile-hexes--side{left:7%;top:40%;flex-direction:column;}
+  .boot-mobile-hexes--bottom{right:7%;top:69%;flex-direction:column;}
+  .boot-mobile-hexes i{display:block;width:29px;height:33px;background:rgba(241,207,84,.68);clip-path:polygon(25% 7%,75% 7%,100% 50%,75% 93%,25% 93%,0 50%);animation:boot-mobile-hex-in 360ms cubic-bezier(.23,1,.32,1) both;}
+  .boot-mobile-hexes b{display:block;width:10px;height:10px;border-radius:50%;background:#f1bd00;animation:boot-mobile-hex-in 300ms 420ms cubic-bezier(.23,1,.32,1) both;}
+  .boot-mobile-hexes i:nth-child(2){width:47px;height:53px;background:#f6c900;animation-delay:270ms}.boot-mobile-hexes i:nth-child(3){width:24px;height:28px;background:rgba(241,207,84,.42);animation-delay:440ms}.boot-mobile-hexes--side i{width:28px;height:32px;animation-delay:540ms}.boot-mobile-hexes--bottom i{width:31px;height:35px;animation-delay:680ms}
   .boot-desktop{display:grid;grid-template-columns:minmax(410px,.82fr) minmax(560px,1.18fr);width:100%;height:100%;min-height:640px;isolation:isolate;background:#11170f;}
   .boot-desktop::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 72% 38%,rgba(241,207,84,.13),transparent 28%),linear-gradient(110deg,transparent 0 47%,rgba(255,255,255,.025) 47% 47.1%,transparent 47.1%);z-index:-1;}
   .boot-desktop-copy{display:flex;flex-direction:column;padding:clamp(38px,4.6vw,76px);border-right:1px solid rgba(247,245,233,.1);}
@@ -107,18 +106,17 @@
   @keyframes boot-bee-hover{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-7px) rotate(2deg)}}
   @keyframes boot-glow{0%,100%{transform:scale(.96);opacity:.45}50%{transform:scale(1.12);opacity:.7}}
   @keyframes boot-node-in{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes boot-mobile-background-in{from{transform:scale(1.02);opacity:.72}to{transform:scale(1);opacity:1}}
   @keyframes boot-mobile-route-in{from{stroke-dashoffset:1;opacity:.2}to{stroke-dashoffset:0;opacity:1}}
-  @keyframes boot-mobile-bee-in{from{transform:translate(-82%,-14%) rotate(-9deg) scale(.94);opacity:0}to{transform:translate(-50%,0) rotate(0) scale(1);opacity:1}}
+  @keyframes boot-mobile-bee-in{from{transform:translate(-76%,-10%) rotate(-8deg) scale(.95);opacity:0}to{transform:translate(-50%,0) rotate(0) scale(1);opacity:1}}
   @keyframes boot-mobile-bee-hover{0%,100%{transform:translateY(0) rotate(-1.2deg)}50%{transform:translateY(-8px) rotate(1.5deg)}}
   @keyframes boot-mobile-brand-in{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
-  @keyframes boot-mobile-mark-in{from{transform:scaleX(0)}to{transform:scaleX(1)}}
   @keyframes boot-mobile-hex-in{from{transform:translateY(-12px) scale(.9);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
-  @keyframes boot-mobile-wave-in{from{transform:translateY(42%) scaleX(.96);opacity:.4}to{transform:translateY(0) scaleX(1);opacity:1}}
   @media(max-width:767px),(max-width:950px) and (max-height:500px){#boot-screen{background:#fff7da}.boot-mobile{display:flex}.boot-desktop{display:none}}
   @media(prefers-reduced-motion:reduce){
     #boot-screen{transition-duration:120ms;}
-    .boot-mobile-bee-wrap,.boot-mobile-brand,.boot-mobile-hexes i,.boot-mobile-waves i,.boot-brand,.boot-message h1,.boot-lead,.boot-signal,.boot-node{animation:boot-fade 200ms linear both;}
-    .boot-mobile-bee-wrap img,.boot-mobile-brand span,.boot-flight-path path,.boot-progress span,.boot-signal i b{animation:none;stroke-dashoffset:0;transform:none;}
+    .boot-mobile-background,.boot-mobile-bee-wrap,.boot-mobile-brand,.boot-mobile-hexes i,.boot-mobile-hexes b,.boot-brand,.boot-message h1,.boot-lead,.boot-signal,.boot-node{animation:boot-fade 200ms linear both;}
+    .boot-mobile-bee-wrap img,.boot-flight-path path,.boot-progress span,.boot-signal i b{animation:none;stroke-dashoffset:0;transform:none;}
     .boot-mobile-route path{animation:none;stroke-dashoffset:0;}
     .boot-bee-flight,.boot-bee-flight img,.boot-bee-glow{animation:none;transform:none;}
   }
