@@ -124,6 +124,7 @@ async function cargarSecciones() {
   let syncNotifications=[];
   let activityNotifications=[];
   let networkNotifications=[],networkNotificationsLoading=false,networkNotificationsTimer=null;
+  let supportNotifications=[],supportNotificationsLoading=false,supportNotificationsTimer=null;
   const readNotificationIds=new Set();
 
   function activityNotificationKey(){return `pymio:activity-notifications:${currentSession?.companyId||'unknown'}`;}
@@ -402,7 +403,7 @@ async function cargarSecciones() {
   bellBtn.setAttribute('aria-controls', 'notif-panel');
 
   function currentNotifications(){
-    return [...networkNotifications,...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
+    return [...supportNotifications,...networkNotifications,...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
   }
   function markCurrentNotificationsRead(){
     for(const notification of currentNotifications())if(notification.id!=null)readNotificationIds.add(String(notification.id));
@@ -477,9 +478,21 @@ async function cargarSecciones() {
     }catch{}
     finally{networkNotificationsLoading=false;renderNotifications();}
   }
+  async function refreshSupportNotifications(){
+    if(currentSession?.demo||supportNotificationsLoading)return;
+    supportNotificationsLoading=true;
+    try{
+      const response=await fetch(apiUrl+'/api/support/notifications',{cache:'no-store'}),result=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(result.error||'No se pudieron actualizar las notificaciones de soporte.');
+      const dateTime=new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short'});
+      supportNotifications=(result.notifications||[]).map(item=>({id:`support-${item.id}`,sev:item.kind==='ticket_expired'?'warn':item.kind==='status_resolved'||item.kind==='reply_received'?'success':item.kind==='new_ticket'?'warn':'info',title:item.title,desc:item.description,time:dateTime.format(new Date(item.created_at)),destination:'ayuda',ticketId:item.ticket_id}));
+    }catch{}
+    finally{supportNotificationsLoading=false;renderNotifications();}
+  }
   window.addEventListener('swc-offline-change',refreshSyncNotifications);
   document.addEventListener('red-pymio-actualizado',refreshNetworkNotifications);
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshNetworkNotifications();});
+  document.addEventListener('support-updated',refreshSupportNotifications);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){refreshNetworkNotifications();refreshSupportNotifications();}});
   document.addEventListener('producto-guardado',async event=>{
     if(currentSession?.demo)return;
     const detail=event.detail||{},action=detail.action||'updated';
@@ -580,7 +593,9 @@ async function cargarSecciones() {
     renderNotifications();
     refreshSyncNotifications();
     refreshNetworkNotifications();
+    refreshSupportNotifications();
     clearInterval(networkNotificationsTimer);networkNotificationsTimer=setInterval(refreshNetworkNotifications,45000);
+    clearInterval(supportNotificationsTimer);supportNotificationsTimer=setInterval(refreshSupportNotifications,45000);
   }
 
   async function initializeAuth(){

@@ -18,6 +18,20 @@ export function validateTicket(input = {}) {
   return {type, subject, description, request_id:requestId};
 }
 
+export function validateFaq(input = {}) {
+  const question = cleanText(input.question, 200);
+  const answer = cleanText(input.answer, 3000);
+  if (question.length < 5) throw Object.assign(new Error('La pregunta debe tener al menos 5 caracteres.'), {status:400});
+  if (answer.length < 10) throw Object.assign(new Error('La respuesta debe tener al menos 10 caracteres.'), {status:400});
+  return {question, answer};
+}
+
+export function validateReply(input = {}) {
+  const response = cleanText(input.response, 5000);
+  if (response.length < 10) throw Object.assign(new Error('La respuesta debe tener al menos 10 caracteres.'), {status:400});
+  return {response};
+}
+
 async function readJson(req, max = 8192) {
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
     throw Object.assign(new Error('Envía los datos en formato JSON.'), {status:415});
@@ -35,6 +49,9 @@ async function readJson(req, max = 8192) {
 export async function handleSupport(req, pool, session, send, url) {
   try {
     const statusRoute = /^\/api\/support\/admin\/tickets\/([0-9a-f-]{36})\/status$/i.exec(url.pathname);
+    const replyRoute = /^\/api\/support\/admin\/tickets\/([0-9a-f-]{36})\/reply$/i.exec(url.pathname);
+    const acceptRoute = /^\/api\/support\/tickets\/([0-9a-f-]{36})\/accept$/i.exec(url.pathname);
+    const faqRoute = /^\/api\/support\/admin\/faqs\/(\d+)$/i.exec(url.pathname);
     if (url.pathname === '/api/support/capabilities' && req.method === 'GET') {
       if (session.demo) return send(200, {admin:false, demo:true});
       return send(200, await pool.support('capabilities', session.userId, session.companyId));
@@ -48,6 +65,14 @@ export async function handleSupport(req, pool, session, send, url) {
       const ticket = validateTicket(await readJson(req));
       return send(201, await pool.support('create', session.userId, session.companyId, ticket));
     }
+    if (url.pathname === '/api/support/faqs' && req.method === 'GET') {
+      if (session.demo) return send(200, {faqs:[], demo:true});
+      return send(200, await pool.support('faqs.list', session.userId, session.companyId));
+    }
+    if (url.pathname === '/api/support/notifications' && req.method === 'GET') {
+      if (session.demo) return send(200, {notifications:[], demo:true});
+      return send(200, await pool.support('notifications.list', session.userId, session.companyId));
+    }
     if (url.pathname === '/api/support/admin/tickets' && req.method === 'GET') {
       const status=cleanText(url.searchParams.get('status'),20),type=cleanText(url.searchParams.get('type'),30);
       if (status && !STATUSES.has(status)) return send(400,{error:'El estado solicitado no es válido.'});
@@ -58,6 +83,21 @@ export async function handleSupport(req, pool, session, send, url) {
       const data=await readJson(req),status=cleanText(data.status,20);
       if (!STATUSES.has(status)) return send(400,{error:'Selecciona un estado válido.'});
       return send(200, await pool.support('admin.status', session.userId, session.companyId, {ticket_id:statusRoute[1],status}));
+    }
+    if (replyRoute && req.method === 'POST') {
+      const reply=validateReply(await readJson(req));
+      return send(200, await pool.support('admin.reply', session.userId, session.companyId, {ticket_id:replyRoute[1],...reply}));
+    }
+    if (acceptRoute && req.method === 'POST') {
+      return send(200, await pool.support('response.accept', session.userId, session.companyId, {ticket_id:acceptRoute[1]}));
+    }
+    if (url.pathname === '/api/support/admin/faqs' && req.method === 'POST') {
+      const faq=validateFaq(await readJson(req));
+      return send(201, await pool.support('admin.faq.create', session.userId, session.companyId, faq));
+    }
+    if (faqRoute && req.method === 'PATCH') {
+      const faq=validateFaq(await readJson(req));
+      return send(200, await pool.support('admin.faq.update', session.userId, session.companyId, {faq_id:Number(faqRoute[1]),...faq}));
     }
     return send(404,{error:'Ruta no encontrada.'});
   } catch (error) {
