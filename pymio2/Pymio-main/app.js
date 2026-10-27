@@ -299,7 +299,7 @@ async function cargarSecciones() {
     profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');passwordForm.reset();passwordError.hidden=true;const modifying=currentSession?.hasPassword!==false;currentPasswordField.hidden=!modifying;document.getElementById('profile-current-password').required=modifying;document.getElementById('password-dialog-title').textContent=modifying?'Modificar contraseña':'Establecer contraseña';document.getElementById('password-dialog-description').textContent=modifying?'Confirma tu contraseña actual antes de elegir una nueva.':'Crea una contraseña para ingresar también con tu correo.';passwordDialog.showModal();
   });
   document.getElementById('profile-communications-btn').addEventListener('click',()=>{
-    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
+    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');navigateTo('ayuda',false,true);
   });
   document.addEventListener('pymio-open-support-chat',event=>{
     navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
