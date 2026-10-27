@@ -18,26 +18,6 @@ function resultTable(result){
   const separator=`|-${widths.map(width=>'-'.repeat(width)).join('-|-')}-|`;
   return [row(headers),separator,...rows.map(row)].join('\r\n');
 }
-function textResponses(question,responses){
-  const lines=[`Pregunta ${question.position} - ${question.title}`,`Total de participantes: ${responses.length}`,''];
-  if(!responses.length)lines.push('Sin respuestas.');
-  responses.forEach((response,index)=>{
-    const answer=response.answers?.find(item=>item.question_id===question.id);
-    lines.push(
-      '='.repeat(72),
-      `INICIO DE RESPUESTA ${index+1}`,
-      `Usuario: ${response.name}`,
-      '',
-      'Texto:',
-      ...String(answer?.text_value||'Sin respuesta').split(/\r?\n/),
-      '',
-      `FIN DE RESPUESTA ${index+1}`,
-      '='.repeat(72),
-      ''
-    );
-  });
-  return lines.join('\r\n');
-}
 export async function exportResponses(data,pool,zip){
   const {form,responses}=data,summary=summarize(data),files=[];
   for(const q of [...form.questions].sort((a,b)=>a.position-b.position)){
@@ -47,7 +27,8 @@ export async function exportResponses(data,pool,zip){
       const result=summary.questions.find(item=>item.id===q.id);
       files.push({name:folder+'/Resultados.txt',body:Buffer.from([`Pregunta ${q.position} - ${q.title}`,`Total de participantes: ${summary.total}`,'Cada porcentaje se calcula sobre el total de participantes.','',resultTable(result)].join('\r\n'))});
     }else if(q.type==='text'){
-      files.push({name:folder+'/Respuestas.txt',body:Buffer.from(textResponses(q,responses))});
+      const textAnswers=responses.map(response=>{const answer=response.answers?.find(item=>item.question_id===q.id);return {response,answer:{file_name:'respuesta.txt'},body:Buffer.from(String(answer?.text_value||'Sin respuesta'))};});
+      files.push({name:`${folder}/Respuestas consolidadas.pdf`,body:await consolidatedFilesPdf(q,textAnswers)});
     }else{
       const attachments=[];
       for(const r of responses){

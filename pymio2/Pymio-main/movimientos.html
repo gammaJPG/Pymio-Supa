@@ -59,6 +59,10 @@
           <label for="mov-customer">Seleccionar cliente (opcional)</label>
           <select id="mov-customer" name="customer_id"><option value="__create__">+Crear Cliente</option><option value="" selected>Sin cliente</option></select>
         </div>
+        <div class="field movimiento-cliente" data-supplier-field hidden>
+          <label for="mov-supplier">Seleccionar proveedor</label>
+          <select id="mov-supplier" name="supplier_id"><option value="__create__">+Crear Proveedor</option><option value="" selected>Sin Especificar</option></select>
+        </div>
         <div class="producto-campos">
           <div class="field"><label for="mov-channel">Canal</label><select id="mov-channel" name="channel" required><option value="">Selecciona un canal</option><option>Físico</option><option>Online</option></select></div>
           <div class="field"><label for="mov-payment-method">Medio de Pago</label><select id="mov-payment-method" name="payment_method" required><option value="">Selecciona un medio de pago</option><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option></select></div>
@@ -84,6 +88,17 @@
       <div class="producto-acciones"><button type="button" class="btn-secondary" data-cancel-movement>Cancelar</button><button type="submit" class="btn-primary">Guardar movimiento</button></div>
     </form>
   </dialog>
+  <dialog class="producto-dialogo" id="proveedor-dialogo" aria-labelledby="proveedor-titulo">
+    <form id="proveedor-form">
+      <h2 id="proveedor-titulo">Crear Proveedor</h2>
+      <div class="field"><label for="proveedor-nombre">Nombre *</label><input id="proveedor-nombre" name="name" maxlength="120" required autocomplete="organization"></div>
+      <div class="field"><label for="proveedor-telefono">Teléfono</label><input id="proveedor-telefono" name="phone" type="tel" inputmode="tel" maxlength="32" autocomplete="tel" pattern="\+?[0-9 ]*" title="Usa números, espacios y, opcionalmente, + al inicio."></div>
+      <div class="field"><label for="proveedor-email">Email</label><input id="proveedor-email" name="email" type="email" maxlength="254" autocomplete="email"></div>
+      <div class="field"><label for="proveedor-direccion">Dirección</label><input id="proveedor-direccion" name="address" maxlength="300" autocomplete="street-address"></div>
+      <p class="producto-error" data-supplier-error role="alert" hidden></p>
+      <div class="producto-acciones"><button type="button" class="btn-secondary" data-supplier-cancel>Cancelar</button><button type="submit" class="btn-primary">Guardar proveedor</button></div>
+    </form>
+  </dialog>
   <dialog class="producto-dialogo" id="cliente-dialogo" aria-labelledby="cliente-titulo">
     <form id="cliente-form">
       <h2 id="cliente-titulo">Crear Cliente</h2>
@@ -107,6 +122,7 @@
       <label>Producto<input type="search" data-product required placeholder="Buscar producto o SKU" autocomplete="off"></label>
       <datalist></datalist>
       <label>Unidades<input type="number" data-units min="1" max="2147483647" step="1" required></label>
+      <label data-cost-field hidden>Costos<input type="number" data-unit-cost min="0" max="2147483647" step="1" inputmode="numeric"></label>
       <div data-line-discount hidden>
         <label>Tipo de descuento<select data-line-discount-type disabled><option value="fixed">Monto fijo ($)</option><option value="percentage">Porcentaje (%)</option></select></label>
         <label>Valor del descuento<input data-line-discount-value type="number" min="0" max="2147483647" step="0.01" value="0" required disabled></label>

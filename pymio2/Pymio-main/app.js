@@ -1,12 +1,12 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=182';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=183';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=153';
 import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
-import { iniciarMovimientos } from './movimientos.js?v=164';
+import { iniciarMovimientos } from './movimientos.js?v=165';
 import { configureSupport } from './centro-ayuda.js';
 import { startLiveSync, stopLiveSync } from './live-sync.js';
 import { setupInstallPrompt } from './install-prompt.js?v=199';
@@ -159,7 +159,7 @@ async function cargarSecciones() {
     ? 'No pudimos conectar con Pymio. Comprueba que el servidor esté activo e inténtalo nuevamente.'
     : error?.message||'No se pudo completar el acceso. Inténtalo nuevamente.';
   const googleAuth=document.getElementById('google-auth'),googleStatus=document.getElementById('google-auth-status');
-  const authSwitch=document.getElementById('auth-switch'),authDivider=document.getElementById('auth-divider'),loginHint=document.getElementById('login-hint');
+  const authSwitch=document.getElementById('auth-switch'),authDivider=document.getElementById('auth-divider'),loginHint=document.getElementById('login-hint'),forgotPasswordButton=document.getElementById('forgot-password-button');
   const googleAccount=document.getElementById('google-account'),googleSetupCancel=document.getElementById('google-setup-cancel');
   const credentialFields=[...document.querySelectorAll('.credential-field')],username=document.getElementById('username'),password=document.getElementById('password');
   const passwordToggle=document.getElementById('password-toggle');
@@ -205,7 +205,7 @@ async function cargarSecciones() {
     document.querySelectorAll('[data-auth-mode]').forEach(option=>{const active=option.dataset.authMode===mode;option.classList.toggle('active',active);option.setAttribute('aria-selected',String(active));});
     document.querySelectorAll('.signup-field').forEach(field=>field.hidden=!(isRegister||isGoogleSetup));
     ownerNameField.hidden=isGoogleSetup||!(isRegister||isGoogleSetup);
-    credentialFields.forEach((field,index)=>field.hidden=isGoogleSetup&&(index===0||!googleNeedsPassword));authSwitch.hidden=isGoogleSetup;authDivider.hidden=isGoogleSetup;googleAuth.hidden=isGoogleSetup;googleStatus.hidden=isGoogleSetup||googleStatus.hidden;loginHint.hidden=isGoogleSetup;
+    credentialFields.forEach((field,index)=>field.hidden=isGoogleSetup&&(index===0||!googleNeedsPassword));authSwitch.hidden=isGoogleSetup;authDivider.hidden=isGoogleSetup;googleAuth.hidden=isGoogleSetup;googleStatus.hidden=isGoogleSetup||googleStatus.hidden;loginHint.hidden=isGoogleSetup;forgotPasswordButton.hidden=mode!=='login';
     googleAccount.hidden=!isGoogleSetup;googleSetupCancel.hidden=!isGoogleSetup;
     businessName.required=isRegister||isGoogleSetup;username.required=!isGoogleSetup;password.required=!isGoogleSetup||googleNeedsPassword;
     document.getElementById('username-label').textContent=isRegister?'Correo electrónico':'Correo o usuario';username.placeholder=isRegister?'tu@empresa.cl':'correo@empresa.cl o pilotodepruebas';username.autocomplete=isRegister?'email':'username';password.autocomplete=isRegister||googleNeedsPassword?'new-password':'current-password';
@@ -252,7 +252,7 @@ async function cargarSecciones() {
     startLiveSync({apiUrl,demo:session.demo});
     iniciarMovimientos({companyId:session.companyId});
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
-    const storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(storedTab)?storedTab:'inicio';
+    const requestedTab=new URLSearchParams(location.search).get('tab'),storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(requestedTab)?requestedTab:validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
     document.getElementById('profile-password-btn').hidden=session.demo;
     if(session.requiresBusinessName)openBusinessSetup();
@@ -280,7 +280,9 @@ async function cargarSecciones() {
   const profileMenuButton=document.getElementById('profile-menu-btn'),profileMenu=document.getElementById('profile-menu');
   const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');
   const businessSetupInput=document.getElementById('business-setup-name'),businessSetupError=document.getElementById('business-setup-error');
-  const passwordDialog=document.getElementById('password-dialog'),passwordForm=document.getElementById('password-form'),passwordError=document.getElementById('password-form-error');
+  const passwordDialog=document.getElementById('password-dialog'),passwordForm=document.getElementById('password-form'),passwordError=document.getElementById('password-form-error'),currentPasswordField=document.getElementById('current-password-field');
+  const recoveryRequestDialog=document.getElementById('recovery-request-dialog'),recoveryRequestForm=document.getElementById('recovery-request-form'),recoveryRequestError=document.getElementById('recovery-request-error'),recoveryRequestSuccess=document.getElementById('recovery-request-success');
+  const recoveryResetDialog=document.getElementById('recovery-reset-dialog'),recoveryResetForm=document.getElementById('recovery-reset-form'),recoveryResetError=document.getElementById('recovery-reset-error'),recoveryLoginStatus=document.getElementById('recovery-login-status');
   function openBusinessSetup(){
     businessSetupInput.value=currentSession?.businessName||'';businessSetupError.hidden=true;
     if(!businessSetupDialog.open)businessSetupDialog.showModal();
@@ -293,12 +295,30 @@ async function cargarSecciones() {
     if(!profileMenu.hidden&&!profileMenu.contains(event.target)&&!profileMenuButton.contains(event.target)){profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');}
   });
   document.getElementById('profile-password-btn').addEventListener('click',()=>{
-    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');passwordForm.reset();passwordError.hidden=true;passwordDialog.showModal();
+    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');passwordForm.reset();passwordError.hidden=true;const modifying=currentSession?.hasPassword!==false;currentPasswordField.hidden=!modifying;document.getElementById('profile-current-password').required=modifying;document.getElementById('password-dialog-title').textContent=modifying?'Modificar contraseña':'Establecer contraseña';document.getElementById('password-dialog-description').textContent=modifying?'Confirma tu contraseña actual antes de elegir una nueva.':'Crea una contraseña para ingresar también con tu correo.';passwordDialog.showModal();
   });
   document.getElementById('profile-communications-btn').addEventListener('click',()=>{
     profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
   });
   document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
+  forgotPasswordButton.addEventListener('click',()=>{recoveryRequestForm.reset();recoveryRequestError.hidden=true;recoveryRequestSuccess.hidden=true;if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username.value.trim()))document.getElementById('recovery-email').value=username.value.trim();recoveryRequestDialog.showModal();});
+  document.querySelector('[data-recovery-close]').addEventListener('click',()=>recoveryRequestDialog.close());
+  recoveryRequestForm.addEventListener('submit',async event=>{
+    event.preventDefault();const submit=recoveryRequestForm.querySelector('[type="submit"]'),returnTo=new URL('piloto.html',location.href);returnTo.search='';returnTo.hash='';recoveryRequestError.hidden=true;recoveryRequestSuccess.hidden=true;submit.disabled=true;
+    try{const response=await fetch(apiUrl+'/api/auth/password/recovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('recovery-email').value.trim(),returnTo:returnTo.href})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo enviar el enlace.');recoveryRequestSuccess.textContent=result.message;recoveryRequestSuccess.hidden=false;}
+    catch(error){recoveryRequestError.textContent=accessErrorMessage(error);recoveryRequestError.hidden=false;}finally{submit.disabled=false;}
+  });
+  const recoveryHash=new URLSearchParams(location.hash.replace(/^#/,'')),recoveryQuery=new URLSearchParams(location.search),recoveryAccessToken=recoveryHash.get('access_token')||recoveryQuery.get('access_token')||'';
+  if(recoveryQuery.get('password_recovery')==='1'||recoveryHash.get('type')==='recovery'){
+    if(recoveryHash.get('type')==='recovery'&&recoveryAccessToken)recoveryResetDialog.showModal();
+    else{recoveryLoginStatus.textContent='El enlace de recuperación no es válido o ya venció. Solicita uno nuevo.';recoveryLoginStatus.hidden=false;}
+  }
+  recoveryResetForm.addEventListener('submit',async event=>{
+    event.preventDefault();const value=document.getElementById('recovery-password').value,confirmation=document.getElementById('recovery-password-confirm').value,submit=recoveryResetForm.querySelector('[type="submit"]');recoveryResetError.hidden=true;
+    if(value!==confirmation){recoveryResetError.textContent='Las contraseñas no coinciden.';recoveryResetError.hidden=false;return;}submit.disabled=true;
+    try{const response=await fetch(apiUrl+'/api/auth/password/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:recoveryAccessToken,password:value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo restablecer la contraseña.');recoveryResetDialog.close();recoveryResetForm.reset();const clean=new URL(location.href);clean.searchParams.delete('password_recovery');clean.searchParams.delete('access_token');clean.hash='';history.replaceState(null,'',clean);recoveryLoginStatus.textContent='Tu contraseña fue actualizada. Ya puedes iniciar sesión.';recoveryLoginStatus.hidden=false;}
+    catch(error){recoveryResetError.textContent=accessErrorMessage(error);recoveryResetError.hidden=false;}finally{submit.disabled=false;}
+  });
   businessSetupDialog.addEventListener('cancel',event=>event.preventDefault());
   businessSetupForm.addEventListener('submit',async event=>{
     event.preventDefault();const submit=businessSetupForm.querySelector('[type="submit"]');submit.disabled=true;businessSetupError.hidden=true;
@@ -309,10 +329,10 @@ async function cargarSecciones() {
     }catch(error){businessSetupError.textContent=error.message;businessSetupError.hidden=false;}finally{submit.disabled=false;}
   });
   passwordForm.addEventListener('submit',async event=>{
-    event.preventDefault();const value=document.getElementById('profile-password').value,confirmation=document.getElementById('profile-password-confirm').value,submit=passwordForm.querySelector('[type="submit"]');
+    event.preventDefault();const value=document.getElementById('profile-password').value,confirmation=document.getElementById('profile-password-confirm').value,currentPassword=document.getElementById('profile-current-password').value,submit=passwordForm.querySelector('[type="submit"]');
     passwordError.hidden=true;if(value!==confirmation){passwordError.textContent='Las contraseñas no coinciden.';passwordError.hidden=false;return;}
     submit.disabled=true;
-    try{const response=await fetch(apiUrl+'/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo guardar la contraseña.');passwordDialog.close();}
+    try{const response=await fetch(apiUrl+'/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword,password:value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudo guardar la contraseña.');currentSession.hasPassword=true;passwordDialog.close();}
     catch(error){passwordError.textContent=error.message;passwordError.hidden=false;}finally{submit.disabled=false;}
   });
 

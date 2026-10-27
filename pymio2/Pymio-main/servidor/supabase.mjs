@@ -115,8 +115,20 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
     async createAuthUser(email, password, metadata = {}) {
       return requestJson('/auth/v1/admin/users', {
         method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: metadata }),
+        body: JSON.stringify({ email, password, email_confirm: true, user_metadata: metadata, app_metadata:{pymio_password_set:true} }),
       }, 'No se pudo crear la cuenta.');
+    },
+    async authUserHasPassword(id) {
+      const user=await requestJson('/auth/v1/admin/users/'+encodeURIComponent(id),{headers},'No se pudo comprobar la seguridad de la cuenta.');
+      const providers=Array.isArray(user.app_metadata?.providers)?user.app_metadata.providers:[];
+      return user.app_metadata?.pymio_password_set===true||providers.includes('email')||(user.identities||[]).some(identity=>identity.provider==='email');
+    },
+    async sendPasswordRecovery(email,redirectTo) {
+      const url=new URL('/auth/v1/recover',base);url.searchParams.set('redirect_to',redirectTo);
+      return requestJson(url.href,{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({email})},'No se pudo enviar el correo de recuperación.');
+    },
+    async resetAuthUserPassword(accessToken,password) {
+      return requestJson('/auth/v1/user',{method:'PUT',headers:{apikey:key,Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify({password})},'El enlace de recuperación no es válido o ya venció.');
     },
     async deleteAuthUser(id) {
       return requestJson('/auth/v1/admin/users/' + encodeURIComponent(id), {

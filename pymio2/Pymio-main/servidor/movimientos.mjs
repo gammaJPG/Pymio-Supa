@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {generateSalesReceiptPdf} from './sales-receipt-pdf.mjs';
 
 function fallo(status, message) { return Object.assign(new Error(message), { status }); }
 
@@ -32,6 +33,7 @@ export function validarMovimiento(data) {
   if (data.Estado != null && !['Pagado','Pendiente de Pago'].includes(data.Estado)) throw fallo(400, 'Estado de pago inválido.');
   if (data.Estado === 'Pendiente de Pago' && !['Venta','Compra'].includes(data.operation_detail)) throw fallo(400, 'Solo las ventas y compras pueden quedar pendientes de pago.');
   if (data.customer_id != null && (!/^[1-9]\d{0,18}$/.test(String(data.customer_id)) || data.operation_detail !== 'Venta')) throw fallo(400, 'Selecciona un cliente válido para la venta.');
+  if (data.supplier_id != null && (!/^[1-9]\d{0,18}$/.test(String(data.supplier_id)) || data.operation_detail !== 'Compra')) throw fallo(400, 'Selecciona un proveedor válido para la compra.');
   const rawDiscount = data.discount ?? null;
   let discount = null;
   if (rawDiscount !== null) {
@@ -45,6 +47,8 @@ export function validarMovimiento(data) {
     }
   }
   for (const item of data.items) {
+    if (data.operation_detail === 'Compra' && (typeof item.unit_cost !== 'number' || !Number.isInteger(item.unit_cost) || item.unit_cost < 0 || item.unit_cost > 2147483647)) throw fallo(400, 'Ingresa un costo válido para cada producto comprado.');
+    if (data.operation_detail !== 'Compra' && item.unit_cost != null) throw fallo(400, 'Los costos solo se indican en compras.');
     if (discount?.scope === 'product') validarDescuento(item.discount);
     else if (item.discount != null) throw fallo(400, 'Selecciona descuento por producto para aplicar descuentos individuales.');
   }
@@ -56,9 +60,10 @@ export function validarMovimiento(data) {
     payment_method: data.payment_method,
     ...(data.Estado != null ? {Estado:data.Estado} : {}),
     ...(data.customer_id == null ? {} : { customer_id: String(data.customer_id) }),
+    ...(data.supplier_id == null ? {} : { supplier_id: String(data.supplier_id) }),
     occurred_at: new Date(data.occurred_at).toISOString(),
     discount,
-    items: data.items.map(i => ({ product_id: String(i.product_id), units: i.units, discount: discount?.scope === 'product' ? {type:i.discount.type,value:i.discount.value} : null })).sort((a,b) => BigInt(a.product_id) < BigInt(b.product_id) ? -1 : 1)
+    items: data.items.map(i => ({ product_id: String(i.product_id), units: i.units, ...(data.operation_detail === 'Compra' ? {unit_cost:i.unit_cost} : {}), discount: discount?.scope === 'product' ? {type:i.discount.type,value:i.discount.value} : null })).sort((a,b) => BigInt(a.product_id) < BigInt(b.product_id) ? -1 : 1)
   };
 }
 
@@ -100,6 +105,16 @@ export async function atenderMovimientos(req, pool, companyId, send, movementCod
     console.error('Movimientos Supabase:', error.code ?? 'desconocido');
     return send(500, { error: 'No se pudo guardar o consultar el movimiento. Revisa la conexión y reintenta.' });
   }
+}
+
+export async function atenderComprobanteVenta(req,pool,companyId,send,res,movementCode){
+  if(req.method!=='GET')return send(405,{error:'Método no permitido.'});
+  try{
+    const movements=await listarMovimientos(pool,companyId,movementCode,{}),movement=movements[0];
+    if(!movement)return send(404,{error:'La venta ya no existe o no pertenece a esta empresa.'});
+    const pdf=await generateSalesReceiptPdf(movement),filename=`Comprobante de venta - ${movementCode}.pdf`;
+    res.writeHead(200,{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,'Content-Length':pdf.length,'Cache-Control':'no-store'});return res.end(pdf);
+  }catch(error){return send(error.status||500,{error:error.message||'No se pudo generar el comprobante de venta.'});}
 }
 
 

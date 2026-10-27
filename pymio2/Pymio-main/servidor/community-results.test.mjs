@@ -23,7 +23,7 @@ test('Resultados: cuenta participantes, ceros y porcentajes sobre el total',()=>
   assert.deepEqual(summarize(data).questions[0].options,[{option:'A',count:2,percentage:66.67},{option:'B',count:1,percentage:33.33},{option:'C',count:0,percentage:0}]);
   assert.equal(summarize({...data,responses:[]}).questions[0].options[0].percentage,0);
 });
-test('Exportación: crea un TXT único por cada pregunta de texto',async()=>{
+test('Exportación: consolida preguntas de texto y archivo como PDF con una entrada por usuario',async()=>{
   const source=await PDFDocument.create();source.addPage();const sourcePdf=Buffer.from(await source.save());
   const files=unzip(await exportResponses(data,{getCommunityFile:async path=>path==='a'?sourcePdf:Buffer.from('Contenido del archivo de Luis')},zipFiles));
   assert.equal([...files.keys()].filter(n=>n.endsWith('/')).length,4);
@@ -39,14 +39,10 @@ test('Exportación: crea un TXT único por cada pregunta de texto',async()=>{
   assert.equal(consolidated.subarray(0,5).toString(),'%PDF-');
   assert.equal((await PDFDocument.load(consolidated)).getPageCount(),2);
   assert.equal(files.get('Pregunta 4 - Vacía/Respuestas consolidadas.pdf').subarray(0,5).toString(),'%PDF-');
-  const textFiles=[...files.keys()].filter(n=>n.endsWith('/Respuestas.txt'));
-  assert.deepEqual(textFiles,['Pregunta 2 - Comentario opinión/Respuestas.txt']);
-  const responses=files.get(textFiles[0]).toString();
-  assert.match(responses,/Pregunta 2 - Comentario \/ opinión/);
-  assert.match(responses,/INICIO DE RESPUESTA 1[\s\S]*Usuario: Ana & Pérez[\s\S]*Primera línea\r?\n<Segunda>[\s\S]*FIN DE RESPUESTA 1/);
-  assert.match(responses,/INICIO DE RESPUESTA 2[\s\S]*Usuario: Luis[\s\S]*Otra respuesta[\s\S]*FIN DE RESPUESTA 2/);
-  assert.match(responses,/INICIO DE RESPUESTA 3[\s\S]*Usuario: María[\s\S]*Sin respuesta[\s\S]*FIN DE RESPUESTA 3/);
-  assert.doesNotMatch(responses,/Empresa:|Identificador de respuesta:|Fecha:/);
+  assert.deepEqual([...files.keys()].filter(n=>n.endsWith('/Respuestas.txt')),[]);
+  const textConsolidated=files.get('Pregunta 2 - Comentario opinión/Respuestas consolidadas.pdf');
+  assert.equal(textConsolidated.subarray(0,5).toString(),'%PDF-');
+  assert.equal((await PDFDocument.load(textConsolidated)).getPageCount(),3);
   assert.equal([...files.keys()].filter(n=>n.endsWith('.docx')).length,0);
 });
 test('Resultados: autorización denegada impide leer respuestas con service role',async()=>{

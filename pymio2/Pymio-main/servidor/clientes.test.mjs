@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { validarCliente, atenderClientes } from './clientes.mjs';
+import { validarProveedor, atenderProveedores } from './proveedores.mjs';
 import { validarMovimiento } from './movimientos.mjs';
 import { createInventoryServer } from './server.mjs';
 
@@ -34,6 +35,17 @@ test('Ventas: el cliente es opcional y solo se acepta en ventas', () => {
   assert.equal(Object.hasOwn(validarMovimiento(sale),'customer_id'),false);
   assert.throws(() => validarMovimiento({...sale,customer_id:'x'}), {status:400});
   assert.throws(() => validarMovimiento({...sale,operation_detail:'Merma',customer_id:'12'}), {status:400});
+});
+
+test('Proveedores: conserva las mismas columnas y API separada de clientes', async () => {
+  assert.deepEqual(validarProveedor({name:' Distribuidora ',phone:'+56 9 1234 5678',email:'ventas@proveedor.cl',address:'Bodega 4'}),
+    {name:'Distribuidora',phone:'+56 9 1234 5678',email:'ventas@proveedor.cl',address:'Bodega 4'});
+  const calls=[];const sent=[];const pool={rpc:async(...args)=>{calls.push(args);return args[0]==='supplier.list'?[]:{id:'7',...args[2]};}};
+  await atenderProveedores({method:'GET'},pool,'3',(code,body)=>sent.push({code,body}));
+  const request=Readable.from([Buffer.from(JSON.stringify({name:'Distribuidora'}))]);request.method='POST';request.headers={'content-type':'application/json'};
+  await atenderProveedores(request,pool,'3',(code,body)=>sent.push({code,body}));
+  assert.deepEqual(calls.map(call=>call.slice(0,2)),[['supplier.list','3'],['supplier.create','3']]);
+  assert.deepEqual(sent.map(item=>item.code),[200,201]);
 });
 
 test('Clientes: la ruta HTTP conserva el alcance por empresa', async () => {

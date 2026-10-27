@@ -65,7 +65,7 @@ export function ordenarMovimientos(movements, order, collator = new Intl.Collato
   });
 }
 
-export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
+export function renderMovimientos(table, movements, {onMarkPaid, onEdit, onReceipt} = {}) {
   table.replaceChildren();
   let previousDay='';
   for (const [index, movement] of movements.entries()) {
@@ -91,7 +91,7 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     toggle.append(toggleIndicator, toggleLabel);
     const mobileSummary=document.createElement('span');mobileSummary.className='mobile-movement-summary mobile-only';
     for(const [className,value] of [
-      ['mobile-movement-name',movement.customer_name||(movement.products||[])[0]?.name||movement.operation_detail||'Otro movimiento'],
+      ['mobile-movement-name',movement.customer_name||movement.supplier_name||(movement.products||[])[0]?.name||movement.operation_detail||'Otro movimiento'],
       ['mobile-movement-total',moneda(movement.total)],
       ['mobile-movement-date',[movement.operation_detail||'Otro movimiento',movement.products?.length>1?movement.products.length+' productos':'',new Date(movement.occurred_at).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})].filter(Boolean).join(' · ')],
       ['mobile-movement-meta',[movement.channel,movement.payment_method].filter(Boolean).join(' · ')],
@@ -117,8 +117,12 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     detail.hidden = true;
     detail.className = 'movimiento-detalle';
     const cell = detail.insertCell(); cell.colSpan = 5;
-    if (onEdit || (movement.Estado === 'Pendiente de Pago' && onMarkPaid)) {
+    if (onEdit || (movement.Estado === 'Pendiente de Pago' && onMarkPaid) || (movement.operation_detail==='Venta'&&onReceipt)) {
       const actions = document.createElement('div'); actions.className = 'movimiento-detalle-acciones';
+      if(movement.operation_detail==='Venta'&&onReceipt){
+        const receipt=document.createElement('button');receipt.type='button';receipt.className='movimiento-comprobante';receipt.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Descargar comprobante</span>';
+        receipt.onclick=async()=>{receipt.disabled=true;receipt.setAttribute('aria-busy','true');try{await onReceipt(movement);}finally{receipt.disabled=false;receipt.removeAttribute('aria-busy');}};actions.appendChild(receipt);
+      }
       if (onEdit) {
         const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'detalle-editar';
         edit.setAttribute('aria-label',`Modificar movimiento ${movement.code}`); edit.title = 'Editar';
@@ -178,7 +182,7 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit} = {}) {
     }
     wrap.appendChild(nested); cell.appendChild(wrap);
     const summary = document.createElement('div'); summary.className = 'movimiento-detalle-resumen';
-    for (const [title, value] of [['Descuento Total', Number(movement.discount_amount ?? 0) === 0 ? '-' : moneda(movement.discount_amount)], ['Estado', movement.Estado ?? 'Pagado'], ['Medio de pago', movement.payment_method ?? '-'], ['Tipo', movement.operation], ['Código', movement.code], ...(movement.customer_name ? [['Cliente', movement.customer_name]] : [])]) {
+    for (const [title, value] of [['Descuento Total', Number(movement.discount_amount ?? 0) === 0 ? '-' : moneda(movement.discount_amount)], ['Estado', movement.Estado ?? 'Pagado'], ['Medio de pago', movement.payment_method ?? '-'], ['Tipo', movement.operation], ['Código', movement.code], ...(movement.customer_name ? [['Cliente', movement.customer_name]] : []), ...(movement.supplier_name ? [['Proveedor', movement.supplier_name]] : [])]) {
       const item = document.createElement('p'), label = document.createElement('strong');
       label.textContent = title + ': '; item.append(label, String(value)); summary.appendChild(item);
     }

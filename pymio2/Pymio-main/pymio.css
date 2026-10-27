@@ -364,6 +364,8 @@ dialog.producto-dialogo::backdrop{background:#1e231b80;backdrop-filter:blur(4px)
 .login-hint{margin-top:24px;border:1px solid #e2e3d3;border-radius:8px;background:#eeefe4;color:#737b60;font-size:10px;line-height:1.9;padding:12px 14px;}
 .login-hint .num{font-family:'IBM Plex Sans',sans-serif;font-size:10px;color:#676d55;}
 .login-error{font-size:12px;line-height:1.6;}
+.login-success{font-size:12px;line-height:1.55;color:#466c35;font-weight:600;margin:0 0 16px!important}
+.forgot-password-button{display:block;margin:-9px 0 10px auto;padding:3px 0;border:0;background:transparent;color:#626b50;font:inherit;font-size:11px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 
 @keyframes node-enter{from{opacity:0;transform:translateY(12px);}
 to{opacity:1;transform:none;}
@@ -628,6 +630,7 @@ button{min-height:44px;}
 .movimiento-marcar-pagado span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#63a873;color:#fff;font-size:12px;line-height:1;}
 .movimiento-marcar-pagado:hover{background:#cfead5;border-color:#8bc798;}
 .movimiento-marcar-pagado:disabled{cursor:wait;opacity:.65;}
+.movimiento-comprobante{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:9px 13px;border:1px solid #d8c36c;border-radius:8px;background:#fff7cf;color:#5d4b0c;font-size:11px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px #5d4b0c12}.movimiento-comprobante svg{width:17px;height:17px}.movimiento-comprobante:hover{background:#f9e99c;border-color:#cbb24e}.movimiento-comprobante:disabled{cursor:wait;opacity:.65}
 .movimiento-pago-confirmacion{width:min(430px,calc(100vw - 32px));}
 .movimiento-pago-confirmacion p{margin:0 0 24px;color:var(--ink-soft);font-size:14px!important;}
 .movimiento-pago-confirmacion .producto-acciones{justify-content:flex-end;}
@@ -680,6 +683,7 @@ button{min-height:44px;}
 #movimiento-form .movimiento-linea label{font-size:12px;font-weight:500;line-height:1.4;color:var(--muted);text-align:left;}
 #movimiento-form .field label{display:block;margin-bottom:8px;}
 #movimiento-form .movimiento-linea{padding:16px;margin:0 0 14px;gap:12px;grid-template-columns:minmax(0,1fr) 100px auto;align-items:end;}
+#movimiento-form .movimiento-linea:has([data-cost-field]:not([hidden])){grid-template-columns:minmax(0,1fr) 100px 130px auto;}
 #movimiento-form .movimiento-linea label{gap:8px;}
 #movimiento-form .movimiento-linea input,
 :is(#movimiento-form .producto-campos, #movimiento-form .movimiento-cliente, #tab-dashboard .filter-group) select{min-height:46px;padding:11px 12px;font:inherit;font-size:14px;line-height:1.4;color:var(--ink);box-sizing:border-box;}
@@ -835,16 +839,11 @@ button{min-height:44px;}
 .account-dialog .primary-btn{min-height:44px;margin-top:6px;border:0;border-radius:9px;background:var(--ink);color:#fff;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .account-dialog-close{position:absolute;right:18px;top:18px;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:#eceee3;color:var(--ink);font-size:20px;line-height:1;text-align:center;cursor:pointer}
 .account-dialog .form-error{margin:0;color:#a73532}
+.account-dialog .form-success{margin:0;color:#466c35;font-weight:600}
 @media(max-width:600px){.topbar-right .user-chip{display:flex}.topbar-right .user-chip>div:last-child{display:none}.profile-menu{position:fixed;right:12px;top:58px;width:min(260px,calc(100vw - 24px))}.account-dialog form{padding:25px 20px}}
 .inventario-card-stock,.inventario-card-price{margin:0;color:var(--ink);font-size:12px;line-height:1.4;}
 .inventario-card-stock.critico{color:#b25942;}
 .inventario-card-stock strong,.inventario-card-price strong{font-weight:600;font-variant-numeric:tabular-nums;}
-.inventario-expiry-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin:8px 0 0;padding:5px 8px;border-radius:999px;background:#eef0e9;color:var(--muted);font-size:11px;font-weight:600;line-height:1.35;}
-.inventario-expiry-badge[data-state=expired],.inventario-expiry-cell.is-expired{background:#f8e4e1;color:var(--critical);}
-.inventario-expiry-badge[data-state=urgent],.inventario-expiry-cell.is-urgent{background:#fff0cd;color:#8a5e00;}
-.inventario-expiry-badge[data-state=soon],.inventario-expiry-cell.is-soon{background:#fff7df;color:#725c17;}
-.inventario-expiry-cell{font-weight:600;white-space:normal;}.inventario-expiry-card .inventario-expiry-badge{margin:0 0 8px;}.inventario-expiry-advice{margin:0;color:var(--muted);font-size:12px;line-height:1.5;}
-.producto-vencimiento small,.movement-fefo-hint{display:block;margin-top:6px;color:var(--muted);font-size:11px;line-height:1.45;}.movement-fefo-hint[data-state=recommended]{color:#367846;font-weight:600;}
 .inventario-card-name{min-width:0;margin:0;color:var(--ink);font-size:12px;font-weight:600;line-height:1.4;text-align:right;overflow-wrap:anywhere;}
 .inventario-card-media{display:grid;place-items:center;width:100%;height:200px;margin:10px 0;min-width:0;overflow:hidden;}
 .inventario-card-media img{display:block;width:100%;height:100%;object-fit:contain;object-position:center;}

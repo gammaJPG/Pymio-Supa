@@ -18,7 +18,7 @@
 <script src="theme.js?v=2"></script>
 <link rel="stylesheet" href="style.css?v=187" type="text/css">
 <link rel="stylesheet" href="ecosistema.css?v=170" type="text/css">
-<link rel="stylesheet" href="pymio.css?v=166" type="text/css">
+<link rel="stylesheet" href="pymio.css?v=168" type="text/css">
 <link rel="stylesheet" href="dashboard.css?v=2">
 <link rel="stylesheet" href="inicio.css?v=152">
 <link rel="stylesheet" href="pymium.css">
@@ -102,6 +102,7 @@
         <button type="button" role="tab" aria-selected="false" data-auth-mode="register">Crear cuenta</button>
       </div>
       <div class="login-error" id="login-error" role="alert">No pudimos completar el acceso.</div>
+      <p class="login-success" id="recovery-login-status" role="status" hidden></p>
       <div class="field signup-field" hidden><label for="business-name">Nombre de tu negocio</label><input type="text" id="business-name" autocomplete="organization" maxlength="120" placeholder="Ej. Almacén Los Alerces"></div>
       <div class="field signup-field" hidden><label for="owner-name">Tu nombre <span>(opcional)</span></label><input type="text" id="owner-name" autocomplete="name" maxlength="120" placeholder="Cómo quieres que te llamemos"></div>
       <p class="google-account" id="google-account" hidden></p>
@@ -119,6 +120,7 @@
           </button>
         </div>
       </div>
+      <button type="button" class="forgot-password-button" id="forgot-password-button">Olvidé mi contraseña</button>
       <button type="submit" class="btn-primary"><span data-auth-submit>Entrar a Pymio</span><span aria-hidden="true">↗</span></button>
       <div class="auth-divider" id="auth-divider"><span>o continúa con</span></div>
       <button type="button" class="google-auth" id="google-auth"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.06H12v3.9h5.38a4.6 4.6 0 0 1-2 3.02v2.53h3.24c1.9-1.75 2.98-4.33 2.98-7.39Z"/><path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.62-2.38l-3.24-2.53c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.6-4.12H3.06v2.6A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.4 13.93A6 6 0 0 1 6.1 12c0-.67.11-1.32.3-1.93v-2.6H3.06A10 10 0 0 0 2 12c0 1.61.39 3.14 1.06 4.53l3.34-2.6Z"/><path fill="#EA4335" d="M12 5.95c1.47 0 2.78.5 3.82 1.49l2.87-2.87A9.62 9.62 0 0 0 12 2a10 10 0 0 0-8.94 5.47l3.34 2.6c.8-2.36 3-4.12 5.6-4.12Z"/></svg><span>Continuar con Google</span></button>
@@ -296,8 +298,12 @@
   <form id="password-form">
     <button type="button" class="account-dialog-close" id="password-dialog-close" aria-label="Cerrar">×</button>
     <span class="eyebrow">Seguridad de tu cuenta</span>
-    <h2>Establecer o modificar contraseña</h2>
-    <p>Podrás usar esta contraseña junto con el correo asociado a tu cuenta.</p>
+    <h2 id="password-dialog-title">Establecer o modificar contraseña</h2>
+    <p id="password-dialog-description">Podrás usar esta contraseña junto con el correo asociado a tu cuenta.</p>
+    <div id="current-password-field">
+      <label for="profile-current-password">Contraseña actual</label>
+      <input type="password" id="profile-current-password" minlength="8" autocomplete="current-password" placeholder="Tu contraseña actual">
+    </div>
     <label for="profile-password">Nueva contraseña</label>
     <input type="password" id="profile-password" minlength="8" autocomplete="new-password" required placeholder="Mínimo 8 caracteres">
     <label for="profile-password-confirm">Confirmar contraseña</label>
@@ -307,6 +313,33 @@
   </form>
 </dialog>
 
+<dialog class="account-dialog" id="recovery-request-dialog">
+  <form id="recovery-request-form">
+    <button type="button" class="account-dialog-close" data-recovery-close aria-label="Cerrar">×</button>
+    <span class="eyebrow">Recupera tu cuenta</span>
+    <h2>Restablecer contraseña</h2>
+    <p>Te enviaremos un enlace seguro al correo asociado a tu cuenta.</p>
+    <label for="recovery-email">Correo electrónico</label>
+    <input type="email" id="recovery-email" autocomplete="email" required placeholder="tu@empresa.cl">
+    <p class="form-error" id="recovery-request-error" role="alert" hidden></p>
+    <p class="form-success" id="recovery-request-success" role="status" hidden></p>
+    <button type="submit" class="primary-btn">Enviar enlace</button>
+  </form>
+</dialog>
+
+<dialog class="account-dialog" id="recovery-reset-dialog">
+  <form id="recovery-reset-form">
+    <span class="eyebrow">Recupera tu cuenta</span>
+    <h2>Crea una nueva contraseña</h2>
+    <p>Elige una contraseña de al menos 8 caracteres.</p>
+    <label for="recovery-password">Nueva contraseña</label>
+    <input type="password" id="recovery-password" minlength="8" autocomplete="new-password" required placeholder="Mínimo 8 caracteres">
+    <label for="recovery-password-confirm">Confirmar contraseña</label>
+    <input type="password" id="recovery-password-confirm" minlength="8" autocomplete="new-password" required placeholder="Repite la contraseña">
+    <p class="form-error" id="recovery-reset-error" role="alert" hidden></p>
+    <button type="submit" class="primary-btn">Guardar nueva contraseña</button>
+  </form>
+</dialog>
 
 
 <script type="module" src="app.js?v=187"></script>

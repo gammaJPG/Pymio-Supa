@@ -105,11 +105,11 @@ function socialHTML(profile){
 export function iniciarEcosistema({session,apiUrl}={}){
   if(initialized)return;
   const root=document.getElementById('tab-ecosistema'); if(!root)return;
-  const requestedView=new URLSearchParams(location.search).get('network_view');if(views.has(requestedView))currentView=requestedView;
+  const invitationParams=new URLSearchParams(location.search),requestedView=invitationParams.get('network_view'),requestedCommunityId=/^[0-9a-f-]{36}$/i.test(invitationParams.get('community')||'')?invitationParams.get('community'):'';if(views.has(requestedView))currentView=requestedView;
   initialized=true;
   const get=id=>root.querySelector('#'+id),demo=Boolean(session?.demo);
   let state=demo?structuredClone(demoData):{profile:null,businesses:[],connections:[],connection_requests:[],outgoing_connection_requests:[],connection_responses:[],private_notifications:[],private_activity:[],group_chats:[],communities:[],community_requests:[],posts:[]},products=[];
-  let communityFilter='all',communityQuery='',communicationsFilter='all',communicationsQuery='',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null,realtimeSource=null,realtimeCursor='',eventExpiryTimer=null;
+  let communityFilter='all',communityQuery='',communicationsFilter='all',communicationsQuery='',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null,realtimeSource=null,realtimeCursor='',eventExpiryTimer=null,invitedCommunityHandled=false;
   const mobileMessagingMedia=window.matchMedia('(max-width: 767px), (max-height: 500px) and (max-width: 950px)');
   const isMobileMessagingViewport=()=>mobileMessagingMedia.matches;
   const favoriteStorageKey=`pymio:favorite-threads:${session?.companyId||'demo'}`;
@@ -168,7 +168,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
       const action=item.owned?'<span class="joined-label">Administras</span>':item.joined?'<span class="joined-label">Miembro - Usuario</span>':item.pending_request?'<button class="btn-outline" disabled>Solicitud enviada</button>':`<button class="btn-outline" data-community-join="${escapeHTML(item.id)}">${item.is_open?'Unirme':'Solicitar acceso'}</button>`;
       const requestList=item.owned&&!item.is_open&&requests.length?`<div class="join-requests"><strong>${requests.length===1?'1 solicitud pendiente':`${requests.length} solicitudes pendientes`}</strong>${requests.map(request=>`<div class="join-request"><div class="match-avatar">${avatarMarkup(request)}</div><div><b>${escapeHTML(request.display_name)}</b><small>${escapeHTML([request.industry,request.location].filter(Boolean).join(' · ')||'Perfil en Pymio')}</small></div><div class="request-actions"><button type="button" data-community-request="${escapeHTML(request.id)}" data-community-id="${escapeHTML(item.id)}" data-decision="approve">Aceptar</button><button type="button" data-community-request="${escapeHTML(request.id)}" data-community-id="${escapeHTML(item.id)}" data-decision="reject">Rechazar</button></div></div>`).join('')}</div>`:'';
       const canOpen=item.joined||item.owned,openAttributes=canOpen?` data-community-open="${escapeHTML(item.id)}" tabindex="0" role="button"`:'';
-      return `<article class="card community-card"${openAttributes}><div class="community-heading"><span class="community-monogram">${String(index+1).padStart(2,'0')}</span><span class="community-access-label">${item.is_open?'Abierta':'Con aprobación'}</span></div><span class="pill honey">${escapeHTML(item.industry||'Comunidad')}</span><h3>${escapeHTML(item.name)}</h3><p>${escapeHTML(item.description)}</p><div class="community-owner">Creada por ${escapeHTML(item.owner_name||'una empresa de Pymio')}</div><div class="community-meta"><span>${Number(item.member_count||0).toLocaleString('es-CL')} miembros</span>${action}</div>${requestList}</article>`;
+      return `<article class="card community-card" data-community-card="${escapeHTML(item.id)}"${openAttributes}><div class="community-heading"><span class="community-monogram">${String(index+1).padStart(2,'0')}</span><span class="community-access-label">${item.is_open?'Abierta':'Con aprobación'}</span></div><span class="pill honey">${escapeHTML(item.industry||'Comunidad')}</span><h3>${escapeHTML(item.name)}</h3><p>${escapeHTML(item.description)}</p><div class="community-owner">Creada por ${escapeHTML(item.owner_name||'una empresa de Pymio')}</div><div class="community-meta"><span>${Number(item.member_count||0).toLocaleString('es-CL')} miembros</span>${action}</div>${requestList}</article>`;
     }).join(''):emptyState('Sin comunidades para este filtro','Cambia el filtro o escribe otra búsqueda.');
   }
   function renderConnections(){
@@ -313,9 +313,17 @@ export function iniciarEcosistema({session,apiUrl}={}){
   }
   function publishNetworkNotifications(){document.dispatchEvent(new CustomEvent('red-pymio-notifications',{detail:{requests:state.connection_requests||[],responses:state.connection_responses||[],activity:state.private_notifications||[],communityRoles:state.community_role_notifications||[]}}));}
   function renderAll(){renderCommunities();renderConnections();renderCommunications();renderProfile();updateFilters();renderMatches();renderPosts();publishNetworkNotifications();if(currentView==='pymio')loadProducts();}
+  async function openInvitedCommunity(){
+    if(invitedCommunityHandled||!requestedCommunityId)return;invitedCommunityHandled=true;mostrarVistaEcosistema('red');communityFilter='all';communityQuery='';get('community-search').value='';renderCommunities();
+    const community=(state.communities||[]).find(item=>String(item.id)===requestedCommunityId);
+    if(!community)return announce('La comunidad de esta invitación ya no está disponible.','error');
+    if(community.joined||community.owned){await openCommunity(community.id);return;}
+    const card=get('community-grid').querySelector(`[data-community-card="${CSS.escape(community.id)}"]`);if(!card)return;
+    card.tabIndex=-1;card.classList.add('notification-target');card.focus({preventScroll:true});card.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>card.classList.remove('notification-target'),1800);
+  }
   async function load(){
-    if(demo){renderAll();return;}root.classList.add('network-loading');feedback.hidden=true;
-    try{state=await request('/api/network/bootstrap');renderAll();startRealtimeMessages();}catch(error){announce(error.message,'error');get('community-grid').innerHTML=emptyState('No pudimos cargar RED Pymio','Revisa tu conexión y vuelve a intentarlo.');}finally{root.classList.remove('network-loading');}
+    if(demo){renderAll();await openInvitedCommunity();return;}root.classList.add('network-loading');feedback.hidden=true;
+    try{state=await request('/api/network/bootstrap');renderAll();await openInvitedCommunity();startRealtimeMessages();}catch(error){announce(error.message,'error');get('community-grid').innerHTML=emptyState('No pudimos cargar RED Pymio','Revisa tu conexión y vuelve a intentarlo.');}finally{root.classList.remove('network-loading');}
   }
   function openDialog(dialog){feedback.hidden=true;dialog.showModal();requestAnimationFrame(()=>dialog.classList.add('is-open'));}
   function closeDialog(dialog){dialog.classList.remove('is-open');setTimeout(()=>{if(dialog.open)dialog.close();},180);}
@@ -583,8 +591,8 @@ export function iniciarEcosistema({session,apiUrl}={}){
   }
   async function shareActiveCommunity(){
     const community=activeCommunity?.community;if(!community)return;
-    const invitation=`Te invito a unirte a “${community.name}” en RED Pymio. Entra a RED Pymio y busca la comunidad por su nombre.`;
-    const url=new URL('piloto.html',location.href).href;
+    const invitation=`Te invito a unirte a “${community.name}” en RED Pymio.`;
+    const invitationUrl=new URL('piloto.html',location.href);invitationUrl.search='';invitationUrl.hash='';invitationUrl.searchParams.set('tab','ecosistema');invitationUrl.searchParams.set('network_view','red');invitationUrl.searchParams.set('community',community.id);const url=invitationUrl.href;
     try{
       if(navigator.share)await navigator.share({title:`Comunidad ${community.name}`,text:invitation,url});
       else{await navigator.clipboard.writeText(`${invitation}\n${url}`);announce('La invitación fue copiada.');}

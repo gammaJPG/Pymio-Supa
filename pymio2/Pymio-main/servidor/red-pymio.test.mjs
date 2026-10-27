@@ -420,6 +420,17 @@ test('RED Pymio: el centro de comunidad conserva recursos y añade gestión oper
   assert.match(source,/canAdmin\(\)&&!openCommunity&&requests\.length/);
 });
 
+test('RED Pymio: la invitación enlaza y abre la comunidad correspondiente',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  assert.match(source,/searchParams\.set\('tab','ecosistema'\)/);
+  assert.match(source,/searchParams\.set\('network_view','red'\)/);
+  assert.match(source,/searchParams\.set\('community',community\.id\)/);
+  assert.match(source,/openInvitedCommunity/);
+  assert.match(source,/data-community-card=/);
+  assert.match(app,/validTabs\.has\(requestedTab\)\?requestedTab/);
+});
+
 test('RED Pymio: la comunidad permite editar marca, redes y administradores',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');

@@ -39,6 +39,7 @@ test('Supabase Auth: crea usuarios y vincula su empresa usando solo la clave del
   const account=await client.registerAccount(user.id,user.email,'Mi Pyme','Ana');
   assert.equal(account.company_id,9);assert.equal(calls[0].options.headers.Authorization,'Bearer sb_secret_test');
   assert.equal(calls[0].url.pathname,'/auth/v1/admin/users');assert.equal(calls[1].url.pathname,'/rest/v1/rpc/pymio_register_account');
+  assert.equal(JSON.parse(calls[0].options.body).app_metadata.pymio_password_set,true);
 });
 
 test('Supabase Auth: crea una contraseña para una cuenta originada en Google',async()=>{
@@ -50,6 +51,18 @@ test('Supabase Auth: crea una contraseña para una cuenta originada en Google',a
   assert.deepEqual(JSON.parse(calls[0].options.body),{password:'segura123',app_metadata:{pymio_password_set:true}});
   await client.markAuthBusinessNameSet('google-user');
   assert.deepEqual(JSON.parse(calls[1].options.body),{app_metadata:{pymio_business_name_set:true}});
+});
+
+test('Supabase Auth: envía recuperación y actualiza la contraseña con el token del usuario',async()=>{
+  const calls=[];
+  const client=createSupabase({url:'https://example.supabase.co',key:'sb_secret_test',fetchImpl:async(url,options)=>{calls.push({url,options});if(url.pathname.includes('/admin/users/'))return Response.json({app_metadata:{providers:['email']},identities:[]});return Response.json({});}});
+  assert.equal(await client.authUserHasPassword('user-1'),true);
+  await client.sendPasswordRecovery('ana@example.com','https://pymio.cl/piloto.html?password_recovery=1');
+  await client.resetAuthUserPassword('recovery-token-1234567890','nueva-segura');
+  assert.equal(calls[1].url.pathname,'/auth/v1/recover');assert.equal(calls[1].url.searchParams.get('redirect_to'),'https://pymio.cl/piloto.html?password_recovery=1');
+  assert.deepEqual(JSON.parse(calls[1].options.body),{email:'ana@example.com'});
+  assert.equal(calls[2].url.pathname,'/auth/v1/user');assert.equal(calls[2].options.headers.Authorization,'Bearer recovery-token-1234567890');
+  assert.deepEqual(JSON.parse(calls[2].options.body),{password:'nueva-segura'});
 });
 
 test('Supabase Auth: la actualización de Google califica parámetros y columnas sin ambigüedad',async()=>{
@@ -335,6 +348,26 @@ test('HTTP Auth: mantiene el piloto en empresa 1 y fuerza esa empresa desde la s
     const products=await fetch(base+'/api/products?company_id=999',{headers:{Cookie:cookie}});assert.equal(products.status,200);assert.equal(calls.at(-1).company,'1');
     const session=await fetch(base+'/api/auth/session',{headers:{Cookie:cookie}});assert.equal((await session.json()).session.demo,true);
   } finally {await close(server);}
+});
+
+test('HTTP Auth: cambiar contraseña exige la anterior y recuperación no revela cuentas',async()=>{
+  const passwordUpdates=[],recoveries=[],resets=[];
+  const pool={
+    createAuthUser:async(email)=>({id:'user-1',email}),registerAccount:async()=>({company_id:8,business_name:'Mi Pyme',owner_name:'Ana'}),deleteAuthUser:async()=>{},
+    signIn:async(email,password)=>{if(password!=='actual-segura')throw Object.assign(new Error('incorrecta'),{status:400});return {user:{id:'user-1',email}};},
+    updateAuthUserPassword:async(userId,password)=>passwordUpdates.push({userId,password}),
+    sendPasswordRecovery:async(email,returnTo)=>recoveries.push({email,returnTo}),resetAuthUserPassword:async(token,password)=>resets.push({token,password})
+  };
+  const server=createInventoryServer(pool,['http://localhost:5500'],{sessionSecret:'test-secret'}),base=await listen(server);
+  try{
+    const register=await fetch(base+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'ana@example.com',password:'actual-segura',businessName:'Mi Pyme',ownerName:'Ana'})});
+    assert.equal(register.status,201);const cookie=register.headers.get('set-cookie').split(';')[0];
+    const missing=await fetch(base+'/api/auth/password',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({password:'nueva-segura'})});assert.equal(missing.status,400);
+    const wrong=await fetch(base+'/api/auth/password',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({currentPassword:'incorrecta',password:'nueva-segura'})});assert.equal(wrong.status,401);
+    const changed=await fetch(base+'/api/auth/password',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({currentPassword:'actual-segura',password:'nueva-segura'})});assert.equal(changed.status,200);assert.deepEqual(passwordUpdates,[{userId:'user-1',password:'nueva-segura'}]);
+    const recovery=await fetch(base+'/api/auth/password/recovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'ana@example.com',returnTo:'http://localhost:5500/piloto.html'})});assert.equal(recovery.status,200);assert.match((await recovery.json()).message,/Si existe una cuenta/);assert.equal(recoveries[0].returnTo,'http://localhost:5500/piloto.html');
+    const reset=await fetch(base+'/api/auth/password/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'recovery-token-1234567890',password:'otra-segura'})});assert.equal(reset.status,200);assert.deepEqual(resets,[{token:'recovery-token-1234567890',password:'otra-segura'}]);
+  }finally{await close(server);}
 });
 
 test('Supabase Storage: conserva el MIME validado y permite eliminar imágenes', async () => {

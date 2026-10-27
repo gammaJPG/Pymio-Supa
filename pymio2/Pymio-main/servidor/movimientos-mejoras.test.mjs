@@ -12,7 +12,7 @@ test('Horas: límites e intervalo nocturno',()=>{
 });
 test('Pago: validación y compatibilidad con solicitudes antiguas',()=>{
  assert.equal(validarMovimiento(sale()).Estado,'Pendiente de Pago');
- assert.equal(validarMovimiento({...sale(),operation:'Ingreso',operation_detail:'Compra'}).Estado,'Pendiente de Pago');
+ assert.equal(validarMovimiento({...sale(),operation:'Ingreso',operation_detail:'Compra',supplier_id:'2',items:[{product_id:'1',units:1,unit_cost:1200}]}).Estado,'Pendiente de Pago');
  assert.throws(()=>validarMovimiento({...sale(),Estado:'Otro'}),{status:400});
  assert.throws(()=>validarMovimiento({...sale(),operation_detail:'Merma'}),{status:400});
  const old=sale();delete old.Estado;assert.equal(Object.hasOwn(validarMovimiento(old),'Estado'),false);
@@ -39,6 +39,25 @@ test('Movimientos: expone filtros y presenta costos, signos y enlaces en el deta
  assert.match(view,/movimiento-unidades-positivas/);
  assert.match(view,/movimiento-unidades-negativas/);
  assert.match(view,/CustomEvent\('abrir-producto'/);
+ assert.match(view,/movement\.operation_detail==='Venta'&&onReceipt/);
+ assert.match(view,/Descargar comprobante/);
  assert.match(migration,/movement_operation = 'Ingreso' AND movement_detail = 'Compra'/);
+});
+test('Compras: permite proveedor opcional y exige costo por producto',()=>{
+ const purchase={...sale(),operation:'Ingreso',operation_detail:'Compra',supplier_id:'8',items:[{product_id:'1',units:2,unit_cost:3450}]};
+ const valid=validarMovimiento(purchase);
+ assert.equal(valid.supplier_id,'8');assert.equal(valid.items[0].unit_cost,3450);
+ assert.equal(Object.hasOwn(validarMovimiento({...purchase,supplier_id:null}),'supplier_id'),false);
+ assert.throws(()=>validarMovimiento({...purchase,items:[{product_id:'1',units:2,unit_cost:-1}]}),/costo válido/);
+});
+test('Proveedores y FIFO: existen base separada, costos por proveedor y capas de inventario',async()=>{
+ const [html,client,server,migration]=await Promise.all([
+  readFile(new URL('../movimientos.html',import.meta.url),'utf8'),
+  readFile(new URL('../movimientos.js',import.meta.url),'utf8'),
+  readFile(new URL('./server.mjs',import.meta.url),'utf8'),
+  readFile(new URL('../supabase/migrations/041_suppliers_purchase_costs_fifo.sql',import.meta.url),'utf8')
+ ]);
+ assert.match(html,/Seleccionar proveedor/);assert.match(html,/>Costos</);assert.match(client,/\/api\/suppliers/);assert.match(server,/atenderProveedores/);
+ for(const token of ['public.suppliers','public.supplier_product_costs','public.inventory_cost_layers','public.movement_fifo_allocations','ORDER BY acquired_at,id','fifo_unit_cost','pymio_rebuild_fifo'])assert.match(migration,new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
 });
 

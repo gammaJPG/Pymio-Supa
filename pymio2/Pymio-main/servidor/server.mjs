@@ -1,13 +1,14 @@
 import { crearProducto } from './productos.mjs';
 import { atenderCategorias } from './categorias.mjs';
 import { atenderClientes } from './clientes.mjs';
+import { atenderProveedores } from './proveedores.mjs';
 import { atenderRedPymio } from './red-pymio.mjs';
 import { detectImageFormat, validateImageFormat } from './image-formats.mjs';
 
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { createSupabase } from './supabase.mjs';
-import { atenderMovimientos } from './movimientos.mjs';
+import { atenderMovimientos,atenderComprobanteVenta } from './movimientos.mjs';
 import { handleSupport } from './support.mjs';
 import { randomUUID, createHmac, createHash, timingSafeEqual } from 'node:crypto';
 
@@ -82,6 +83,22 @@ export function createInventoryServer(pool, origins, options = {}) {
           return send(200,{ok:true});
         }
         if(url.pathname==='/api/auth/providers' && req.method==='GET')return send(200,await pool.authProviders());
+        if(url.pathname==='/api/auth/password/recovery' && req.method==='POST'){
+          if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
+          const data=await jsonBody(req),email=String(data.email||'').trim().toLowerCase(),target=new URL(String(data.returnTo||origins[0]+'/piloto.html'));
+          if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return send(400,{error:'Ingresa un correo electrónico válido.'});
+          if(!origins.includes(target.origin))return send(400,{error:'La dirección de recuperación no está permitida.'});
+          target.hash='';
+          try{await pool.sendPasswordRecovery(email,target.href);}catch(error){if(![400,404,422].includes(error.status))throw error;}
+          return send(200,{sent:true,message:'Si existe una cuenta con ese correo, recibirás un enlace para restablecer la contraseña.'});
+        }
+        if(url.pathname==='/api/auth/password/reset' && req.method==='POST'){
+          if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
+          const data=await jsonBody(req),accessToken=String(data.accessToken||''),newPassword=String(data.password||'');
+          if(accessToken.length<20)return send(400,{error:'El enlace de recuperación no es válido o ya venció.'});
+          if(newPassword.length<8)return send(400,{error:'La contraseña debe tener al menos 8 caracteres.'});
+          await pool.resetAuthUserPassword(accessToken,newPassword);return send(200,{updated:true});
+        }
         if(url.pathname==='/api/auth/google/setup' && req.method==='GET'){
           const setup=decodeSession(namedCookie(req,'pymio_google_setup'),sessionSecret);
           if(!setup)return send(401,{error:'La configuración con Google venció. Inicia sesión nuevamente.'});
@@ -102,17 +119,22 @@ export function createInventoryServer(pool, origins, options = {}) {
           if(!businessName || businessName.length>120 || ownerName.length>120)return send(400,{error:'Ingresa un nombre de negocio válido.'});
           const account=await pool.updateAccount(setup.userId,businessName,ownerName);
           await pool.markAuthBusinessNameSet(setup.userId);
-          const session={userId:setup.userId,email:setup.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};
+          const session={userId:setup.userId,email:setup.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,hasPassword:setup.hasPassword===true};
           setSession(session);clearCookie('pymio_google_setup','/api/auth/google');return send(201,{session});
         }
         if(url.pathname==='/api/auth/password' && req.method==='POST'){
           const session=decodeSession(cookieValue(req),sessionSecret);
           if(!session || session.demo)return send(401,{error:'Inicia sesión para modificar tu contraseña.'});
           if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
-          const data=await jsonBody(req),newPassword=String(data.password||'');
+          const data=await jsonBody(req),newPassword=String(data.password||''),currentPassword=String(data.currentPassword||'');
           if(newPassword.length<8)return send(400,{error:'La contraseña debe tener al menos 8 caracteres.'});
+          const hasPassword=session.hasPassword===true||(session.hasPassword==null&&typeof pool.authUserHasPassword==='function'&&await pool.authUserHasPassword(session.userId));
+          if(hasPassword){
+            if(!currentPassword)return send(400,{error:'Ingresa tu contraseña actual.'});
+            try{await pool.signIn(session.email,currentPassword);}catch{return send(401,{error:'La contraseña actual no es correcta.'});}
+          }
           await pool.updateAuthUserPassword(session.userId,newPassword);
-          return send(200,{updated:true});
+          setSession({...session,hasPassword:true});return send(200,{updated:true});
         }
         if(url.pathname==='/api/auth/google/start' && req.method==='GET'){
           const returnTo=url.searchParams.get('return_to'),target=returnTo&&new URL(returnTo);
@@ -137,6 +159,7 @@ export function createInventoryServer(pool, origins, options = {}) {
           if(!flow || !safeEqual(flow.state,url.searchParams.get('state')) || !url.searchParams.get('code'))return returnWithError(returnTo,'La solicitud de acceso venció. Inténtalo nuevamente.');
           const auth=await pool.exchangeOAuthCode(url.searchParams.get('code'),flow.verifier),user=auth.user;
           if(!user?.id || !user.email)return returnWithError(returnTo,'Google no proporcionó un correo válido para crear la sesión.');
+          const hasPassword=user.app_metadata?.pymio_password_set===true||(Array.isArray(user.app_metadata?.providers)&&user.app_metadata.providers.includes('email'))||(user.identities||[]).some(identity=>identity.provider==='email');
           const googleName=String(user.user_metadata?.full_name||user.user_metadata?.name||'').trim().slice(0,120);
           const previousDefault=String(user.user_metadata?.business_name||googleName||user.email.split('@')[0]||'Mi negocio').trim().slice(0,120);
           let account,needsSetup=user.app_metadata?.pymio_business_name_set!==true;
@@ -152,14 +175,14 @@ export function createInventoryServer(pool, origins, options = {}) {
           if(needsSetup){
             const setupToken=encodeSession({
               userId:user.id,email:user.email,businessName:account.business_name,
-              ownerName:account.owner_name||googleName,googleName,exp:Date.now()+15*60*1000
+              ownerName:account.owner_name||googleName,googleName,hasPassword,exp:Date.now()+15*60*1000
             },sessionSecret);
             res.appendHeader('Set-Cookie',`pymio_google_setup=${setupToken}; Path=/api/auth/google; HttpOnly; SameSite=Lax; Max-Age=900${secureCookie?'; Secure':''}`);
             clearCookie('pymio_oauth','/api/auth/google');
-            const session={userId:user.id,email:user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,requiresBusinessName:true};
+            const session={userId:user.id,email:user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,requiresBusinessName:true,hasPassword};
             setSession(session);return redirect(returnTo);
           }
-          const session={userId:user.id,email:user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};
+          const session={userId:user.id,email:user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,hasPassword};
           setSession(session);
           clearCookie('pymio_oauth','/api/auth/google');
           return redirect(returnTo);
@@ -177,7 +200,7 @@ export function createInventoryServer(pool, origins, options = {}) {
           try { auth=await pool.signIn(identifier,password); }
           catch { return send(401,{error:'Correo o contraseña incorrectos.'}); }
           const account=await pool.accountForUser(auth.user.id);
-          const session={userId:auth.user.id,email:auth.user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};setSession(session);return send(200,{session});
+          const session={userId:auth.user.id,email:auth.user.email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,hasPassword:true};setSession(session);return send(200,{session});
         }
         const email=String(data.email||'').trim().toLowerCase(),password=String(data.password||''),businessName=String(data.businessName||'').trim(),ownerName=String(data.ownerName||'').trim();
         if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return send(400,{error:'Ingresa un correo electrónico válido.'});
@@ -188,7 +211,7 @@ export function createInventoryServer(pool, origins, options = {}) {
         catch(error){return send(error.status===422||error.status===400?409:error.status||502,{error:error.status===422||error.status===400?'Ya existe una cuenta con ese correo.':error.message});}
         try {
           const account=await pool.registerAccount(user.id,email,businessName,ownerName);
-          const session={userId:user.id,email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false};setSession(session);return send(201,{session});
+          const session={userId:user.id,email,companyId:String(account.company_id),businessName:account.business_name,ownerName:account.owner_name||'',demo:false,hasPassword:true};setSession(session);return send(201,{session});
         } catch(error) { await pool.deleteAuthUser(user.id).catch(()=>{}); throw error; }
       } catch(error) { return send(error.status||500,{error:error.message||'No se pudo completar el acceso.'}); }
     }
@@ -221,6 +244,7 @@ export function createInventoryServer(pool, origins, options = {}) {
     const categoryId = /^\/api\/categories\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
     const categoryRoute = url.pathname === '/api/categories' || Boolean(categoryId);
     const movementCode = /^\/api\/movements\/([a-f0-9]{12})$/.exec(url.pathname)?.[1];
+    const receiptMovementCode = /^\/api\/movements\/([a-f0-9]{12})\/receipt\.pdf$/.exec(url.pathname)?.[1];
     const historyProductId = /^\/api\/products\/([1-9]\d{0,18})\/movements$/.exec(url.pathname)?.[1];
     const productId = /^\/api\/products\/([1-9]\d{0,18})$/.exec(url.pathname)?.[1];
     const statusProductId = /^\/api\/products\/([1-9]\d{0,18})\/status$/.exec(url.pathname)?.[1];
@@ -230,10 +254,11 @@ export function createInventoryServer(pool, origins, options = {}) {
     const profileOwnImage=/^\/api\/profile-images\/(avatar|banner)\/([0-9a-f-]{36})$/.exec(url.pathname);
     const profilePublicImage=/^\/api\/profile-images\/([1-9]\d{0,18})\/(avatar|banner)\/([0-9a-f-]{36})$/.exec(url.pathname);
     const profileImageRoute=Boolean(profileUpload||profileOwnImage||profilePublicImage);
-    if (!categoryRoute && !imageRoute && !profileImageRoute && url.pathname !== '/api/customers' && !historyProductId && !statusProductId && !movementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
+    if (!categoryRoute && !imageRoute && !profileImageRoute && url.pathname !== '/api/customers' && url.pathname !== '/api/suppliers' && !historyProductId && !statusProductId && !movementCode && !receiptMovementCode && url.pathname !== '/api/movements' && (['PUT', 'DELETE'].includes(req.method) ? !productId : url.pathname !== '/api/products')) return send(404, { error: 'Ruta no encontrada.' });
     try {
       if (categoryRoute) return await atenderCategorias(req,pool,companyId,categoryId,send);
       if (url.pathname === '/api/customers') return await atenderClientes(req,pool,companyId,send);
+      if (url.pathname === '/api/suppliers') return await atenderProveedores(req,pool,companyId,send);
       if (imageRoute) {
         if (req.method === 'GET' && imageId) {
           const body=await pool.getProductImage(`${companyId}/${imageId}.webp`),format=detectImageFormat(body);
@@ -284,6 +309,7 @@ export function createInventoryServer(pool, origins, options = {}) {
         if (req.method !== 'GET') return send(405,{error:'Método no permitido.'});
         return send(200, await pool.rpc('product.history', companyId, {id:historyProductId}));
       }
+      if(receiptMovementCode)return await atenderComprobanteVenta(req,pool,companyId,send,res,receiptMovementCode);
       if (movementCode || url.pathname === '/api/movements') return await atenderMovimientos(req, pool, companyId, send, movementCode);
       if (statusProductId) {
         if (req.method !== 'PATCH') return send(405,{error:'Método no permitido.'});
@@ -315,8 +341,7 @@ export function createInventoryServer(pool, origins, options = {}) {
         try { producto = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { return send(400, { error: 'JSON inválido.' }); }
         if (!producto || typeof producto !== 'object' || Array.isArray(producto)) return send(400, { error: 'Producto inválido.' });
         if (req.method === 'POST') producto.updated_at = producto.created_at;
-        const hasExpiryDate = Object.prototype.hasOwnProperty.call(producto,'expiry_date');
-        const { name, sku, category, qty, cost, price, low_qty, created_at, updated_at, image_path, expiry_date } = producto;
+        const { name, sku, category, qty, cost, price, low_qty, created_at, updated_at, image_path } = producto;
         if (typeof name !== 'string' || !name.trim() || typeof category !== 'string' || !category.trim() ||
             (req.method === 'PUT' && (typeof sku !== 'string' || !sku.trim() || sku.length > 32))) {
           return send(400, { error: 'Completa producto, categoría y un SKU válido (mayúsculas, números y guiones).' });
@@ -325,11 +350,6 @@ export function createInventoryServer(pool, origins, options = {}) {
           return send(400, { error: 'Usa números enteros no negativos para cantidad, costo, precio y stock bajo.' });
         }
         if (image_path != null && (typeof image_path !== 'string' || !new RegExp(`^${companyId}/[0-9a-f-]{36}\\.webp$`).test(image_path))) return send(400,{error:'La ruta de imagen no es válida para esta empresa.'});
-        if (expiry_date != null && expiry_date !== '') {
-          const expiry = typeof expiry_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expiry_date) ? new Date(`${expiry_date}T00:00:00.000Z`) : null;
-          if (!expiry || !Number.isFinite(expiry.getTime()) || expiry.toISOString().slice(0,10) !== expiry_date) return send(400,{error:'Ingresa una fecha de vencimiento válida.'});
-        }
-        if (hasExpiryDate) producto.expiry_date = expiry_date || null;
         const fechaValida = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value));
         if (!fechaValida(created_at) || !fechaValida(updated_at) || Date.parse(updated_at) < Date.parse(created_at)) {
           return send(400, { error: 'Revisa las fechas: actualización debe ser igual o posterior a creación.' });

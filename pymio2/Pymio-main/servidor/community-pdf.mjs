@@ -85,7 +85,7 @@ async function addFileContent(document,attachment){
 export async function consolidatedFilesPdf(question,attachments){
   const document=await PDFDocument.create(),fileByPage=new Map();
   if(!attachments.length){
-    await addTextPages(document,'Sin archivos adjuntos.');
+    await addTextPages(document,question?.type==='text'?'Sin respuestas.':'Sin archivos adjuntos.');
   }
   for(const [offset,attachment] of attachments.entries()){
     const index=offset+1,start=document.getPageCount();

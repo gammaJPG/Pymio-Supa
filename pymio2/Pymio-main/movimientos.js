@@ -1,7 +1,6 @@
 import { offlineFetch as fetch, apiBase, pendingMovements } from './offline.js';
 import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario, ordenarMovimientos, datosMovimientoPagado } from './movimientos-vista.js';
 import { stockDisponibleParaEgreso } from './movimientos-stock.js';
-import { annotateFefo, compareFefo, expiryState, lotLabel } from './inventory-expiry.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
   if (panel.dataset.initialized) return;
@@ -16,6 +15,9 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const customerField = $('[data-customer-field]'), customerSelect = $('#mov-customer');
   const customerDialog = $('#cliente-dialogo'), customerForm = $('#cliente-form');
   const customerError = $('[data-customer-error]');
+  const supplierField = $('[data-supplier-field]'), supplierSelect = $('#mov-supplier');
+  const supplierDialog = $('#proveedor-dialogo'), supplierForm = $('#proveedor-form');
+  const supplierError = $('[data-supplier-error]');
   const paymentConfirm = $('#movimiento-pago-confirmacion');
   let customers = [], previousCustomer = '';
   function renderCustomers(value = '') {
@@ -60,6 +62,46 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     } catch (error) { customerError.textContent = error.message; customerError.hidden = false; }
     finally { submit.disabled = false; }
   };
+  let suppliers = [], previousSupplier = '';
+  function renderSuppliers(value = '') {
+    supplierSelect.replaceChildren(new Option('+Crear Proveedor', '__create__'), new Option('Sin Especificar', ''));
+    for (const supplier of suppliers) supplierSelect.add(new Option(supplier.name, String(supplier.id)));
+    supplierSelect.value = value;
+    if (supplierSelect.selectedIndex < 0) supplierSelect.value = '';
+  }
+  const selectedSupplier = () => suppliers.find(supplier => String(supplier.id) === supplierSelect.value);
+  const defaultCost = product => Number(selectedSupplier()?.costs?.[String(product.id)] ?? product?.last_purchase_cost ?? product?.cost ?? 0);
+  function updatePurchaseCosts(force = false) {
+    for (const row of lines.children) {
+      const input = row.querySelector('[data-unit-cost]');
+      const product = products.find(candidate => label(candidate) === row.querySelector('[data-product]').value);
+      if (product && (force || !input.dataset.edited)) input.value = String(defaultCost(product));
+    }
+  }
+  supplierSelect.onfocus = () => { previousSupplier = supplierSelect.value; };
+  supplierSelect.onchange = () => {
+    if (supplierSelect.value !== '__create__') { previousSupplier = supplierSelect.value; updatePurchaseCosts(true); return; }
+    supplierSelect.value = previousSupplier;
+    supplierForm.reset(); supplierError.hidden = true; supplierDialog.showModal(); $('#proveedor-nombre').focus();
+  };
+  supplierForm.elements.phone.oninput = () => supplierForm.elements.phone.setCustomValidity('');
+  $('[data-supplier-cancel]').onclick = () => supplierDialog.close();
+  supplierForm.onsubmit = async event => {
+    event.preventDefault();
+    if (!supplierForm.reportValidity()) return;
+    const phone = supplierForm.elements.phone.value.trim(), digits = (phone.match(/\d/g) ?? []).length;
+    if (phone && (digits < 7 || digits > 15)) { supplierForm.elements.phone.setCustomValidity('Ingresa un teléfono de 7 a 15 dígitos.'); supplierForm.elements.phone.reportValidity(); return; }
+    const submit = supplierForm.querySelector('[type="submit"]'); submit.disabled = true; supplierError.hidden = true;
+    try {
+      const data = Object.fromEntries(new FormData(supplierForm));
+      const response = await fetch(endpoint('/api/suppliers'), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(15000)});
+      const created = await response.json();
+      if (!response.ok) throw new Error(created.error || 'No se pudo guardar el proveedor.');
+      created.costs = {}; suppliers.push(created); suppliers.sort((a,b) => a.name.localeCompare(b.name,'es'));
+      renderSuppliers(String(created.id)); supplierDialog.close(); updatePurchaseCosts(true); supplierSelect.focus();
+    } catch (error) { supplierError.textContent = error.message; supplierError.hidden = false; }
+    finally { submit.disabled = false; }
+  };
   paymentPending.onclick = () => paymentPending.setAttribute('aria-pressed', String(paymentPending.getAttribute('aria-pressed') !== 'true'));
   const discountDetails = $('[data-discount-details]'), discount = $('#mov-discount');
   const dateDetails = $('[data-date-details]');
@@ -70,7 +112,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const actionLabel = () => mode === 'delete' ? 'Eliminar movimiento' : mode === 'edit' ? 'Guardar cambios' : 'Guardar movimiento';
   let products = [], busy = false, version = 0, lineId = 0, pending = null;
   const normalizar = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const label = product => lotLabel(product, {recommended: product.fefo_recommended && Number(product.qty) > 0});
+  const label = product => `${product.name} - ${product.sku}`;
   const endpoint = path => { const url = new URL(path, apiUrl); url.searchParams.set('company_id', companyId); return url; };
   const showError = message => { error.textContent = message; error.hidden = false; };
   function closeMenu() { menu.hidden = true; menuButton.setAttribute('aria-expanded', 'false'); }
@@ -110,7 +152,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       return matchesKind&&normalizar(haystack).includes(normalizar(query.trim()));
     }):displayedMovements;
     const ordered=ordenarMovimientos(visible,movementOrder||(mobileActivityQuery.matches?{field:'occurred_at',type:'fecha',direction:-1}:null));
-    renderMovimientos($('#movimientos-table'),ordered,{onMarkPaid:markMovementPaid,onEdit:movement=>open('edit',null,movement)});
+    renderMovimientos($('#movimientos-table'),ordered,{onMarkPaid:markMovementPaid,onEdit:movement=>open('edit',null,movement),onReceipt:downloadSalesReceipt});
     if(!ordered.length)$('#movimientos-table').rows[0].cells[0].textContent=mobileActivityQuery.matches&&(query.trim()||kind!=='all')?'No hay movimientos que coincidan con esta búsqueda o filtro.':'No hay movimientos para el período seleccionado.';
     if (openCode) panel.querySelector(`[data-movement-code="${openCode}"] .movimiento-toggle`)?.click();
   }
@@ -120,6 +162,14 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     paymentConfirm.returnValue = '';
     paymentConfirm.showModal();
     return new Promise(resolve => paymentConfirm.addEventListener('close', () => resolve(paymentConfirm.returnValue === 'confirm'), {once:true}));
+  }
+  async function downloadSalesReceipt(movement){
+    status.textContent='';
+    try{
+      const response=await fetch(endpoint(`/api/movements/${encodeURIComponent(movement.code)}/receipt.pdf`),{cache:'no-store',signal:AbortSignal.timeout(20000)});
+      if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.error||'No se pudo generar el comprobante de venta.');}
+      const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`Comprobante de venta - ${movement.code}.pdf`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='Comprobante de venta descargado.';
+    }catch(error){status.textContent=error.message||'No se pudo generar el comprobante de venta.';}
   }
   async function markMovementPaid(movement) {
     if (!await confirmMarkPaid(movement)) return;
@@ -231,24 +281,25 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     if (lines.children.length >= 100) return;
     const row = $('#movimiento-linea').content.firstElementChild.cloneNode(true);
     const input = row.querySelector('[data-product]'), list = row.querySelector('datalist');
-    const hint=document.createElement('small'); hint.className='movement-fefo-hint'; hint.setAttribute('role','status'); input.closest('label').appendChild(hint);
     list.id = `mov-product-options-${++lineId}`;
     input.setAttribute('list', list.id);
     const options = () => {
       const filter = normalizar(input.value);
       list.replaceChildren();
-      [...products].sort(compareFefo).filter(p => normalizar(label(p)).includes(filter)).forEach(p => list.appendChild(new Option(label(p), label(p))));
+      [...products].sort((a,b)=>normalizar(label(a)).localeCompare(normalizar(label(b)))).filter(p => normalizar(label(p)).includes(filter)).forEach(p => list.appendChild(new Option(label(p), label(p))));
       input.setCustomValidity('');
     };
-    const updateHint=()=>{const product=products.find(p=>label(p)===input.value);if(!product){hint.textContent='';return;}const expiry=expiryState(product);hint.textContent=product.fefo_recommended?`Rotación recomendada: ${expiry.label}.`:(product.fefo_first?`FEFO recomienda primero ${product.fefo_first.sku}: ${expiryState(product.fefo_first).label.toLowerCase()}.`:`Lote ${product.sku}: ${expiry.label}.`);hint.dataset.state=product.fefo_recommended?'recommended':'notice';};
-    input.oninput = () => { options(); updateHint(); };
+    const costField = row.querySelector('[data-cost-field]'), costInput = row.querySelector('[data-unit-cost]');
+    costField.hidden = form.elements.operation_detail.value !== 'Compra'; costInput.required = !costField.hidden;
+    input.oninput = () => { options(); const product=products.find(p=>label(p)===input.value); if(product && !costField.hidden){costInput.value=String(defaultCost(product));costInput.dataset.edited='';} };
+    costInput.oninput = () => { costInput.dataset.edited = 'true'; };
     options();
     row.querySelector('[data-remove-line]').onclick = () => { if (lines.children.length > 1) row.remove(); };
     if (item?.product_id) {
       const product = products.find(p => String(p.id) === String(item.product_id));
       input.value = product ? label(product) : item.name + ' - ' + item.sku;
       row.querySelector('[data-units]').value = Math.abs(item.units);
-      updateHint();
+      if (!costField.hidden) costInput.value = String(item.unit_cost ?? item.unit_price ?? defaultCost(product));
     }
     const unitsInput = row.querySelector('[data-units]');
     unitsInput.addEventListener('input', () => { unitsInput.setCustomValidity(''); error.hidden = true; });
@@ -303,6 +354,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   function resetFields() {
     lines.replaceChildren(); error.hidden = true;
     customerField.hidden = true; customerField.open = false; renderCustomers();
+    supplierField.hidden = true; renderSuppliers();
+    supplierSelect.disabled = true;
     paymentPending.hidden = true; paymentPending.setAttribute('aria-pressed', 'false');
     form.elements.channel.value = '';
     form.elements.payment_method.value = '';
@@ -320,6 +373,9 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     paymentPending.hidden = !isSale && !isPurchase;
     customerField.hidden = !isSale;
     if (!isSale) customerField.open = false;
+    supplierField.hidden = !isPurchase;
+    supplierSelect.required = false;
+    supplierSelect.disabled = !isPurchase;
     discountDetails.hidden = isPurchase;
     if (isPurchase) {
       discountDetails.open = false;
@@ -328,6 +384,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       form.elements.discount_value.value = '';
     }
     discountSymbols();
+    for (const row of lines.children) { const field=row.querySelector('[data-cost-field]'); field.hidden=!isPurchase; field.querySelector('input').required=isPurchase; }
   }
   selector.onchange = () => {
     selected = movements.find(m => m.code === selector.value) ?? null;
@@ -347,6 +404,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       renderCustomers(selected.customer_id == null ? '' : String(selected.customer_id));
       customerField.open = selected.customer_id != null;
     }
+    if (!supplierField.hidden) renderSuppliers(selected.supplier_id == null ? '' : String(selected.supplier_id));
     paymentPending.setAttribute('aria-pressed', String(selected.Estado === 'Pendiente de Pago'));
     setDate(selected.occurred_at);
     selected.products.forEach(addLine);
@@ -381,8 +439,8 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     selector.replaceChildren(new Option('Cargando movimientos…',''));
     dialog.showModal();
     try {
-      const paths = mode === 'add' ? (preset?.detail === 'Venta' ? ['/api/products','/api/customers'] : ['/api/products'])
-        : mode === 'edit' ? ['/api/products','/api/movements','/api/customers'] : ['/api/movements'];
+      const paths = mode === 'add' ? (preset?.detail === 'Venta' ? ['/api/products','/api/customers'] : preset?.detail === 'Compra' ? ['/api/products','/api/suppliers'] : ['/api/products'])
+        : mode === 'edit' ? ['/api/products','/api/movements','/api/customers','/api/suppliers'] : ['/api/movements'];
       const results = await Promise.all(paths.map(async path => {
         const response = await fetch(endpoint(path), {cache:'no-store',signal:AbortSignal.timeout(15000)});
         const data = await response.json();
@@ -390,8 +448,10 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
         return data;
       }));
       if (current !== version || !dialog.open) return;
-      if (mode !== 'delete') products = annotateFefo(results[0].filter(p => String(p.company_id) === String(companyId)));
-      if (mode === 'edit' || preset?.detail === 'Venta') { customers = results.at(-1); renderCustomers(); }
+      if (mode !== 'delete') products = results[0].filter(p => String(p.company_id) === String(companyId));
+      if (mode === 'edit') { customers = results[2]; suppliers = results[3]; renderCustomers(); renderSuppliers(); }
+      else if (preset?.detail === 'Venta') { customers = results[1]; renderCustomers(); }
+      else if (preset?.detail === 'Compra') { suppliers = results[1]; renderSuppliers(); }
       if (mode === 'add') {
         if (!products.length) throw new Error('No hay productos disponibles para esta empresa.');
         addLine(preset?.productId ? {product_id:String(preset.productId),units:1} : undefined); fields.disabled = save.disabled = false;
@@ -460,7 +520,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
             return;
           }
         }
-        items.push({ product_id: String(product.id), units,
+        items.push({ product_id: String(product.id), units, ...(form.elements.operation_detail.value === 'Compra' ? {unit_cost:Number(row.querySelector('[data-unit-cost]').value)} : {}),
           discount: discountDetails.open && form.elements.discount_scope.value === 'product'
             ? {type: row.querySelector('[data-line-discount-type]').value, value: Number(row.querySelector('[data-line-discount-value]').value)} : null });
       }
@@ -470,6 +530,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       pending.channel = form.elements.channel.value;
       pending.payment_method = form.elements.payment_method.value;
       pending.customer_id = customerField.hidden || !customerSelect.value ? null : customerSelect.value;
+      pending.supplier_id = supplierField.hidden || !supplierSelect.value ? null : supplierSelect.value;
       if (mode === 'edit') { pending.action_id = pending.code; delete pending.code; pending.revision = selected.revision; }
       }
     }

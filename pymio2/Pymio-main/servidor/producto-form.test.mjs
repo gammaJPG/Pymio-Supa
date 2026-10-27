@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta', async () => {
   const source = await readFile(new URL('../producto-form.js', import.meta.url), 'utf8');
-  const campos = ['name', 'sku', 'category', 'qty', 'cost', 'price', 'low_qty', 'expiry_date', 'created_at', 'updated_at']
+  const campos = ['name', 'sku', 'category', 'qty', 'cost', 'price', 'low_qty', 'created_at', 'updated_at']
     .map(name => ({ name, value: '', disabled: false }));
   const category=campos.find(c=>c.name==='category');
   category.options=[];category.replaceChildren=function(...options){this.options=options;this.value='';};category.add=function(option){this.options.push(option);};
@@ -51,7 +51,6 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
         get: () => parseFormattedInteger(input.value),
         set: value => { input.value = value === '' || value == null ? '' : String(value); }
       });`)
-    .replace("import { formatExpiryDate } from './inventory-expiry.js';", "const formatExpiryDate = value => value || 'Sin vencimiento';")
     .replace('export function', 'function'), context);
   const controller=context.prepararFormularioProducto({ panel, companyId: 2, apiUrl: 'http://localhost:3001', alGuardar: async () => { recargas++; }, crearCategoria: async()=>{nuevaCategoria=true;return 'Nueva categoría';} });
   await controller.abrirModificar('81');
@@ -78,7 +77,6 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   const datos = JSON.parse(guardado.options.body);
   assert.equal(datos.name, 'Nombre editado');
   assert.equal(datos.qty, 8);
-  assert.equal(datos.expiry_date, null);
   assert.equal(datos.created_at, producto.created_at);
   assert.ok(Date.parse(datos.updated_at) >= Date.parse(producto.updated_at));
   assert.equal(recargas, 1);
@@ -109,11 +107,27 @@ test('Formulario: lista por empresa, selección, edición, PUT y regreso a alta'
   assert.equal(dialogo.open, false);
 });
 
-test('Formulario: fechas automáticas e imagen sin informar la calidad interna', async () => {
+test('Formulario: fechas internas automáticas e imagen sin informar la calidad interna', async () => {
   const source = await readFile(new URL('../producto-form.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /name="created_at"|name="updated_at"/);
   assert.doesNotMatch(source, /calidad \$\{/);
   assert.match(source, /datos\.created_at = original\?\.created_at \?\? ahora/);
   assert.match(source, /datos\.updated_at = ahora/);
-  assert.match(source, /name="expiry_date" type="date"/);
+  assert.doesNotMatch(source, /expiry|vencimiento|FEFO|lote/i);
+});
+
+test('Productos: elimina vencimientos, recomendaciones y nombres duplicados', async () => {
+  const [form,inventory,detail,movements,server,html,migration]=await Promise.all([
+    readFile(new URL('../producto-form.js',import.meta.url),'utf8'),
+    readFile(new URL('../inventario.js',import.meta.url),'utf8'),
+    readFile(new URL('../inventario-detalle.js',import.meta.url),'utf8'),
+    readFile(new URL('../movimientos.js',import.meta.url),'utf8'),
+    readFile(new URL('./server.mjs',import.meta.url),'utf8'),
+    readFile(new URL('../inventario.html',import.meta.url),'utf8'),
+    readFile(new URL('../supabase/migrations/042_remove_product_expiry.sql',import.meta.url),'utf8')
+  ]);
+  for(const source of [form,inventory,detail,movements,server,html])assert.doesNotMatch(source,/expiry_date|inventory-expiry|FEFO|vencimiento|lote recomendado|SKU \/ lote/i);
+  assert.match(migration,/DROP COLUMN IF EXISTS expiry_date/);
+  assert.match(migration,/Ya existe un producto con ese nombre/);
+  assert.match(migration,/lower\(btrim\(name\)\)=lower\(clean_name\)/);
 });
