@@ -10,12 +10,12 @@
 <link rel="icon" type="image/png" href="assets/pymio-icon-transparent.png">
 <link rel="manifest" href="manifest.webmanifest?v=3">
 <link rel="apple-touch-icon" href="icon-192.png?v=2">
-<link rel="preload" as="image" href="assets/splash-concepts/splash-01-ruta-inteligente.png" fetchpriority="high">
+<link rel="preload" as="image" href="assets/pymio-preview-bee.png" fetchpriority="high">
 <meta name="description" content="Pymio: gestión, datos y conexiones para tu pyme en un solo lugar.">
 <meta name="color-scheme" content="light dark">
 <title>Pymio — Gestión inteligente para pymes</title>
 <script src="theme.js?v=2"></script>
-<link rel="stylesheet" href="style.css" type="text/css">
+<link rel="stylesheet" href="style.css?v=186" type="text/css">
 <link rel="stylesheet" href="ecosistema.css?v=170" type="text/css">
 <link rel="stylesheet" href="pymio.css?v=166" type="text/css">
 <link rel="stylesheet" href="dashboard.css?v=2">
@@ -31,7 +31,38 @@
 <body>
 <a class="skip-link" href="#login-form">Saltar al contenido</a>
 <div id="boot-screen" role="status" aria-live="polite">
-  <img class="boot-splash-art" src="assets/splash-concepts/splash-01-ruta-inteligente.png" alt="" fetchpriority="high" decoding="async">
+  <div class="boot-mobile" aria-hidden="true">
+    <div class="boot-mobile-light"></div>
+    <svg class="boot-mobile-route" viewBox="0 0 390 844" fill="none">
+      <path d="M-24 552C57 536 49 464 118 452C184 441 204 489 265 456C328 422 300 331 414 298" pathLength="1"/>
+    </svg>
+    <div class="boot-mobile-hexes boot-mobile-hexes--top"><i></i><i></i><i></i></div>
+    <div class="boot-mobile-hexes boot-mobile-hexes--side"><i></i><i></i></div>
+    <div class="boot-mobile-bee-wrap"><img src="assets/pymio-preview-bee.png" alt="" fetchpriority="high" decoding="async"></div>
+    <div class="boot-mobile-brand"><strong>Pymio</strong><span></span><p>Preparando tu espacio…</p></div>
+    <div class="boot-mobile-waves"><i></i><i></i><i></i></div>
+  </div>
+  <div class="boot-desktop" aria-hidden="true">
+    <div class="boot-desktop-copy">
+      <div class="boot-brand"><img src="assets/pymio-icon-transparent.png" alt=""><span>Pymio</span></div>
+      <div class="boot-message">
+        <h1>Tu negocio se pone<br><span>en movimiento.</span></h1>
+        <p class="boot-lead">Conectando tus ventas, inventario y oportunidades en una sola mirada.</p>
+      </div>
+      <div class="boot-progress" aria-hidden="true"><span></span></div>
+      <p class="boot-preparing">Preparando tu espacio…</p>
+    </div>
+    <div class="boot-desktop-scene">
+      <svg class="boot-flight-path" viewBox="0 0 760 620" fill="none" aria-hidden="true"><path d="M38 491C129 491 151 371 250 389C349 408 345 247 456 270C568 293 574 119 723 128" pathLength="1"/></svg>
+      <div class="boot-signal boot-signal--sales"><span>Ventas de hoy</span><strong>$159.000</strong><small>↗ 12% este mes</small></div>
+      <div class="boot-signal boot-signal--stock"><span>Inventario</span><strong>Todo conectado</strong><i aria-hidden="true"><b></b></i></div>
+      <div class="boot-signal boot-signal--network"><span>RED Pymio</span><strong>Nuevas oportunidades</strong><div class="boot-avatars" aria-hidden="true"><b>LM</b><b>SA</b><b>+4</b></div></div>
+      <div class="boot-bee-flight"><span class="boot-bee-glow" aria-hidden="true"></span><img src="assets/pymio-icon-transparent.png" alt=""></div>
+      <span class="boot-node boot-node--one" aria-hidden="true"></span>
+      <span class="boot-node boot-node--two" aria-hidden="true"></span>
+      <span class="boot-node boot-node--three" aria-hidden="true"></span>
+    </div>
+  </div>
   <span class="boot-status-copy">Preparando tu espacio…</span>
 </div>
 
@@ -276,7 +307,7 @@
 
 
 
-<script type="module" src="app.js?v=184"></script>
+<script type="module" src="app.js?v=186"></script>
 <script type="module" src="mobile.js?v=154"></script>
 </body>
 </html>

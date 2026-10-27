@@ -11,7 +11,7 @@ export function createWebServer() {
     const path = new URL(req.url, 'http://localhost').pathname;
     const file = path === '/' ? 'piloto.html' : path.slice(1);
     // Only public files: never serve .env, server sources or database exports.
-    if (!['GET','HEAD'].includes(req.method) || !/^(?:[a-zA-Z0-9_-]+\.(?:html|js|css|png|webmanifest)|assets\/[a-zA-Z0-9_-]+\.(?:png|jpeg))$/.test(file)) {
+    if (!['GET','HEAD'].includes(req.method) || !/^(?:[a-zA-Z0-9_-]+\.(?:html|js|css|png|webmanifest)|assets\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:png|jpeg))$/.test(file)) {
       res.writeHead(404); res.end(); return;
     }
     try {

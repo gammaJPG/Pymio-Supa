@@ -11,11 +11,27 @@ import { configureSupport } from './centro-ayuda.js';
 import { startLiveSync, stopLiveSync } from './live-sync.js';
 import { setupInstallPrompt } from './install-prompt.js?v=199';
 
+const bootStartedAt=performance.now();
+
+async function finishBootScreen(){
+  const bootScreen=document.getElementById('boot-screen');
+  if(!bootScreen){document.documentElement.classList.remove('auth-pending');return;}
+  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const mobileLayout=window.matchMedia('(max-width: 767px), (max-width: 950px) and (max-height: 500px)').matches;
+  const minimumVisibleTime=reducedMotion?220:(mobileLayout?1400:1550);
+  const remaining=Math.max(0,minimumVisibleTime-(performance.now()-bootStartedAt));
+  if(remaining)await new Promise(resolve=>window.setTimeout(resolve,remaining));
+  bootScreen.classList.add('is-leaving');
+  if(!reducedMotion)await new Promise(resolve=>window.setTimeout(resolve,180));
+  document.documentElement.classList.remove('auth-pending');
+  bootScreen.classList.remove('is-leaving');
+}
+
 // La instalación debe estar disponible también antes de iniciar sesión. Chrome
 // solo ofrece el prompt cuando el service worker ya está preparado para este
 // origen, por lo que no puede depender de la sesión de la empresa.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=199').catch(error => {
+  navigator.serviceWorker.register('./sw.js?v=201').catch(error => {
     console.warn('No se pudo preparar la instalación de Pymio:', error);
   });
 }
@@ -553,6 +569,6 @@ async function cargarSecciones() {
       if(response.ok){const result=await response.json();await enterApp(result.session);return;}
       document.getElementById('login-screen').style.display='flex';
     }catch(error){document.getElementById('login-screen').style.display='flex';loginError.textContent=accessErrorMessage(error);loginError.style.display='block';setAuthMode('login');}
-    finally{document.documentElement.classList.remove('auth-pending');}
+    finally{await finishBootScreen();}
   }
   initializeAuth();

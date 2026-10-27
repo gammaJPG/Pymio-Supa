@@ -65,14 +65,31 @@ test('Instalación móvil: ofrece únicamente la instalación nativa cuando est�
   assert.match(mobile,/canInstallPymio/);
   assert.match(mobile,/requestPymioInstall/);
   assert.match(html,/apple-mobile-web-app-capable/);
-  assert.match(html,/splash-01-ruta-inteligente\.png/);
+  assert.match(html,/pymio-preview-bee\.png/);
   assert.match(styles,/\.pwa-install-prompt\{/);
   assert.match(worker,/'live-sync\.js','install-prompt\.js'/);
   assert.match(worker,/pymio-icon-transparent\.png/);
-  assert.match(worker,/splash-01-ruta-inteligente\.png/);
+  assert.match(worker,/pymio-preview-bee\.png/);
   assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
   const app=await read('../app.js');
-  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=199'\)/);
+  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=201'\)/);
+});
+
+test('Splash: conserva la pieza móvil y ofrece un arranque animado de escritorio',async()=>{
+  const [html,styles,app,devServer]=await Promise.all([read('../piloto.html'),read('../style.css'),read('../app.js'),read('./dev.mjs')]);
+  assert.match(html,/class="boot-mobile"/);
+  assert.match(html,/class="boot-mobile-bee-wrap"/);
+  assert.match(html,/class="boot-mobile-route"/);
+  assert.match(html,/class="boot-desktop"/);
+  assert.match(styles,/\.boot-desktop\{display:grid/);
+  assert.match(styles,/@keyframes boot-bee-route/);
+  assert.match(styles,/@media\(prefers-reduced-motion:reduce\)/);
+  assert.match(styles,/@media\(max-width:767px\)/);
+  assert.match(styles,/@keyframes boot-mobile-bee-in/);
+  assert.match(styles,/@keyframes boot-mobile-wave-in/);
+  assert.match(app,/minimumVisibleTime=reducedMotion\?220:\(mobileLayout\?1400:1550\)/);
+  assert.match(app,/bootScreen\.classList\.add\('is-leaving'\)/);
+  assert.match(devServer,/assets\\\/\(\?:\[a-zA-Z0-9_-\]\+\\\/\)\*/);
 });
 
 test('Marca: los iconos web e instalables conservan transparencia RGBA',async()=>{
