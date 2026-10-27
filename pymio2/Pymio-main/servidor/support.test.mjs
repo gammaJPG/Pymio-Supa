@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
 import {readFile} from 'node:fs/promises';
-import {handleSupport,validateFaq,validateReply,validateTicket} from './support.mjs';
+import {handleSupport,validateChatMessage,validateFaq,validateReply,validateTicket} from './support.mjs';
 
 const request=(method,body)=>{const req=Readable.from(body===undefined?[]:[Buffer.from(JSON.stringify(body))]);req.method=method;req.headers=body===undefined?{}:{'content-type':'application/json'};return req;};
-const invoke=async({path,method='GET',body,session={userId:'74e6e67a-ff5a-4ce8-b3fb-ad59b20759d8',companyId:'2',demo:false},support=async()=>({tickets:[]})})=>{const sent=[];await handleSupport(request(method,body),{support},session,(code,payload)=>sent.push({code,payload}),new URL(path,'http://local'));return sent[0];};
+const invoke=async({path,method='GET',body,session={userId:'74e6e67a-ff5a-4ce8-b3fb-ad59b20759d8',companyId:'2',demo:false},support=async()=>({tickets:[]}),supportChat=async()=>({chats:[]})})=>{const sent=[];await handleSupport(request(method,body),{support,supportChat},session,(code,payload)=>sent.push({code,payload}),new URL(path,'http://local'));return sent[0];};
 
 test('Soporte: valida y normaliza una solicitud',()=>{
   const result=validateTicket({type:'problema',subject:'  Error de stock  ',description:'  El stock no se actualiza correctamente.  ',requestId:'bc73687e-3d3e-40c6-989a-b713b366cd2a'});
@@ -51,6 +51,18 @@ test('Soporte: permite crear nuevas respuestas rápidas',async()=>{
   assert.equal(response.code,201);assert.equal(calls[0][0],'admin.faq.create');
 });
 
+test('Soporte: permite rechazar respuestas y conecta chats iniciados por administración',async()=>{
+  assert.deepEqual(validateChatMessage({body:'  Necesito más antecedentes.  '}),{body:'Necesito más antecedentes.'});
+  assert.throws(()=>validateChatMessage({body:'   '}),{status:400});
+  const id='bc73687e-3d3e-40c6-989a-b713b366cd2a',calls=[],supportChat=async(...args)=>{calls.push(args);return args[0]==='list'?{chats:[]}:{ticket:{id}};};
+  assert.equal((await invoke({path:`/api/support/tickets/${id}/reject`,method:'POST',supportChat})).code,200);
+  assert.equal((await invoke({path:`/api/support/admin/tickets/${id}/chat/open`,method:'POST',body:{body:'Iniciamos el seguimiento técnico.'},supportChat})).code,200);
+  assert.equal((await invoke({path:`/api/support/tickets/${id}/chat/messages`,method:'POST',body:{body:'Gracias por el seguimiento.'},supportChat})).code,201);
+  assert.equal((await invoke({path:`/api/support/admin/tickets/${id}/chat/close`,method:'POST',supportChat})).code,200);
+  assert.equal((await invoke({path:'/api/support/chats',supportChat})).code,200);
+  assert.deepEqual(calls.map(call=>call[0]),['reject','open','send','close','list']);
+});
+
 test('Soporte: la migración restringe tablas y verifica administrador global',async()=>{
   const sql=await readFile(new URL('../supabase/migrations/033_support_tickets.sql',import.meta.url),'utf8');
   assert.match(sql,/ENABLE ROW LEVEL SECURITY/g);assert.match(sql,/REVOKE ALL ON public\.pymio_global_admins,public\.support_tickets FROM PUBLIC,anon,authenticated/);assert.match(sql,/IF NOT is_admin THEN RAISE EXCEPTION/);assert.match(sql,/lower\(email\)='tino@empresas\.cl'/);assert.match(sql,/UNIQUE\(user_id,request_id\)/);
@@ -64,4 +76,9 @@ test('Soporte: respuestas rápidas se almacenan y sólo el administrador las edi
 test('Soporte: notifica cambios y cierra respuestas no confirmadas después de tres días',async()=>{
   const sql=await readFile(new URL('../supabase/migrations/044_support_replies_and_notifications.sql',import.meta.url),'utf8');
   assert.match(sql,/CREATE TABLE IF NOT EXISTS public\.support_notifications/);assert.match(sql,/confirmation_deadline=now\(\)\+interval '3 days'/);assert.match(sql,/operation='admin\.reply'/);assert.match(sql,/operation='response\.accept'/);assert.match(sql,/operation='notifications\.list'/);assert.match(sql,/venció el plazo de 3 días/);assert.match(sql,/operation='admin\.faq\.create'/);
+});
+
+test('Soporte: los chats por solicitud sólo los inicia administración y se cierran al resolver',async()=>{
+  const sql=await readFile(new URL('../supabase/migrations/045_support_request_chats.sql',import.meta.url),'utf8');
+  assert.match(sql,/CREATE TABLE IF NOT EXISTS public\.support_chat_messages/);assert.match(sql,/Solo un administrador puede iniciar este chat/);assert.match(sql,/operation='reject'/);assert.match(sql,/operation='open'/);assert.match(sql,/operation='close'/);assert.match(sql,/operation='send'/);assert.match(sql,/NEW\.status='resuelto'/);assert.match(sql,/response_confirmation IN \('pending','accepted','rejected','expired'\)/);
 });

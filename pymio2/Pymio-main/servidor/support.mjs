@@ -32,6 +32,12 @@ export function validateReply(input = {}) {
   return {response};
 }
 
+export function validateChatMessage(input = {}) {
+  const body = cleanText(input.body, 5000);
+  if (body.length < 1) throw Object.assign(new Error('Escribe un mensaje antes de enviarlo.'), {status:400});
+  return {body};
+}
+
 async function readJson(req, max = 8192) {
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
     throw Object.assign(new Error('Envía los datos en formato JSON.'), {status:415});
@@ -51,6 +57,10 @@ export async function handleSupport(req, pool, session, send, url) {
     const statusRoute = /^\/api\/support\/admin\/tickets\/([0-9a-f-]{36})\/status$/i.exec(url.pathname);
     const replyRoute = /^\/api\/support\/admin\/tickets\/([0-9a-f-]{36})\/reply$/i.exec(url.pathname);
     const acceptRoute = /^\/api\/support\/tickets\/([0-9a-f-]{36})\/accept$/i.exec(url.pathname);
+    const rejectRoute = /^\/api\/support\/tickets\/([0-9a-f-]{36})\/reject$/i.exec(url.pathname);
+    const chatOpenRoute = /^\/api\/support\/admin\/tickets\/([0-9a-f-]{36})\/chat\/open$/i.exec(url.pathname);
+    const chatCloseRoute = /^\/api\/support\/admin\/tickets\/([0-9a-f-]{36})\/chat\/close$/i.exec(url.pathname);
+    const chatMessageRoute = /^\/api\/support\/tickets\/([0-9a-f-]{36})\/chat\/messages$/i.exec(url.pathname);
     const faqRoute = /^\/api\/support\/admin\/faqs\/(\d+)$/i.exec(url.pathname);
     if (url.pathname === '/api/support/capabilities' && req.method === 'GET') {
       if (session.demo) return send(200, {admin:false, demo:true});
@@ -73,6 +83,10 @@ export async function handleSupport(req, pool, session, send, url) {
       if (session.demo) return send(200, {notifications:[], demo:true});
       return send(200, await pool.support('notifications.list', session.userId, session.companyId));
     }
+    if (url.pathname === '/api/support/chats' && req.method === 'GET') {
+      if (session.demo) return send(200, {chats:[], demo:true});
+      return send(200, await pool.supportChat('list', session.userId, session.companyId));
+    }
     if (url.pathname === '/api/support/admin/tickets' && req.method === 'GET') {
       const status=cleanText(url.searchParams.get('status'),20),type=cleanText(url.searchParams.get('type'),30);
       if (status && !STATUSES.has(status)) return send(400,{error:'El estado solicitado no es válido.'});
@@ -90,6 +104,20 @@ export async function handleSupport(req, pool, session, send, url) {
     }
     if (acceptRoute && req.method === 'POST') {
       return send(200, await pool.support('response.accept', session.userId, session.companyId, {ticket_id:acceptRoute[1]}));
+    }
+    if (rejectRoute && req.method === 'POST') {
+      return send(200, await pool.supportChat('reject', session.userId, session.companyId, {ticket_id:rejectRoute[1]}));
+    }
+    if (chatOpenRoute && req.method === 'POST') {
+      const message=validateChatMessage(await readJson(req));
+      return send(200, await pool.supportChat('open', session.userId, session.companyId, {ticket_id:chatOpenRoute[1],...message}));
+    }
+    if (chatCloseRoute && req.method === 'POST') {
+      return send(200, await pool.supportChat('close', session.userId, session.companyId, {ticket_id:chatCloseRoute[1]}));
+    }
+    if (chatMessageRoute && req.method === 'POST') {
+      const message=validateChatMessage(await readJson(req));
+      return send(201, await pool.supportChat('send', session.userId, session.companyId, {ticket_id:chatMessageRoute[1],...message}));
     }
     if (url.pathname === '/api/support/admin/faqs' && req.method === 'POST') {
       const faq=validateFaq(await readJson(req));

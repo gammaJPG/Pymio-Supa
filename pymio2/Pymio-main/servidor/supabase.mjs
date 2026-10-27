@@ -87,6 +87,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         body:JSON.stringify({operation,actor_user:userId,actor_company:String(companyId),payload:data}),
       },'No se pudo completar la operación de soporte. Revisa la migración 027.');
     },
+    async supportChat(operation,userId,companyId,data={}) {
+      return requestJson('/rest/v1/rpc/pymio_support_chat',{
+        method:'POST',headers:{...headers,'Content-Type':'application/json'},
+        body:JSON.stringify({operation,actor_user:userId,actor_company:String(companyId),payload:data}),
+      },'No se pudo completar la mensajería de soporte. Revisa la migración 045.');
+    },
     async authProviders() {
       const settings=await requestJson('/auth/v1/settings', {headers}, 'No se pudo consultar la configuración de acceso.');
       return {google:Boolean(settings.external?.google)};

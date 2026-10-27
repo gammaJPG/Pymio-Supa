@@ -1,13 +1,13 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=183';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=184';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=153';
 import { configureDiagnostics, refreshDiagnosticAlerts } from './diagnostico.js';
 import { iniciarMovimientos } from './movimientos.js?v=165';
-import { configureSupport } from './centro-ayuda.js';
+import { configureSupport } from './centro-ayuda.js?v=2';
 import { startLiveSync, stopLiveSync } from './live-sync.js';
 import { setupInstallPrompt } from './install-prompt.js?v=199';
 
@@ -300,6 +300,10 @@ async function cargarSecciones() {
   });
   document.getElementById('profile-communications-btn').addEventListener('click',()=>{
     profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
+  });
+  document.addEventListener('pymio-open-support-chat',event=>{
+    navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
+    document.dispatchEvent(new CustomEvent('pymio-show-support-chat',{detail:event.detail||{}}));
   });
   document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
   forgotPasswordButton.addEventListener('click',()=>{recoveryRequestForm.reset();recoveryRequestError.hidden=true;recoveryRequestSuccess.hidden=true;if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username.value.trim()))document.getElementById('recovery-email').value=username.value.trim();recoveryRequestDialog.showModal();});
