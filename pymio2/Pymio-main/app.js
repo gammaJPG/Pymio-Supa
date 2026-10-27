@@ -1,7 +1,7 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=184';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=189';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=153';
@@ -31,7 +31,7 @@ async function finishBootScreen(){
 // solo ofrece el prompt cuando el service worker ya está preparado para este
 // origen, por lo que no puede depender de la sesión de la empresa.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=202').catch(error => {
+  navigator.serviceWorker.register('./sw.js?v=205').catch(error => {
     console.warn('No se pudo preparar la instalación de Pymio:', error);
   });
 }
@@ -43,6 +43,15 @@ window.fetch=(input,options={})=>browserFetch(input,{...options,credentials:'inc
 let currentSession=null;
 let businessViewsRefresh=null;
 const validTabs=new Set(['inicio','dashboard','movimientos','inventario','diagnostico','ecosistema','ayuda']);
+const workspaceLocationKey=session=>`pymio:last-location:${session?.demo?'demo':session?.companyId||'guest'}`;
+function readWorkspaceLocation(session){
+  try{return JSON.parse(localStorage.getItem(workspaceLocationKey(session))||'{}');}catch{return {};}
+}
+function saveWorkspaceLocation(change){
+  if(!currentSession)return;
+  const current=readWorkspaceLocation(currentSession);
+  try{localStorage.setItem(workspaceLocationKey(currentSession),JSON.stringify({...current,...change}));}catch{}
+}
 
 function refreshBusinessViews(){
   if(!currentSession || currentSession.demo)return Promise.resolve();
@@ -253,7 +262,7 @@ async function cargarSecciones() {
     startLiveSync({apiUrl,demo:session.demo});
     iniciarMovimientos({companyId:session.companyId});
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
-    const requestedTab=new URLSearchParams(location.search).get('tab'),storedTab=sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(requestedTab)?requestedTab:validTabs.has(storedTab)?storedTab:'inicio';
+    const requestedTab=new URLSearchParams(location.search).get('tab'),savedLocation=readWorkspaceLocation(session),storedTab=savedLocation.tab||sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(requestedTab)?requestedTab:validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
     document.getElementById('profile-password-btn').hidden=session.demo;
     if(session.requiresBusinessName)openBusinessSetup();
@@ -276,7 +285,7 @@ async function cargarSecciones() {
 
 
 
-  document.getElementById('logout-btn').addEventListener('click', async () => {stopLiveSync();stopOffline();sessionStorage.removeItem('pymio:last-tab');await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
+  document.getElementById('logout-btn').addEventListener('click', async () => {stopLiveSync();stopOffline();sessionStorage.removeItem('pymio:last-tab');if(currentSession)localStorage.removeItem(workspaceLocationKey(currentSession));await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
 
   const profileMenuButton=document.getElementById('profile-menu-btn'),profileMenu=document.getElementById('profile-menu');
   const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');
@@ -347,6 +356,7 @@ async function cargarSecciones() {
     const panel = document.getElementById('tab-' + name);
     if (!panel) return;
     sessionStorage.setItem('pymio:last-tab',name);
+    saveWorkspaceLocation({tab:name});
     if (name === 'inicio') renderInicio();
     const changed = !panel.classList.contains('active');
     document.querySelectorAll('.nav-item').forEach(button => {

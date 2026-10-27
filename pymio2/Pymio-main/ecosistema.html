@@ -25,20 +25,40 @@
     </div>
   </section>
 
-  <section class="subpanel" id="sub-red" role="tabpanel">
+  <section class="subpanel" id="sub-red" role="tabpanel" data-mobile-directory="communities">
     <div class="section-intro section-intro-action"><div><p class="section-kicker">Comunidades</p><h2>Mi RED</h2><p>Descubre espacios creados por otras pymes, únete a ellos o abre una comunidad propia.</p><small class="community-plan-note" data-community-plan-note></small></div><button type="button" class="btn" data-community-create>Crear comunidad</button></div>
-    <div class="network-summary" data-community-summary hidden></div>
-    <label class="community-search"><span class="sr-only">Buscar comunidades</span><input type="search" id="community-search" placeholder="Buscar comunidad por nombre, creador o descripción"></label>
-    <p class="results-count" data-community-results role="status"></p><div class="grid-3" id="community-grid"></div>
-    <div class="network-section-divider"><div><p class="section-kicker">Conexiones</p><h3>Empresas en tu red</h3><p>Perfiles que conectaste desde Explorar Tiendas.</p></div><span data-connection-count>0 conexiones</span></div>
-    <div class="grid-3" id="connection-grid"></div>
+    <nav class="mobile-red-directory-tabs mobile-only" aria-label="Contenido de Mi RED">
+      <button type="button" class="active" data-red-directory="communities" aria-pressed="true">Comunidades</button>
+      <button type="button" data-red-directory="users" aria-pressed="false">Usuarios</button>
+    </nav>
+    <div data-red-communities>
+      <div class="network-summary" data-community-summary hidden></div>
+      <label class="community-search"><span class="sr-only">Buscar comunidades</span><input type="search" id="community-search" placeholder="Buscar comunidad por nombre, creador o descripción"></label>
+      <p class="results-count" data-community-results role="status"></p><div class="grid-3" id="community-grid"></div>
+    </div>
+    <div data-red-users>
+      <div class="network-section-divider"><div><p class="section-kicker">Conexiones</p><h3>Empresas en tu red</h3><p>Perfiles que conectaste desde Explorar Tiendas.</p></div><span data-connection-count>0 conexiones</span></div>
+      <div class="grid-3" id="connection-grid"></div>
+    </div>
   </section>
 
-  <section class="subpanel" id="sub-explorar" role="tabpanel">
+  <section class="subpanel" id="sub-explorar" role="tabpanel" data-mobile-directory="communities">
     <div class="section-intro"><p class="section-kicker">Directorio empresarial</p><h2>Explorar Tiendas</h2><p>Encuentra empresas por rubro, ubicación o los productos y servicios que ofrecen.</p></div>
-    <article class="profile-callout" data-profile-card><div class="profile-callout-mark" aria-hidden="true">PY</div><div class="profile-callout-copy"><span>Tu perfil en la red</span><strong data-profile-name>Completa tu perfil empresarial</strong><p data-profile-summary>Agrega tu rubro, ubicación y oferta para aparecer en búsquedas relevantes.</p></div><button type="button" class="btn-outline" data-profile-edit>Editar perfil</button></article>
-    <div class="search-toolbar"><label class="search-box"><span class="sr-only">Buscar empresas</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg><input type="search" id="match-search" placeholder="Buscar empresa, rubro, producto o ubicación"></label><label class="filter-select"><span class="sr-only">Filtrar por rubro</span><select id="industry-filter"><option value="">Todos los rubros</option></select></label><label class="filter-select"><span class="sr-only">Filtrar por producto</span><select id="product-filter"><option value="">Todos los productos</option></select></label></div>
-    <p class="results-count" id="match-count" role="status"></p><div class="grid-3" id="match-grid"></div>
+    <nav class="mobile-explore-directory-tabs mobile-only" aria-label="Contenido para explorar">
+      <button type="button" class="active" data-explore-directory="communities" aria-pressed="true">Comunidades</button>
+      <button type="button" data-explore-directory="users" aria-pressed="false">Usuarios</button>
+    </nav>
+    <section data-explore-communities>
+      <div class="network-section-divider explore-community-heading"><div><p class="section-kicker">Comunidades</p><h3>Comunidades disponibles</h3><p>Encuentra espacios de colaboración y solicita unirte.</p></div><span data-explore-community-count>0 comunidades</span></div>
+      <label class="community-search"><span class="sr-only">Buscar comunidades disponibles</span><input type="search" id="explore-community-search" placeholder="Buscar comunidad por nombre, creador o descripción"></label>
+      <p class="results-count" data-explore-community-results role="status"></p><div class="grid-3" id="explore-community-grid"></div>
+    </section>
+    <section data-explore-users>
+      <div class="network-section-divider explore-user-heading"><div><p class="section-kicker">Usuarios</p><h3>Usuarios disponibles</h3><p>Encuentra negocios por rubro, ubicación, productos o servicios.</p></div></div>
+      <article class="profile-callout" data-profile-card><div class="profile-callout-mark" aria-hidden="true">PY</div><div class="profile-callout-copy"><span>Tu perfil en la red</span><strong data-profile-name>Completa tu perfil empresarial</strong><p data-profile-summary>Agrega tu rubro, ubicación y oferta para aparecer en búsquedas relevantes.</p></div><button type="button" class="btn-outline" data-profile-edit>Editar perfil</button></article>
+      <div class="search-toolbar"><label class="search-box"><span class="sr-only">Buscar empresas</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg><input type="search" id="match-search" placeholder="Buscar empresa, rubro, producto o ubicación"></label><label class="filter-select"><span class="sr-only">Filtrar por rubro</span><select id="industry-filter"><option value="">Todos los rubros</option></select></label><label class="filter-select"><span class="sr-only">Filtrar por producto</span><select id="product-filter"><option value="">Todos los productos</option></select></label></div>
+      <p class="results-count" id="match-count" role="status"></p><div class="grid-3" id="match-grid"></div>
+    </section>
   </section>
 
   <section class="subpanel" id="sub-comunicaciones" role="tabpanel">
@@ -123,7 +143,7 @@
       </div>
       <button type="button" class="btn community-edit-button" data-community-edit hidden>Editar comunidad</button>
     </div>
-    <button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button>
+    <button type="button" class="dialog-close" data-dialog-close aria-label="Volver a comunidades">×</button>
   </header>
 
   <section class="community-manager-metrics" aria-label="Resumen de la comunidad">

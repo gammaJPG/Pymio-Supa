@@ -35,6 +35,11 @@ button,a,[role=button]{touch-action:manipulation;}
 button{user-select:none;transition:transform var(--motion-fast) var(--ease-out),background-color 250ms ease,color 250ms ease;}
 button:active:not(:disabled){transform:scale(.97);}
 button:disabled{cursor:not-allowed;}
+.primary-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:11px 18px;border:1px solid #d8b53e;border-radius:10px;background:var(--accent,#f2ca3b);color:#292b23;font:inherit;font-size:12px;font-weight:700;line-height:1.25;text-align:center;cursor:pointer;box-shadow:0 2px 8px #9a78151c;transition:background-color 160ms ease,border-color 160ms ease,box-shadow 160ms ease,transform 160ms ease}
+.primary-btn:where(:hover:not(:disabled)){border-color:#c9a52d;background:#eac13a;box-shadow:0 6px 16px #9a781526;transform:translateY(-1px)}
+.primary-btn:focus-visible{outline:3px solid #d5ac3052;outline-offset:3px}
+.primary-btn:where(:active:not(:disabled)){box-shadow:0 2px 6px #9a78151f;transform:translateY(0)}
+.primary-btn:where(:disabled){border-color:#dfe0d6;background:#eceee6;color:#8a8e81;box-shadow:none;opacity:1}
 [hidden]{display:none!important;}
 :focus-visible{outline:2px solid #947515;outline-offset:4px;}
 .num,.kpi-value{font-variant-numeric:tabular-nums;}
