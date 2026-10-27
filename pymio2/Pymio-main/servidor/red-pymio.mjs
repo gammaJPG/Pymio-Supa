@@ -226,6 +226,7 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(communityImageOwn&&req.method==='DELETE'){
       const [,communityId,kind,id]=communityImageOwn,detail=await pool.community('detail',companyId,{community_id:communityId});if(!['owner','admin'].includes(detail.community?.role))return send(403,{error:'Solo los administradores pueden cambiar la identidad de la comunidad.'});await pool.deleteCommunityImage(`${communityId}/${kind}/${id}.webp`);return send(200,{deleted:true});
     }
+    if(communityDetail && req.method==='DELETE')return send(200,await pool.deleteCommunity(communityDetail[1],companyId));
     if(communityDetail && req.method==='GET'){
       const network=await pool.network('bootstrap',companyId,{}),community=(network.communities||[]).find(item=>String(item.id)===communityDetail[1]);
       if(!community)return send(404,{error:'La comunidad ya no está disponible.'});

@@ -266,6 +266,17 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       if(!Array.isArray(deleted)||!deleted.length)throw Object.assign(new Error('Ya no perteneces a esta comunidad.'),{status:404});
       return this.network('bootstrap',companyId,{});
     },
+    async deleteCommunity(communityId,companyId){
+      const community=encodeURIComponent(communityId),company=encodeURIComponent(String(companyId));
+      const rows=await requestJson(`/rest/v1/communities?id=eq.${community}&select=id,owner_company_id,avatar_path,banner_path&limit=1`,{headers},'No se pudo verificar la comunidad.'),item=rows[0];
+      if(!item)throw Object.assign(new Error('La comunidad ya no está disponible.'),{status:404});
+      if(String(item.owner_company_id)!==String(companyId))throw Object.assign(new Error('Solo el creador puede eliminar esta comunidad.'),{status:403});
+      await requestJson(`/rest/v1/network_posts?community_id=eq.${community}`,{method:'DELETE',headers:{...headers,Prefer:'return=minimal'}},'No se pudieron eliminar los eventos de la comunidad.');
+      const deleted=await requestJson(`/rest/v1/communities?id=eq.${community}&owner_company_id=eq.${company}`,{method:'DELETE',headers:{...headers,Prefer:'return=representation'}},'No fue posible eliminar la comunidad.');
+      if(!Array.isArray(deleted)||!deleted.length)throw Object.assign(new Error('La comunidad ya no está disponible.'),{status:404});
+      await Promise.all([item.avatar_path,item.banner_path].filter(Boolean).map(path=>this.deleteCommunityImage(path).catch(()=>null)));
+      return this.network('bootstrap',companyId,{});
+    },
     async requireCommunityAdmin(communityId,companyId){
       const rows=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(communityId)}&company_id=eq.${encodeURIComponent(String(companyId))}&select=role&limit=1`,{headers},'No se pudieron verificar tus permisos en la comunidad.');
       if(!['owner','admin'].includes(rows[0]?.role))throw Object.assign(new Error('Solo los administradores de la comunidad pueden crear o modificar eventos.'),{status:403});

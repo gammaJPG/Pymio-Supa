@@ -96,6 +96,12 @@ test('RED Pymio: permite que un miembro se salga de una comunidad',async()=>{
   const legacy=request(`/api/network/communities/${communityId}/membership`,'DELETE');await atenderRedPymio(legacy.req,pool,'7',(status,data)=>response={status,data},legacy.url);assert.equal(response.status,200);assert.equal(calls.length,2);
 });
 
+test('RED Pymio: enruta la eliminación de comunidad con la empresa autenticada',async()=>{
+  const communityId='10000000-0000-4000-8000-000000000001',input=request(`/api/network/communities/${communityId}`,'DELETE'),calls=[];let response;
+  await atenderRedPymio(input.req,{deleteCommunity:async(id,company)=>{calls.push({id,company});return {communities:[]};}},'7',(status,data)=>response={status,data},input.url);
+  assert.equal(response.status,200);assert.deepEqual(response.data,{communities:[]});assert.deepEqual(calls,[{id:communityId,company:'7'}]);
+});
+
 test('RED Pymio: conecta empresas y permite responder solicitudes privadas',async()=>{
   assert.equal((await call('/api/network/connections/7','POST')).response.status,400);
   const connected=await call('/api/network/connections/12','POST');
@@ -450,6 +456,12 @@ test('RED Pymio: los miembros no creadores pueden salirse con confirmación',asy
   assert.match(html,/data-community-share[\s\S]+data-community-leave hidden/);assert.match(html,/Salirse de la Comunidad/);assert.match(html,/M6 6l12 12M18 6 6 18/);
   assert.match(source,/community\.role==='owner'/);assert.match(source,/confirm\(`¿Quieres salirte de/);assert.match(source,/\/api\/network\/communities\/leave',\{method:'POST',body:JSON\.stringify\(\{communityId:community\.id\}\)\}/);assert.match(source,/Saliendo…/);
   assert.match(css,/#tab-ecosistema \.community-sidebar-actions \.community-leave-button,#tab-ecosistema \.form-view-actions \.form-delete-button\{border-color:#9f3028;background:#b13c32;color:#fff;font-weight:650\}/);
+});
+
+test('RED Pymio: eliminar comunidad y explicar el límite son acciones restringidas y temporales',async()=>{
+  const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  assert.match(html,/data-community-delete hidden/);assert.match(html,/data-community-limit-info[^>]+hidden/);assert.match(html,/data-community-limit-popover[^>]+hidden/);
+  assert.match(source,/\[data-community-delete\]'\)\.hidden=!isCommunityOwner\(\)/);assert.match(source,/Solo el creador puede eliminar esta comunidad/);assert.match(source,/method:'DELETE'/);assert.match(source,/communityLimitTimer=setTimeout[\s\S]+,5000\)/);
 });
 
 test('Interfaz: todas las equis de cierre quedan centradas',async()=>{

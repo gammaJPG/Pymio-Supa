@@ -26,7 +26,7 @@
   </section>
 
   <section class="subpanel" id="sub-red" role="tabpanel" data-mobile-directory="communities">
-    <div class="section-intro section-intro-action"><div><p class="section-kicker">Comunidades</p><h2>Mi RED</h2><p>Descubre espacios creados por otras pymes, únete a ellos o abre una comunidad propia.</p><small class="community-plan-note" data-community-plan-note></small></div><button type="button" class="btn" data-community-create>Crear comunidad</button></div>
+    <div class="section-intro section-intro-action"><div><p class="section-kicker">Comunidades</p><h2>Mi RED</h2><p>Descubre espacios creados por otras pymes, únete a ellos o abre una comunidad propia.</p><small class="community-plan-note" data-community-plan-note></small></div><div class="community-create-actions"><button type="button" class="btn" data-community-create>Crear comunidad</button><button type="button" class="community-limit-info" data-community-limit-info aria-label="¿Por qué alcancé el límite?" aria-expanded="false" hidden>i</button><div class="community-limit-popover" data-community-limit-popover role="status" hidden><strong>Límite de comunidades</strong><span>El plan básico permite crear una comunidad. Para crear otras, puedes eliminar la que creaste o activar Pymium.</span></div></div></div>
     <nav class="mobile-red-directory-tabs mobile-only" aria-label="Contenido de Mi RED">
       <button type="button" class="active" data-red-directory="communities" aria-pressed="true">Comunidades</button>
       <button type="button" data-red-directory="users" aria-pressed="false">Usuarios</button>
@@ -223,6 +223,10 @@
         <button type="button" class="btn-outline" data-members-export hidden>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
           Exportar miembros
+        </button>
+        <button type="button" class="btn-outline community-delete-button" data-community-delete hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2m-9 0 1 15h8l1-15M10 10v7m4-7v7"/></svg>
+          Eliminar comunidad
         </button>
       </div>
     </aside>

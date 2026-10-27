@@ -236,6 +236,25 @@ test('Supabase RED Pymio: un miembro o administrador puede salir pero el creador
   await assert.rejects(owner.leaveCommunity(communityId,7),{status:403,message:'El creador no puede salirse de su comunidad.'});
 });
 
+test('Supabase RED Pymio: solo el creador puede eliminar su comunidad',async()=>{
+  const calls=[],communityId='10000000-0000-4000-8000-000000000001';
+  const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options={})=>{
+    calls.push({url,options});
+    if(url.pathname.endsWith('/communities'))return options.method==='DELETE'?Response.json([{id:communityId}]):Response.json([{id:communityId,owner_company_id:7,avatar_path:null,banner_path:null}]);
+    if(url.pathname.endsWith('/network_posts'))return Response.json([]);
+    if(url.pathname.endsWith('/pymio_network'))return Response.json({profile:{},businesses:[],communities:[],posts:[]});
+    if(url.pathname.endsWith('/pymio_connections'))return Response.json({});
+    if(url.pathname.endsWith('/pymio_entitlements'))return Response.json({});
+    if(url.pathname.endsWith('/pymio_community_roles'))return Response.json({managed_communities:[],community_role_notifications:[]});
+    return Response.json({});
+  }});
+  const result=await client.deleteCommunity(communityId,7);assert.deepEqual(result.communities,[]);
+  const communityDeletion=calls.find(call=>call.options.method==='DELETE'&&call.url.pathname.endsWith('/communities'));assert.ok(communityDeletion);assert.equal(communityDeletion.url.searchParams.get('owner_company_id'),'eq.7');
+  assert.ok(calls.some(call=>call.options.method==='DELETE'&&call.url.pathname.endsWith('/network_posts')));
+  const outsider=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async()=>Response.json([{id:communityId,owner_company_id:9}])});
+  await assert.rejects(outsider.deleteCommunity(communityId,7),{status:403,message:'Solo el creador puede eliminar esta comunidad.'});
+});
+
 test('Supabase RED Pymio: permite cerrar una comunidad sin depender de profile.update en el RPC',async()=>{
   const calls=[],communityId='10000000-0000-4000-8000-000000000001';
   const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url,options)=>{
