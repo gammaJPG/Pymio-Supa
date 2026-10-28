@@ -26,7 +26,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
   root.innerHTML = `
     <aside class="pymio-assistant-panel" id="pymio-assistant-panel" aria-label="Asistente de Pymio" aria-hidden="true" hidden>
       <header class="pymio-assistant-head">
-        <span class="pymio-assistant-avatar" aria-hidden="true"><img src="assets/pymio-icon-transparent.png" alt=""></span>
+        <span class="pymio-assistant-avatar" aria-hidden="true"><img src="assets/pymbot-avatar.png" alt=""></span>
         <div><span>Asistente de Pymio</span><strong>PymBot</strong></div>
         <button type="button" class="pymio-assistant-reset" aria-label="Borrar conversación" title="Borrar conversación">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/></svg>
@@ -45,7 +45,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
       <p class="pymio-assistant-note">PymBot puede equivocarse. No compartas información sensible.</p>
     </aside>
     <button type="button" class="pymio-assistant-trigger" aria-controls="pymio-assistant-panel" aria-expanded="false">
-      <img src="assets/pymio-icon-transparent.png" alt="">
+      <img src="assets/pymbot-avatar.png" alt="">
       <span>Pregúntale a PymBot</span>
     </button>`;
   document.body.append(root);

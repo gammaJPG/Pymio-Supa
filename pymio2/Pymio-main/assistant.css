@@ -1,14 +1,14 @@
 .pymio-assistant{--assistant-ink:#20251c;--assistant-muted:#60685b;--assistant-surface:#fff;--assistant-soft:#eeefe6;--assistant-paper:#f3f4ee;--assistant-line:#dcded3;--assistant-honey:#f1cf54;--assistant-honey-soft:#f9efc4;--assistant-focus:#a27b00;position:fixed;right:22px;bottom:22px;z-index:1250;color:var(--assistant-ink);font-family:'IBM Plex Sans',system-ui,sans-serif}
 .pymio-assistant .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .pymio-assistant-trigger{display:flex;min-height:54px;align-items:center;gap:10px;padding:7px 16px 7px 7px;border:1px solid rgba(32,37,28,.18);border-radius:999px;background:#20271e;color:#f7f7ef;box-shadow:0 12px 32px rgba(18,25,15,.24);font:650 13px/1 'IBM Plex Sans',system-ui,sans-serif;cursor:pointer;transition:transform 160ms ease,box-shadow 160ms ease}
-.pymio-assistant-trigger img{display:block;width:40px;height:40px;object-fit:contain;border-radius:50%;background:var(--assistant-honey)}
+.pymio-assistant-trigger img{display:block;width:40px;height:40px;object-fit:contain;border-radius:50%;background:transparent}
 .pymio-assistant-trigger:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(18,25,15,.28)}
 .pymio-assistant-trigger:focus-visible,.pymio-assistant button:focus-visible,.pymio-assistant textarea:focus-visible{outline:3px solid var(--assistant-focus);outline-offset:3px}
 .pymio-assistant-panel{position:absolute;right:0;bottom:68px;display:flex;width:min(390px,calc(100vw - 32px));height:min(610px,calc(100dvh - 110px));flex-direction:column;overflow:hidden;border:1px solid var(--assistant-line);border-radius:16px;background:var(--assistant-paper);box-shadow:0 24px 70px rgba(17,24,14,.28);opacity:0;transform:translateY(12px) scale(.98);transform-origin:bottom right;transition:opacity 180ms ease,transform 180ms cubic-bezier(.2,.8,.2,1)}
 .pymio-assistant-panel[hidden]{display:none}
 .pymio-assistant.is-open .pymio-assistant-panel{opacity:1;transform:none}
 .pymio-assistant-head{display:grid;grid-template-columns:42px minmax(0,1fr) 40px 40px;align-items:center;gap:9px;min-height:70px;padding:10px 12px;border-bottom:1px solid var(--assistant-line);background:#20271e;color:#f7f7ef}
-.pymio-assistant-avatar{display:grid;width:42px;height:42px;place-items:center;overflow:hidden;border-radius:12px;background:var(--assistant-honey)}
+.pymio-assistant-avatar{display:grid;width:42px;height:42px;place-items:center;overflow:hidden;border-radius:50%;background:transparent}
 .pymio-assistant-avatar img{width:100%;height:100%;object-fit:contain}
 .pymio-assistant-head div{min-width:0}.pymio-assistant-head div span,.pymio-assistant-head div strong{display:block}.pymio-assistant-head div span{color:#c4cdbb;font-size:12px}.pymio-assistant-head div strong{margin-top:2px;font:650 17px/1.2 'Space Grotesk','IBM Plex Sans',sans-serif}
 .pymio-assistant-head button{display:grid;width:40px;height:40px;place-items:center;padding:0;border:0;border-radius:10px;background:transparent;color:#e7eadf;cursor:pointer}

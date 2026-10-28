@@ -76,7 +76,18 @@ test('Instalación móvil: ofrece únicamente la instalación nativa cuando est�
   assert.match(worker,/splash-mobile-wordmark-v2\.png/);
   assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
   const app=await read('../app.js');
-  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=207'\)/);
+  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=209'\)/);
+});
+
+test('PymBot: usa una identidad propia sin reemplazar la marca principal',async()=>{
+  const [assistant,worker,platform,avatar]=await Promise.all([
+    read('../assistant.js'),read('../sw.js'),read('../piloto.html'),readFile(new URL('../assets/pymbot-avatar.png',import.meta.url)),
+  ]);
+  assert.equal((assistant.match(/assets\/pymbot-avatar\.png/g)||[]).length,2);
+  assert.match(worker,/assets\/pymbot-avatar\.png/);
+  assert.match(platform,/assets\/pymio-icon-transparent\.png/);
+  assert.equal(avatar.subarray(1,4).toString(),'PNG');
+  assert.equal(avatar[25],6,'El avatar de PymBot debe conservar transparencia RGBA');
 });
 
 test('Splash: conserva la pieza móvil y ofrece un arranque animado de escritorio',async()=>{

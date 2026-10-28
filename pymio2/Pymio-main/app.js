@@ -10,7 +10,7 @@ import { iniciarMovimientos } from './movimientos.js?v=165';
 import { configureSupport } from './centro-ayuda.js?v=2';
 import { startLiveSync, stopLiveSync } from './live-sync.js';
 import { setupInstallPrompt } from './install-prompt.js?v=199';
-import { setupPymioAssistant } from './assistant.js?v=3';
+import { setupPymioAssistant } from './assistant.js?v=4';
 
 const bootStartedAt=performance.now();
 
@@ -32,7 +32,7 @@ async function finishBootScreen(){
 // solo ofrece el prompt cuando el service worker ya está preparado para este
 // origen, por lo que no puede depender de la sesión de la empresa.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=207').catch(error => {
+  navigator.serviceWorker.register('./sw.js?v=209').catch(error => {
     console.warn('No se pudo preparar la instalación de Pymio:', error);
   });
 }
@@ -333,6 +333,10 @@ async function cargarSecciones() {
     event.preventDefault();const submit=preferencesForm.querySelector('[type="submit"]');submit.disabled=true;preferencesError.hidden=true;
     try{const response=await fetch(apiUrl+'/api/auth/preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publicNameMode:preferencesForm.elements.publicNameMode.value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudieron guardar tus preferencias.');currentSession=result.session;preferencesDialog.close();document.dispatchEvent(new CustomEvent('red-pymio-actualizado'));}
     catch(error){preferencesError.textContent=error.message;preferencesError.hidden=false;}finally{submit.disabled=false;}
+  });
+  document.addEventListener('pymio-open-chats',()=>{
+    navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
+    document.dispatchEvent(new CustomEvent('pymio-show-chat-list'));
   });
   document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
   forgotPasswordButton.addEventListener('click',()=>{recoveryRequestForm.reset();recoveryRequestError.hidden=true;recoveryRequestSuccess.hidden=true;if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username.value.trim()))document.getElementById('recovery-email').value=username.value.trim();recoveryRequestDialog.showModal();});

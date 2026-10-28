@@ -136,13 +136,15 @@ test('RED Pymio: ofrece una bandeja de comunicaciones y formularios distintos po
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
   const mobile=await readFile(new URL('../mobile.js',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
   const mobileCss=await readFile(new URL('../mobile.css',import.meta.url),'utf8');
   const migration=await readFile(new URL('../supabase/migrations/020_private_communications_center.sql',import.meta.url),'utf8');
   const singleConversationMigration=await readFile(new URL('../supabase/migrations/031_single_direct_conversation.sql',import.meta.url),'utf8');
   for(const label of ['Mensajes y oportunidades','Todos','No leídos','Favoritos','Grupos','Selecciona una conversación'])assert.match(html,new RegExp(label));
   for(const field of ['Fecha límite','Presupuesto estimado','Válida hasta','Detalle de la solicitud','Condiciones de la oferta'])assert.match(source,new RegExp(field));
   assert.doesNotMatch(source,/name="subject"/);assert.match(source,/id=`direct:\$\{otherId\}`/);assert.match(source,/activity\/.+\/read/);
-  assert.match(html,/data-communications-search/);assert.match(mobile,/mobile-chat-trigger/);assert.match(mobile,/pymio-show-chat-list/);
+  assert.match(html,/data-communications-search/);assert.match(mobile,/mobile-chat-trigger/);assert.match(mobile,/pymio-open-chats/);
+  assert.match(app,/addEventListener\('pymio-open-chats'/);assert.match(app,/mostrarVistaEcosistema\('comunicaciones'\)/);assert.match(app,/pymio-show-chat-list/);
   assert.match(source,/data-chat-back/);assert.match(source,/pymio-chat-count/);assert.match(mobileCss,/communications-shell\.is-chat-open/);assert.match(mobileCss,/mobile-network-tabs\{display:none\}/);
   assert.match(html,/data-mobile-new-chat/);assert.match(html,/data-mobile-recipient-list/);assert.match(source,/state\.connections\|\|\[\]/);assert.match(source,/isMobileMessagingViewport\(\)\)return/);
   assert.match(mobileCss,/\.pymio-chat-tray\{display:none!important\}/);assert.match(mobileCss,/communications-shell\.is-chat-open \.communications-detail\{position:fixed;inset:0/);assert.match(mobileCss,/mobile-new-chat-button\{position:fixed/);assert.match(mobileCss,/mobile-new-chat-button[^}]*max-width:56px[^}]*border-radius:50%/);
