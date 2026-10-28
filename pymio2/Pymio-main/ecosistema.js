@@ -111,7 +111,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   initialized=true;
   const get=id=>root.querySelector('#'+id),demo=Boolean(session?.demo);
   let state=demo?structuredClone(demoData):{profile:null,businesses:[],connections:[],connection_requests:[],outgoing_connection_requests:[],connection_responses:[],private_notifications:[],private_activity:[],group_chats:[],support_chats:[],communities:[],community_requests:[],posts:[]},products=[];
-  let communityFilter='joined',communityQuery='',exploreCommunityQuery='',communicationsFilter='all',communicationsQuery='',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null,realtimeSource=null,realtimeCursor='',eventExpiryTimer=null,communityLimitTimer=null,invitedCommunityHandled=false;
+  let communityFilter='joined',communityQuery='',exploreCommunityQuery='',communicationsFilter='all',communicationsQuery='',activeThreadId='',activeCommunity=null,activeForm=null,activeResponse=null,realtimeSource=null,realtimeCursor='',eventExpiryTimer=null,communityLimitTimer=null,invitedCommunityHandled=false,communityLoadController=null;
   const mobileMessagingMedia=window.matchMedia('(max-width: 767px), (max-height: 500px) and (max-width: 950px)');
   const isMobileMessagingViewport=()=>mobileMessagingMedia.matches;
   const favoriteStorageKey=`pymio:favorite-threads:${session?.companyId||'demo'}`;
@@ -541,8 +541,20 @@ export function iniciarEcosistema({session,apiUrl}={}){
   }
   async function openCommunity(id){
     if(demo)return announce('El detalle interactivo está disponible en cuentas personales.','info');
-    activeCommunity=await request(`/api/network/communities/${encodeURIComponent(id)}`);activeCommunityPane='overview';renderCommunityDetail();openDialog(detailDialog);
+    const preview=(state.communities||[]).find(item=>String(item.id)===String(id)),loadingTitle=detailDialog.querySelector('[data-community-loading-title]'),loadingMessage=detailDialog.querySelector('[data-community-loading-message]');
+    communityLoadController?.abort();const controller=new AbortController();communityLoadController=controller;
+    loadingTitle.textContent=preview?.name||'Abriendo comunidad';loadingMessage.textContent='Estamos preparando eventos, miembros y novedades.';detailDialog.setAttribute('data-loading','');
+    if(!detailDialog.open)openDialog(detailDialog);
+    try{
+      const community=await request(`/api/network/communities/${encodeURIComponent(id)}`,{signal:controller.signal});
+      if(communityLoadController!==controller)return false;
+      activeCommunity=community;activeCommunityPane='overview';renderCommunityDetail();detailDialog.removeAttribute('data-loading');return true;
+    }catch(error){
+      if(error.name==='AbortError')return false;
+      detailDialog.removeAttribute('data-loading');closeDialog(detailDialog);announce(error.message,'error');return false;
+    }finally{if(communityLoadController===controller)communityLoadController=null;}
   }
+  detailDialog.addEventListener('close',()=>{communityLoadController?.abort();communityLoadController=null;detailDialog.removeAttribute('data-loading');});
   root.querySelectorAll('[data-members-view]').forEach(button=>button.onclick=()=>{root.querySelector('[data-member-search]').value='';renderMembers();openDialog(membersDialog);});
   root.querySelector('[data-member-search]').oninput=renderMembers;
   root.querySelector('[data-member-list]').onclick=async event=>{const button=event.target.closest('[data-admin-company]');if(!button)return;setBusy(button,true,'Guardando…');try{activeCommunity=await request(`/api/network/communities/${activeCommunity.community.id}/members/${button.dataset.adminCompany}/admin`,{method:'POST',body:JSON.stringify({isAdmin:button.dataset.adminValue==='true'})});renderCommunityDetail();renderMembers();}catch(error){announce(error.message,'error');setBusy(button,false);}};
@@ -741,7 +753,7 @@ export function iniciarEcosistema({session,apiUrl}={}){
   detailDialog.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key)||event.target.closest('button'))return;const card=event.target.closest('[data-event-open]');if(card){event.preventDefault();openCommunityEvent(card.dataset.eventOpen);}});
   eventDetailDialog.addEventListener('click',async event=>{const button=event.target.closest('[data-event-response]');if(!button||!activeEventDetail)return;setBusy(button,true,'Guardando…');try{const data=await request(`/api/network/events/${encodeURIComponent(activeEventDetail.event.id)}/response`,{method:'POST',body:JSON.stringify({status:button.dataset.eventResponse})});renderEventDetail(data);announce(button.dataset.eventResponse==='interested'?'Marcaste que te interesa este evento.':'Tu respuesta de asistencia fue guardada.');}catch(error){announce(error.message,'error');setBusy(button,false);}});
   postForm.addEventListener('submit',async event=>{event.preventDefault();const button=postForm.querySelector('[type="submit"]'),error=postForm.querySelector('.form-error'),data=Object.fromEntries(new FormData(postForm));if(data.duration!=='custom')data.endsAt='';const editing=Boolean(editingPostId),communityId=data.communityId;setBusy(button,true,editing?'Guardando…':'Publicando…');error.hidden=true;try{state=await request(editing?`/api/network/posts/${encodeURIComponent(editingPostId)}`:'/api/network/posts',{method:editing?'PUT':'POST',body:JSON.stringify(data)});if(activeCommunity?.community?.id===communityId){activeCommunity=await request(`/api/network/communities/${encodeURIComponent(communityId)}`);renderCommunityDetail();}renderAll();closeDialog(postDialog);announce(editing?'El evento fue actualizado.':'El evento ya está visible.');document.dispatchEvent(new CustomEvent('red-pymio-actualizado'));editingPostId=null;}catch(cause){error.textContent=cause.message;error.hidden=false;}finally{setBusy(button,false);}});
-  document.addEventListener('red-pymio-notification-open',event=>{const detail=event.detail||{};if(!detail.communityId)return;mostrarVistaEcosistema('red',{keyboard:true});openCommunity(detail.communityId).then(()=>{
+  document.addEventListener('red-pymio-notification-open',event=>{const detail=event.detail||{};if(!detail.communityId)return;mostrarVistaEcosistema('red',{keyboard:true});openCommunity(detail.communityId).then(opened=>{if(!opened)return;
     if(detail.kind?.startsWith('form')){selectCommunityPane('forms');if(detail.resourceId)openCommunityForm(detail.resourceId,root.querySelector(`[data-form-open="${detail.resourceId}"]`));return;}
     if(detail.kind?.startsWith('event')){selectCommunityPane('events');const target=[...root.querySelectorAll('[data-community-event-id]')].find(item=>item.dataset.communityEventId===detail.resourceId);if(!target)return announce('Este evento fue eliminado. Estás viendo la agenda actual de la comunidad.','info');target.tabIndex=-1;target.classList.add('notification-target');target.focus({preventScroll:true});target.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>target.classList.remove('notification-target'),1800);}
   }).catch(error=>announce(error.message,'error'));});

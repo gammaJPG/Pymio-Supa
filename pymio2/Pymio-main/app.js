@@ -10,6 +10,7 @@ import { iniciarMovimientos } from './movimientos.js?v=165';
 import { configureSupport } from './centro-ayuda.js?v=2';
 import { startLiveSync, stopLiveSync } from './live-sync.js';
 import { setupInstallPrompt } from './install-prompt.js?v=199';
+import { setupPymioAssistant } from './assistant.js?v=1';
 
 const bootStartedAt=performance.now();
 
@@ -262,6 +263,7 @@ async function cargarSecciones() {
     startLiveSync({apiUrl,demo:session.demo});
     iniciarMovimientos({companyId:session.companyId});
     document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';
+    setupPymioAssistant({apiUrl,session});
     const requestedTab=new URLSearchParams(location.search).get('tab'),savedLocation=readWorkspaceLocation(session),storedTab=savedLocation.tab||sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(requestedTab)?requestedTab:validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
     document.getElementById('profile-password-btn').hidden=session.demo;
@@ -286,6 +288,8 @@ async function cargarSecciones() {
 
 
   document.getElementById('logout-btn').addEventListener('click', async () => {stopLiveSync();stopOffline();sessionStorage.removeItem('pymio:last-tab');if(currentSession)localStorage.removeItem(workspaceLocationKey(currentSession));await fetch(apiUrl+'/api/auth/logout',{method:'POST'}).catch(()=>{});location.reload();});
+
+  document.addEventListener('pymio-open-help',()=>navigateTo('ayuda',false,true));
 
   const profileMenuButton=document.getElementById('profile-menu-btn'),profileMenu=document.getElementById('profile-menu');
   const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');

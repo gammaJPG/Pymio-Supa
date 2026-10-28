@@ -124,6 +124,16 @@
 
   <dialog class="network-dialog" id="community-dialog"><form method="dialog" data-community-form><div class="dialog-head"><div><span class="dialog-kicker">Nueva comunidad</span><h2>Crea un espacio con propósito</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Cerrar">×</button></div><p class="dialog-lead">Define con claridad quiénes deberían encontrarse aquí y qué podrán compartir.</p><div class="network-form-grid"><label class="field field-wide"><span>Nombre</span><input name="name" maxlength="100" required></label><label class="field field-wide"><span>Rubro o temática</span><input name="industry" maxlength="80"></label><label class="field field-wide"><span>Descripción</span><textarea name="description" maxlength="500" rows="5" required></textarea></label><label class="community-access field-wide"><input name="isOpen" type="checkbox" checked><span><strong>Comunidad abierta</strong><small>Cualquier empresa puede unirse. Si desmarcas esta opción, deberás aprobar cada solicitud.</small></span></label></div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="btn-outline" data-dialog-close>Cancelar</button><button type="submit" class="btn">Crear comunidad</button></div></form></dialog>
 <dialog class="network-dialog community-detail-dialog" id="community-detail-dialog" aria-labelledby="community-detail-title" aria-describedby="community-detail-description">
+  <div class="community-detail-loading" role="status" aria-live="polite" aria-atomic="true">
+    <button type="button" class="dialog-close" data-dialog-close aria-label="Cancelar y volver a comunidades">×</button>
+    <div class="community-loading-flight" aria-hidden="true">
+      <img class="community-loading-bee" src="assets/pymio-preview-bee.png" alt="" width="1536" height="1536">
+    </div>
+    <div class="community-loading-copy">
+      <strong data-community-loading-title>Abriendo comunidad</strong>
+      <p data-community-loading-message>Estamos preparando su información.</p>
+    </div>
+  </div>
   <header class="community-manager-head dialog-head">
     <div class="community-cover" data-community-cover>
       <img data-community-banner alt="" hidden>
