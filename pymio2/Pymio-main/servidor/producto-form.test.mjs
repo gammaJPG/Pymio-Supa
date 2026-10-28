@@ -131,3 +131,15 @@ test('Productos: elimina vencimientos, recomendaciones y nombres duplicados', as
   assert.match(migration,/Ya existe un producto con ese nombre/);
   assert.match(migration,/lower\(btrim\(name\)\)=lower\(clean_name\)/);
 });
+
+test('Inventario móvil: ordena la ficha de producto por identidad, stock, valores y fechas',async()=>{
+  const [inventory,mobile]=await Promise.all([
+    readFile(new URL('../inventario.js',import.meta.url),'utf8'),
+    readFile(new URL('../mobile.css',import.meta.url),'utf8')
+  ]);
+  assert.match(inventory,/aria-label','Datos principales del producto'/);
+  assert.match(inventory,/\['quantity','Stock disponible'/);
+  assert.match(inventory,/dateStyle:'medium',timeStyle:'short'/);
+  assert.match(mobile,/\.mobile-product-fact\[data-fact=quantity\]\{grid-column:1\/-1/);
+  assert.match(mobile,/\.mobile-product-fact\[data-fact=created\],\.mobile-product-fact\[data-fact=updated\]\{grid-column:1\/-1/);
+});

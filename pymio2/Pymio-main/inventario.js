@@ -166,9 +166,10 @@ export async function iniciarInventario({
     });
     const detail = summary.nextElementSibling;
     if (detail) detail.id = `inventario-simple-detalle-${producto.id}`;
-    const facts = document.createElement('dl');facts.className='mobile-only mobile-product-facts';
-    for(const [label,value] of [['SKU',producto.sku],['Categoría',producto.category||'Sin categoría'],['Cantidad',numero.format(producto.qty)],['Precio',clp.format(producto.price)],['Costo',clp.format(producto.cost)],['Creado',new Date(producto.created_at).toLocaleString('es-CL')],['Actualizado',new Date(producto.updated_at).toLocaleString('es-CL')]]){
-      const group=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');term.textContent=label;description.textContent=value;group.append(term,description);facts.append(group);
+    const facts = document.createElement('dl');facts.className='mobile-only mobile-product-facts';facts.setAttribute('aria-label','Datos principales del producto');
+    const fechaDetalle=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleString('es-CL',{dateStyle:'medium',timeStyle:'short'});};
+    for(const [key,label,value] of [['sku','SKU',producto.sku||'—'],['category','Categoría',producto.category||'Sin categoría'],['quantity','Stock disponible',numero.format(producto.qty)],['price','Precio de venta',clp.format(producto.price)],['cost','Costo unitario',clp.format(producto.cost)],['created','Creado',fechaDetalle(producto.created_at)],['updated','Última actualización',fechaDetalle(producto.updated_at)]]){
+      const group=document.createElement('div'),term=document.createElement('dt'),description=document.createElement('dd');group.className='mobile-product-fact';group.dataset.fact=key;term.textContent=label;description.textContent=value;group.append(term,description);facts.append(group);
     }
     simpleDetailBody.prepend(facts);
     simpleDetailDialog.showModal();
