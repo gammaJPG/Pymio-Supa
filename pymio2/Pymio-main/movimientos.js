@@ -1,6 +1,7 @@
 import { offlineFetch as fetch, apiBase, pendingMovements } from './offline.js';
 import { renderMovimientos, fechaMovimiento, dentroDelRangoHorario, ordenarMovimientos, datosMovimientoPagado } from './movimientos-vista.js';
 import { stockDisponibleParaEgreso } from './movimientos-stock.js';
+import { openShareChooser } from './compartir.js';
 export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const panel = document.getElementById('tab-movimientos');
   if (panel.dataset.initialized) return;
@@ -21,7 +22,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   const paymentConfirm = $('#movimiento-pago-confirmacion');
   let customers = [], previousCustomer = '';
   function renderCustomers(value = '') {
-    customerSelect.replaceChildren(new Option('+Crear Cliente', '__create__'), new Option('Sin cliente', ''));
+    customerSelect.replaceChildren(new Option('+Crear Cliente', '__create__'), new Option('Sin Especificar', ''));
     for (const customer of customers) customerSelect.add(new Option(customer.name, String(customer.id)));
     customerSelect.value = value;
     if (customerSelect.selectedIndex < 0) customerSelect.value = '';
@@ -71,11 +72,13 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
   }
   const selectedSupplier = () => suppliers.find(supplier => String(supplier.id) === supplierSelect.value);
   const defaultCost = product => Number(selectedSupplier()?.costs?.[String(product.id)] ?? product?.last_purchase_cost ?? product?.cost ?? 0);
+  const displayedCost = (row,unitCost) => row.querySelector('[data-cost-mode]').value === 'total' ? Math.round(unitCost * Math.max(1,Number(row.querySelector('[data-units]').value)||1)) : Math.round(unitCost);
+  const unitCostFromRow = row => {const value=Number(row.querySelector('[data-unit-cost]').value),units=Number(row.querySelector('[data-units]').value);return row.querySelector('[data-cost-mode]').value==='total'?Math.round(value/units):Math.round(value);};
   function updatePurchaseCosts(force = false) {
     for (const row of lines.children) {
       const input = row.querySelector('[data-unit-cost]');
       const product = products.find(candidate => label(candidate) === row.querySelector('[data-product]').value);
-      if (product && (force || !input.dataset.edited)) input.value = String(defaultCost(product));
+      if (product && (force || !input.dataset.edited)) input.value = String(displayedCost(row,defaultCost(product)));
     }
   }
   supplierSelect.onfocus = () => { previousSupplier = supplierSelect.value; };
@@ -168,7 +171,7 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
     try{
       const response=await fetch(endpoint(`/api/movements/${encodeURIComponent(movement.code)}/receipt.pdf`),{cache:'no-store',signal:AbortSignal.timeout(20000)});
       if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.error||'No se pudo generar el comprobante de venta.');}
-      const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`Comprobante de venta - ${movement.code}.pdf`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent='Comprobante de venta descargado.';
+      const blob=await response.blob(),fileName=`Comprobante de venta - ${movement.code}.pdf`;openShareChooser({title:'Comprobante generado',text:`Comprobante de venta ${movement.code} generado en Pymio.`,file:blob,fileName});status.textContent='Comprobante generado.';
     }catch(error){status.textContent=error.message||'No se pudo generar el comprobante de venta.';}
   }
   async function markMovementPaid(movement) {
@@ -289,10 +292,11 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
       [...products].sort((a,b)=>normalizar(label(a)).localeCompare(normalizar(label(b)))).filter(p => normalizar(label(p)).includes(filter)).forEach(p => list.appendChild(new Option(label(p), label(p))));
       input.setCustomValidity('');
     };
-    const costField = row.querySelector('[data-cost-field]'), costInput = row.querySelector('[data-unit-cost]');
+    const costField = row.querySelector('[data-cost-field]'), costInput = row.querySelector('[data-unit-cost]'),costMode=row.querySelector('[data-cost-mode]');
     costField.hidden = form.elements.operation_detail.value !== 'Compra'; costInput.required = !costField.hidden;
-    input.oninput = () => { options(); const product=products.find(p=>label(p)===input.value); if(product && !costField.hidden){costInput.value=String(defaultCost(product));costInput.dataset.edited='';} };
+    input.oninput = () => { options(); const product=products.find(p=>label(p)===input.value); if(product && !costField.hidden){costInput.value=String(displayedCost(row,defaultCost(product)));costInput.dataset.edited='';} };
     costInput.oninput = () => { costInput.dataset.edited = 'true'; };
+    costMode.onchange=()=>{const units=Math.max(1,Number(row.querySelector('[data-units]').value)||1),value=Number(costInput.value)||0;costInput.value=String(costMode.value==='total'?Math.round(value*units):Math.round(value/units));costInput.dataset.edited='true';};
     options();
     row.querySelector('[data-remove-line]').onclick = () => { if (lines.children.length > 1) row.remove(); };
     if (item?.product_id) {
@@ -520,7 +524,9 @@ export function iniciarMovimientos({ companyId, apiUrl = apiBase }) {
             return;
           }
         }
-        items.push({ product_id: String(product.id), units, ...(form.elements.operation_detail.value === 'Compra' ? {unit_cost:Number(row.querySelector('[data-unit-cost]').value)} : {}),
+        const unitCost=form.elements.operation_detail.value === 'Compra'?unitCostFromRow(row):null;
+        if(form.elements.operation_detail.value === 'Compra'&&(!Number.isInteger(unitCost)||unitCost<0||unitCost>2147483647))return showError('Ingresa un costo válido para cada producto comprado.');
+        items.push({ product_id: String(product.id), units, ...(form.elements.operation_detail.value === 'Compra' ? {unit_cost:unitCost} : {}),
           discount: discountDetails.open && form.elements.discount_scope.value === 'product'
             ? {type: row.querySelector('[data-line-discount-type]').value, value: Number(row.querySelector('[data-line-discount-value]').value)} : null });
       }

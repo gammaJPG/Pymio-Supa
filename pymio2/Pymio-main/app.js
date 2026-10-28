@@ -267,6 +267,7 @@ async function cargarSecciones() {
     const requestedTab=new URLSearchParams(location.search).get('tab'),savedLocation=readWorkspaceLocation(session),storedTab=savedLocation.tab||sessionStorage.getItem('pymio:last-tab');const destination=validTabs.has(requestedTab)?requestedTab:validTabs.has(storedTab)?storedTab:'inicio';
     document.querySelector('.skip-link').href='#main-content';initApp();navigateTo(destination);revealView(document.querySelector('.tab-panel.active'),{first:true});
     document.getElementById('profile-password-btn').hidden=session.demo;
+    document.getElementById('profile-preferences-btn').hidden=session.demo;
     if(session.requiresBusinessName)openBusinessSetup();
     import('./inventario.js?v=164').then(({iniciarInventario})=>iniciarInventario({companyId:session.companyId})).catch(error=>{
       console.error('No se pudo iniciar el inventario:',error);const tabla=document.getElementById('inv-table');tabla.replaceChildren();const celda=tabla.insertRow().insertCell();celda.colSpan=10;celda.textContent='No se pudo iniciar el inventario. Recarga la página e inténtalo nuevamente.';
@@ -295,6 +296,7 @@ async function cargarSecciones() {
   const businessSetupDialog=document.getElementById('business-setup-dialog'),businessSetupForm=document.getElementById('business-setup-form');
   const businessSetupInput=document.getElementById('business-setup-name'),businessSetupError=document.getElementById('business-setup-error');
   const passwordDialog=document.getElementById('password-dialog'),passwordForm=document.getElementById('password-form'),passwordError=document.getElementById('password-form-error'),currentPasswordField=document.getElementById('current-password-field');
+  const preferencesDialog=document.getElementById('preferences-dialog'),preferencesForm=document.getElementById('preferences-form'),preferencesError=document.getElementById('preferences-form-error');
   const recoveryRequestDialog=document.getElementById('recovery-request-dialog'),recoveryRequestForm=document.getElementById('recovery-request-form'),recoveryRequestError=document.getElementById('recovery-request-error'),recoveryRequestSuccess=document.getElementById('recovery-request-success');
   const recoveryResetDialog=document.getElementById('recovery-reset-dialog'),recoveryResetForm=document.getElementById('recovery-reset-form'),recoveryResetError=document.getElementById('recovery-reset-error'),recoveryLoginStatus=document.getElementById('recovery-login-status');
   function openBusinessSetup(){
@@ -317,6 +319,20 @@ async function cargarSecciones() {
   document.addEventListener('pymio-open-support-chat',event=>{
     navigateTo('ecosistema',false,true);mostrarVistaEcosistema('comunicaciones');
     document.dispatchEvent(new CustomEvent('pymio-show-support-chat',{detail:event.detail||{}}));
+  });
+  document.getElementById('profile-preferences-btn').addEventListener('click',()=>{
+    profileMenu.hidden=true;profileMenuButton.setAttribute('aria-expanded','false');preferencesError.hidden=true;
+    const business=currentSession?.businessName||'Nombre de la tienda',personal=currentSession?.ownerName||'Nombre personal';
+    document.getElementById('public-name-business').textContent=business;
+    document.getElementById('public-name-personal').textContent=personal;
+    document.getElementById('public-name-combined').textContent=`${business} (${personal})`;
+    preferencesForm.elements.publicNameMode.value=currentSession?.publicNameMode||'business';preferencesDialog.showModal();
+  });
+  document.getElementById('preferences-dialog-close').addEventListener('click',()=>preferencesDialog.close());
+  preferencesForm.addEventListener('submit',async event=>{
+    event.preventDefault();const submit=preferencesForm.querySelector('[type="submit"]');submit.disabled=true;preferencesError.hidden=true;
+    try{const response=await fetch(apiUrl+'/api/auth/preferences',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({publicNameMode:preferencesForm.elements.publicNameMode.value})});const result=await response.json();if(!response.ok)throw new Error(result.error||'No se pudieron guardar tus preferencias.');currentSession=result.session;preferencesDialog.close();document.dispatchEvent(new CustomEvent('red-pymio-actualizado'));}
+    catch(error){preferencesError.textContent=error.message;preferencesError.hidden=false;}finally{submit.disabled=false;}
   });
   document.getElementById('password-dialog-close').addEventListener('click',()=>passwordDialog.close());
   forgotPasswordButton.addEventListener('click',()=>{recoveryRequestForm.reset();recoveryRequestError.hidden=true;recoveryRequestSuccess.hidden=true;if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username.value.trim()))document.getElementById('recovery-email').value=username.value.trim();recoveryRequestDialog.showModal();});
@@ -486,7 +502,8 @@ async function cargarSecciones() {
       const dateTime=new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short'});
       networkNotifications=(result.notifications||[]).map(item=>{
         let sev='info',title=`Nuevo formulario en ${item.community_name}`,desc=item.title;
-        if(item.kind==='event_created'){sev='success';title=`Nuevo evento en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
+        if(item.kind==='form_reopened'){sev='success';title=`Formulario reanudado en ${item.community_name}`;desc=item.title;}
+        else if(item.kind==='event_created'){sev='success';title=`Nuevo evento en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
         else if(item.kind==='event_updated'){sev='info';title=`Evento modificado en ${item.community_name}`;desc=item.event_at?`${item.title} · ${dateTime.format(new Date(item.event_at))}`:item.title;}
         else if(item.kind==='event_deleted'){sev='warn';title=`Evento eliminado en ${item.community_name}`;desc=item.title;}
         else if(item.kind==='admin_granted'){sev='success';title=`Ahora eres administrador en ${item.community_name}`;desc='Ya puedes administrar los formularios de esta comunidad.';}

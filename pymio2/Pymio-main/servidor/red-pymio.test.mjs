@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { readFile } from 'node:fs/promises';
-import { atenderRedPymio } from './red-pymio.mjs';
+import { atenderRedPymio,searchChileanAddresses } from './red-pymio.mjs';
 
 function request(path,method='GET',body){
   const req=Readable.from(body?[Buffer.from(JSON.stringify(body))]:[]);
@@ -19,6 +19,15 @@ async function call(path,method,body,resultOverride){
 test('RED Pymio: carga el espacio y conserva el alcance de la empresa',async()=>{
   const {calls,response}=await call('/api/network/bootstrap','GET');
   assert.equal(response.status,200);assert.deepEqual(calls,[{operation:'bootstrap',company:'7',payload:{}}]);
+});
+
+test('RED Pymio: el buscador entrega solamente direcciones válidas de Chile',async()=>{
+  let requested;
+  const items=await searchChileanAddresses('Providencia 123',async(url,options)=>{requested={url,options};return Response.json([
+    {display_name:'Avenida Providencia 123, Providencia, Chile',lat:'-33.431',lon:'-70.616',address:{country_code:'cl'}},
+    {display_name:'Providencia, Colombia',lat:'13.35',lon:'-81.37',address:{country_code:'co'}}
+  ]);});
+  assert.equal(requested.url.searchParams.get('countrycodes'),'cl');assert.equal(requested.url.searchParams.get('bounded'),'1');assert.match(requested.options.headers['User-Agent'],/Pymio/);assert.deepEqual(items,[{label:'Avenida Providencia 123, Providencia, Chile',latitude:-33.431,longitude:-70.616}]);
 });
 
 test('RED Pymio: entrega notificaciones de las comunidades del usuario',async()=>{
@@ -169,7 +178,8 @@ test('RED Pymio: integra postulaciones y asistentes con la membresía de la comu
   const apply=request(`/api/network/events/${eventId}/participation`,'POST',{type:'applicant'});await atenderRedPymio(apply.req,pool,'7',(status,data)=>response={status,data},apply.url);assert.equal(response.status,200);assert.equal(registered,'applicant');
   const cancel=request(`/api/network/events/${eventId}/participation`,'DELETE');await atenderRedPymio(cancel.req,pool,'7',(status,data)=>response={status,data},cancel.url);assert.equal(response.status,200);assert.equal(removed,true);
   assert.match(migration,/pending_membership/);assert.match(migration,/activate_event_participations_after_join/);assert.match(migration,/clear_event_participations_after_rejection/);
-  for(const label of ['Postular al evento','Iré como público','Pendientes de ingreso','Público asistente'])assert.match(source,new RegExp(label));
+  for(const label of ['Pendientes de ingreso','Público asistente'])assert.match(source,new RegExp(label));
+  assert.doesNotMatch(source,/Postular al evento|Iré como público/);
 });
 
 test('RED Pymio: presenta chat, retención por plan y recepción en tiempo real',async()=>{
@@ -355,6 +365,38 @@ test('RED Pymio: persiste notificaciones comunitarias para todos los miembros',a
   assert.match(migration,/event_created/);assert.match(migration,/event_updated/);assert.match(migration,/event_deleted/);assert.match(migration,/form_created/);
 });
 
+test('RED Pymio: notifica a los miembros cuando se reanuda un formulario',async()=>{
+  const migration=await readFile(new URL('../supabase/migrations/046_notify_reopened_community_forms.sql',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  const ecosystem=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  assert.match(migration,/form_reopened/);
+  assert.match(migration,/OLD\.status='closed' AND NEW\.status='open'/);
+  assert.match(migration,/FROM public\.community_members m WHERE m\.community_id=NEW\.community_id/);
+  assert.match(migration,/AFTER INSERT OR UPDATE OF status ON public\.community_forms/);
+  assert.match(app,/Formulario reanudado en/);
+  assert.match(app,/networkKind:item\.kind/);
+  assert.match(ecosystem,/detail\.kind\?\.startsWith\('form'\)/);
+  assert.match(ecosystem,/openCommunityForm\(detail\.resourceId/);
+});
+
+test('RED Pymio: usa la preferencia de nombre público en comunidades y formularios',async()=>{
+  const migration=await readFile(new URL('../supabase/migrations/047_public_name_preference.sql',import.meta.url),'utf8');
+  const html=await readFile(new URL('../piloto.html',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  const supabase=await readFile(new URL('./supabase.mjs',import.meta.url),'utf8');
+  assert.match(migration,/public_name_mode text NOT NULL DEFAULT 'business'/);
+  for(const mode of ['business','personal','business_personal'])assert.match(migration,new RegExp(`'${mode}'`));
+  assert.match(html,/id="profile-preferences-btn"[^>]*>Preferencias/);
+  assert.match(html,/<h2>Nombre Público<\/h2>/);
+  assert.match(html,/name="publicNameMode" value="business"/);
+  assert.match(html,/name="publicNameMode" value="personal"/);
+  assert.match(html,/name="publicNameMode" value="business_personal"/);
+  assert.match(app,/\/api\/auth\/preferences/);
+  assert.match(supabase,/const publicName=/);
+  assert.match(supabase,/enriched\.members=result\.members\.map/);
+  assert.match(supabase,/getCommunityFormResults[\s\S]*?getPublicNames\(responses\.map/);
+});
+
 test('RED Pymio: la campana informa cambios de permisos administrativos',async()=>{
   const app=await readFile(new URL('../app.js',import.meta.url),'utf8'),supabase=await readFile(new URL('./supabase.mjs',import.meta.url),'utf8');
   assert.match(supabase,/role_since/);assert.match(supabase,/admin_granted/);assert.match(supabase,/admin_revoked/);
@@ -377,8 +419,10 @@ test('RED Pymio: crea eventos con duración diaria, semanal, mensual o personali
 test('RED Pymio: eventos incluyen modalidad, mapa, asistencia opcional e interacción por membresía',async()=>{
   const source=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8'),css=await readFile(new URL('../ecosistema.css',import.meta.url),'utf8'),server=await readFile(new URL('./red-pymio.mjs',import.meta.url),'utf8'),sql=await readFile(new URL('../supabase/migrations/035_community_event_details_and_attendance.sql',import.meta.url),'utf8'),attendanceSql=await readFile(new URL('../supabase/migrations/037_optional_event_attendance.sql',import.meta.url),'utf8');
   for(const label of ['Online','Presencial','Ambos','Me interesa','Asistiré','No asistiré'])assert.match(html+source,new RegExp(label));assert.match(html,/Dirección específica \(opcional\)/);
+  assert.match(source,/const eventResponseActions=item=>/);assert.match(source,/if\(!isMember\)return `[\s\S]*?Me interesa/);assert.match(source,/if\(!item\.request_attendance\)return ''/);
+  assert.match(source,/data-event-quick-response="attending"/);assert.match(source,/data-event-quick-response="not_attending"/);assert.match(source,/data-event-quick-response="interested"/);
   assert.doesNotMatch(html,/Aún no responden|data-event-pending/);assert.doesNotMatch(source,/data-event-pending|attendance\?\.pending/);
-  assert.match(html,/name="eventMode" required/);assert.match(html,/name="requestAttendance" type="checkbox"/);assert.match(html,/Solicitar asistencia a los miembros/);assert.match(html,/data-event-location-map/);assert.match(source,/requestAttendance\.checked=Boolean\(post\.request_attendance\)/);assert.match(source,/requestAttendance\.checked=false/);assert.match(source,/eventMap\.on\('click'/);assert.match(source,/eventExcerpt\(item\.description\)/);assert.match(source,/data-event-open/);assert.match(source,/interestedCount/);assert.match(source,/requestsAttendance=Boolean\(event\.request_attendance\)/);assert.match(source,/member-row event-attendee/);assert.match(css,/#post-dialog \.community-access\{align-items:center\}/);assert.match(css,/input\[name="requestAttendance"\]\{flex:0 0 16px;width:16px;height:16px;min-height:0;margin:0;padding:0\}/);assert.match(css,/\.event-response-actions :is\(\.btn,\.btn-outline\)\{font:650 12px 'IBM Plex Sans',sans-serif\}/);assert.match(css,/\.event-attendance\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);assert.match(css,/\.event-attendance \.event-attendee\{padding:14px 12px;border:1px solid var\(--line\);border-radius:11px;background:#fff\}/);
+  assert.match(html,/name="eventMode" required/);assert.match(html,/name="requestAttendance" type="checkbox"/);assert.match(html,/Solicitar asistencia a los miembros/);assert.match(html,/data-event-location-map/);assert.match(html,/data-event-address-suggestions/);assert.match(source,/requestAttendance\.checked=Boolean\(post\.request_attendance\)/);assert.match(source,/requestAttendance\.checked=false/);assert.match(source,/searchEventAddresses/);assert.match(source,/api\/network\/addresses\?query=/);assert.match(source,/eventDetailMap=window\.L\.map\(mapNode\)\.setView/);assert.match(source,/eventExcerpt\(item\.description\)/);assert.match(source,/data-event-open/);assert.match(source,/interestedCount/);assert.match(source,/requestsAttendance=Boolean\(event\.request_attendance\)/);assert.match(source,/member-row event-attendee/);assert.match(css,/#post-dialog \.community-access\{align-items:center\}/);assert.match(css,/input\[name="requestAttendance"\]\{flex:0 0 16px;width:16px;height:16px;min-height:0;margin:0;padding:0\}/);assert.match(css,/\.event-address-suggestions\{/);assert.match(css,/\.event-response-actions :is\(\.btn,\.btn-outline\)\{font:650 12px 'IBM Plex Sans',sans-serif\}/);assert.match(css,/\.event-attendance\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);assert.match(css,/\.event-attendance \.event-attendee\{padding:14px 12px;border:1px solid var\(--line\);border-radius:11px;background:#fff\}/);
   assert.match(server,/getCommunityEventDetail/);assert.match(server,/setCommunityEventResponse/);assert.match(sql,/event_mode IN \('online','in_person','hybrid'\)/);assert.match(sql,/community_event_responses/);assert.match(sql,/status IN \('interested','attending','not_attending'\)/);
   assert.match(sql,/NOTIFY pgrst, 'reload schema'/);assert.match(server,/request_attendance:\[true,'true','on','1'\]\.includes\(data\.requestAttendance\)/);assert.match(attendanceSql,/request_attendance boolean NOT NULL DEFAULT false/);assert.match(attendanceSql,/NOTIFY pgrst, 'reload schema'/);
 });
@@ -435,6 +479,19 @@ test('RED Pymio: la invitación enlaza y abre la comunidad correspondiente',asyn
   assert.match(source,/openInvitedCommunity/);
   assert.match(source,/data-community-card=/);
   assert.match(app,/validTabs\.has\(requestedTab\)\?requestedTab/);
+});
+
+test('Compartir: usa un selector propio con Instagram y sin destinos no permitidos',async()=>{
+  const [network,receipt,share]=await Promise.all([
+    readFile(new URL('../ecosistema.js',import.meta.url),'utf8'),
+    readFile(new URL('../movimientos.js',import.meta.url),'utf8'),
+    readFile(new URL('../compartir.js',import.meta.url),'utf8')
+  ]);
+  assert.match(network,/openShareChooser\(\{title:`Comunidad/);assert.doesNotMatch(network,/navigator\.share/);
+  assert.match(receipt,/title:'Comprobante generado'/);assert.match(receipt,/file:blob/);
+  for(const option of ['WhatsApp','Facebook','Instagram','Correo','Copiar enlace'])assert.match(share,new RegExp(option));
+  for(const blocked of ['Teams','Copilot','LinkedIn','Telegram','proximidad','Zoom'])assert.doesNotMatch(share,new RegExp(blocked,'i'));
+  assert.match(share,/Descargar al dispositivo/);
 });
 
 test('RED Pymio: la comunidad permite editar marca, redes y administradores',async()=>{

@@ -15,7 +15,7 @@ BEGIN
  PERFORM public.pymio_api('product.status',1,product||'{"Estado":"Inhabilitado"}');
  IF (SELECT "Estado" FROM public.products WHERE id=pid)<>'Inhabilitado' THEN RAISE EXCEPTION 'Product status change failed'; END IF;
  PERFORM public.pymio_api('product.status',1,product||'{"Estado":"Habilitado"}');
- IF product->>'sku'<>'QASA001' THEN RAISE EXCEPTION 'SKU sequence failed'; END IF;
+ IF product->>'sku'<>'QAA001' THEN RAISE EXCEPTION 'SKU sequence failed'; END IF;
  product2:=public.pymio_api('product.create',1,body||'{"name":"QA second"}');
  IF product->>'sku'=product2->>'sku' THEN RAISE EXCEPTION 'Duplicate SKU'; END IF;
  PERFORM public.pymio_api('product.update',1,body||product||'{"qty":20}');

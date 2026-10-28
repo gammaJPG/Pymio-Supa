@@ -43,8 +43,10 @@ export function createInventoryServer(pool, origins, options = {}) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Vary', 'Origin');
     const send = (code, body) => {
+      if(res.headersSent||res.writableEnded)return false;
       res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(body));
+      return true;
     };
     const origin = req.headers.origin;
     if (origin && !origins.includes(origin)) {
@@ -76,7 +78,9 @@ export function createInventoryServer(pool, origins, options = {}) {
         if (!sessionSecret) return send(503,{error:'Las sesiones no están configuradas.'});
         if (url.pathname==='/api/auth/session' && req.method==='GET') {
           const session=decodeSession(cookieValue(req),sessionSecret);
-          return session?send(200,{session}):send(401,{error:'No hay una sesión activa.'});
+          if(!session)return send(401,{error:'No hay una sesión activa.'});
+          if(!session.demo&&typeof pool.getPublicNamePreference==='function')session.publicNameMode=await pool.getPublicNamePreference(session.companyId);
+          return send(200,{session});
         }
         if (url.pathname==='/api/auth/logout' && req.method==='POST') {
           res.setHeader('Set-Cookie',`pymio_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureCookie?'; Secure':''}`);
@@ -135,6 +139,16 @@ export function createInventoryServer(pool, origins, options = {}) {
           }
           await pool.updateAuthUserPassword(session.userId,newPassword);
           setSession({...session,hasPassword:true});return send(200,{updated:true});
+        }
+        if(url.pathname==='/api/auth/preferences' && req.method==='POST'){
+          const session=decodeSession(cookieValue(req),sessionSecret);
+          if(!session || session.demo)return send(401,{error:'Inicia sesión para modificar tus preferencias.'});
+          if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')return send(415,{error:'Envía los datos en formato JSON.'});
+          const data=await jsonBody(req),publicNameMode=String(data.publicNameMode||'');
+          if(!['business','personal','business_personal'].includes(publicNameMode))return send(400,{error:'Selecciona una opción válida para tu nombre público.'});
+          if(publicNameMode!=='business'&&!String(session.ownerName||'').trim())return send(400,{error:'Agrega tu nombre personal antes de seleccionarlo como nombre público.'});
+          await pool.updatePublicNamePreference(session.companyId,publicNameMode);
+          const updated={...session,publicNameMode};setSession(updated);return send(200,{session:updated});
         }
         if(url.pathname==='/api/auth/google/start' && req.method==='GET'){
           const returnTo=url.searchParams.get('return_to'),target=returnTo&&new URL(returnTo);
@@ -362,6 +376,7 @@ export function createInventoryServer(pool, origins, options = {}) {
       if (req.method !== 'GET') return send(405,{error:'Método no permitido.'});
       send(200, await pool.rpc('product.list', companyId));
     } catch (error) {
+      if(res.headersSent||res.writableEnded){if(!res.writableEnded)res.end();return;}
       if (error.status) return send(error.status,{error:error.message});
       if (error.code === '23505') return send(409, { error: 'Ya existe un producto con ese SKU. Usa otro código.' });
       if (error.constraint === 'products_category_fk') return send(400, {error:'Selecciona una categoría existente. Actualiza el formulario si fue modificada o eliminada.'});

@@ -30,6 +30,18 @@ test('Móvil: permite actualizar al arrastrar desde el límite superior',async()
   assert.match(mobile,/\.mobile-sheet\{[^}]*overscroll-behavior:contain/);
 });
 
+test('Móvil: Inicio no muestra la leyenda de mes actual en curso',async()=>{
+  const dashboard=await readFile(new URL('../dashboard.js',import.meta.url),'utf8');
+  assert.match(dashboard,/mobileComparison='Mes anterior: '\+clp\(previous\.income\)/);
+  assert.doesNotMatch(dashboard,/mobileComparison=.*Mes actual en curso/i);
+});
+
+test('Inicio: elimina la leyenda Espacio de demostración de la tarjeta inferior',async()=>{
+  const home=await readFile(new URL('../inicio.html',import.meta.url),'utf8');
+  assert.match(home,/class="home-network"/);
+  assert.doesNotMatch(home,/Espacio de demostración/);
+});
+
 test('Notificaciones: abrir la campana limpia inmediatamente el contador de no leídas',async()=>{
   const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
   assert.match(app,/for\(const notification of currentNotifications\(\)\)if\(notification\.id!=null\)readNotificationIds\.add\(String\(notification\.id\)\)/);

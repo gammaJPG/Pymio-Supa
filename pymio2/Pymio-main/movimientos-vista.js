@@ -120,7 +120,7 @@ export function renderMovimientos(table, movements, {onMarkPaid, onEdit, onRecei
     if (onEdit || (movement.Estado === 'Pendiente de Pago' && onMarkPaid) || (movement.operation_detail==='Venta'&&onReceipt)) {
       const actions = document.createElement('div'); actions.className = 'movimiento-detalle-acciones';
       if(movement.operation_detail==='Venta'&&onReceipt){
-        const receipt=document.createElement('button');receipt.type='button';receipt.className='movimiento-comprobante';receipt.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 19h14"/></svg><span>Descargar comprobante</span>';
+        const receipt=document.createElement('button');receipt.type='button';receipt.className='movimiento-comprobante';receipt.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 19h14M7 19V5h7l3 3v11"/><path d="M14 5v4h4"/></svg><span>Generar comprobante</span>';
         receipt.onclick=async()=>{receipt.disabled=true;receipt.setAttribute('aria-busy','true');try{await onReceipt(movement);}finally{receipt.disabled=false;receipt.removeAttribute('aria-busy');}};actions.appendChild(receipt);
       }
       if (onEdit) {

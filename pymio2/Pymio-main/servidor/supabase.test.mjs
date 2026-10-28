@@ -128,7 +128,7 @@ test('Supabase RED Pymio: protege los listados de asistencia y valida respuestas
     if(url.pathname.endsWith('/business_profiles'))return Response.json([]);return Response.json([]);
   };
   const client=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl}),detail=await client.getCommunityEventDetail(eventId,7);
-  assert.equal(detail.isMember,true);assert.equal(detail.interestedCount,1);assert.deepEqual(detail.attendance.attending.map(item=>item.name),['Ana']);assert.deepEqual(detail.attendance.pending.map(item=>item.name),['Luis']);
+  assert.equal(detail.isMember,true);assert.equal(detail.interestedCount,1);assert.deepEqual(detail.attendance.attending.map(item=>item.name),['A']);assert.deepEqual(detail.attendance.pending.map(item=>item.name),['B']);
   const saved=await client.setCommunityEventResponse(eventId,7,'not_attending');assert.equal(saved.isMember,true);assert.ok(calls.some(call=>call.url.pathname.endsWith('/community_event_responses')&&call.options.method==='POST'));
   const outsiderCalls=[],outsider=createSupabase({url:'https://example.supabase.co',key:'secret',fetchImpl:async(url)=>{outsiderCalls.push(url.pathname);if(url.pathname.endsWith('/network_posts'))return Response.json([{id:eventId,community_id:communityId,title:'Feria',description:'Completa',event_mode:'online',event_at:'2026-11-02T18:00:00Z'}]);if(url.pathname.endsWith('/communities'))return Response.json([{id:communityId,name:'Comercio Local'}]);if(url.pathname.endsWith('/community_members'))return Response.json([]);if(url.pathname.endsWith('/community_event_responses'))return Response.json([]);return Response.json({});}});
   const publicDetail=await outsider.getCommunityEventDetail(eventId,10);assert.equal(publicDetail.isMember,false);assert.equal('attendance' in publicDetail,false);assert.equal(outsiderCalls.includes('/rest/v1/user_accounts'),false);await assert.rejects(outsider.setCommunityEventResponse(eventId,10,'attending'),{status:403});
@@ -304,8 +304,8 @@ test('Supabase RED Pymio: asigna administradores aunque aún falte la función n
   }});
   const result=await client.community('admin.set',7,{community_id:communityId,target_company_id:9,is_admin:true});
   assert.equal(result.members[0].role,'admin');
-  assert.deepEqual(calls.map(call=>call.url.pathname),['/rest/v1/rpc/pymio_community_admin_set','/rest/v1/community_members','/rest/v1/rpc/pymio_community']);
-  assert.deepEqual(JSON.parse(calls.at(-1).options.body),{operation:'admin.set',company:'7',payload:{community_id:communityId,target_company_id:9,is_admin:true}});
+  assert.deepEqual(calls.map(call=>call.url.pathname),['/rest/v1/rpc/pymio_community_admin_set','/rest/v1/community_members','/rest/v1/rpc/pymio_community','/rest/v1/user_accounts']);
+  assert.deepEqual(JSON.parse(calls[2].options.body),{operation:'admin.set',company:'7',payload:{community_id:communityId,target_company_id:9,is_admin:true}});
 });
 
 test('Supabase RED Pymio: el modo compatible impide que un administrador retire a otro',async()=>{
@@ -387,6 +387,29 @@ test('HTTP Auth: cambiar contraseña exige la anterior y recuperación no revela
     const recovery=await fetch(base+'/api/auth/password/recovery',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'ana@example.com',returnTo:'http://localhost:5500/piloto.html'})});assert.equal(recovery.status,200);assert.match((await recovery.json()).message,/Si existe una cuenta/);assert.equal(recoveries[0].returnTo,'http://localhost:5500/piloto.html');
     const reset=await fetch(base+'/api/auth/password/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:'recovery-token-1234567890',password:'otra-segura'})});assert.equal(reset.status,200);assert.deepEqual(resets,[{token:'recovery-token-1234567890',password:'otra-segura'}]);
   }finally{await close(server);}
+});
+
+test('HTTP Auth: guarda la preferencia de nombre público en la sesión y la cuenta',async()=>{
+  const preferences=[];const pool={
+    createAuthUser:async(email)=>({id:'user-public-name',email}),
+    registerAccount:async()=>({company_id:18,business_name:'Tienda Norte',owner_name:'Ana Pérez'}),
+    deleteAuthUser:async()=>{},
+    updatePublicNamePreference:async(companyId,mode)=>preferences.push({companyId,mode})
+  };
+  const server=createInventoryServer(pool,[],{sessionSecret:'test-secret'}),base=await listen(server);
+  try{
+    const register=await fetch(base+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'ana@example.com',password:'segura123',businessName:'Tienda Norte',ownerName:'Ana Pérez'})});
+    const cookie=register.headers.get('set-cookie').split(';')[0];
+    const invalid=await fetch(base+'/api/auth/preferences',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({publicNameMode:'otro'})});assert.equal(invalid.status,400);
+    const changed=await fetch(base+'/api/auth/preferences',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({publicNameMode:'business_personal'})}),result=await changed.json();
+    assert.equal(changed.status,200);assert.equal(result.session.publicNameMode,'business_personal');assert.deepEqual(preferences,[{companyId:'18',mode:'business_personal'}]);
+  }finally{await close(server);}
+});
+
+test('HTTP: no intenta escribir una segunda respuesta después de enviar cabeceras',async()=>{
+  const source=await readFile(new URL('./server.mjs',import.meta.url),'utf8');
+  assert.match(source,/if\(res\.headersSent\|\|res\.writableEnded\)return false/);
+  assert.match(source,/if\(res\.headersSent\|\|res\.writableEnded\)\{if\(!res\.writableEnded\)res\.end\(\);return;\}/);
 });
 
 test('Supabase Storage: conserva el MIME validado y permite eliminar imágenes', async () => {

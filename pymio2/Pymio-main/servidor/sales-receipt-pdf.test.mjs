@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {PDFDocument} from 'pdf-lib';
 import {saleReceiptData,generateSalesReceiptPdf} from './sales-receipt-pdf.mjs';
 import {atenderComprobanteVenta} from './movimientos.mjs';
@@ -25,6 +26,12 @@ test('Comprobante de venta: la descarga valida empresa y nombre del archivo',asy
   await atenderComprobanteVenta({method:'GET'},pool,'7',()=>{},res,sale.code);
   assert.equal(status,200);assert.equal(headers['Content-Type'],'application/pdf');assert.match(headers['Content-Disposition'],/Comprobante de venta - abcdef123456\.pdf/);assert.equal(headers['Content-Length'],body.length);
   assert.deepEqual(calls,[{operation:'movement.list',company:'7',payload:{code:sale.code,from:null,to:null}}]);
+});
+
+test('Comprobante de venta: la capa offline deja pasar archivos binarios sin leerlos como JSON',async()=>{
+ const source=await readFile(new URL('../offline.js',import.meta.url),'utf8');
+ assert.match(source,/contentType\.includes\('application\/json'\)/);
+ assert.match(source,/if \(!contentType\.includes\('application\/json'\)\) \{ changed\(\); return result; \}/);
 });
 
 test('Comprobante de venta: la ruta HTTP descarga el PDF autenticado',async()=>{

@@ -74,7 +74,7 @@ function updateInicio(){
   document.getElementById('home-income').textContent=clp(current.income);
   document.getElementById('home-month').textContent=today().toLocaleDateString('es-CL',{month:'long',year:'numeric'});
   document.getElementById('home-income-change').textContent=change==null?(current.income?'Nuevo':'Sin cambio'):(change>=0?'↗ ':'↘ ')+percentage(Math.abs(change));
-  document.getElementById('home-income-change').dataset.mobileComparison='Mes anterior: '+clp(previous.income)+' · Mes actual en curso';
+  document.getElementById('home-income-change').dataset.mobileComparison='Mes anterior: '+clp(previous.income);
   document.getElementById('home-count').textContent=number(current.count);
   document.getElementById('home-ticket').textContent=clp(current.ticket);
   const home=document.querySelector('.mobile-today');

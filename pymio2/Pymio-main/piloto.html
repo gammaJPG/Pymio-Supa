@@ -244,6 +244,7 @@
           </button>
           <div class="profile-menu" id="profile-menu" role="menu" hidden>
             <button type="button" id="profile-communications-btn" role="menuitem">Centro de ayuda</button>
+            <button type="button" id="profile-preferences-btn" role="menuitem">Preferencias</button>
             <button type="button" id="profile-password-btn" role="menuitem">Establecer o modificar contraseña</button>
           </div>
         </div>
@@ -292,6 +293,23 @@
     <input id="business-setup-name" maxlength="120" autocomplete="organization" required placeholder="Ej. Almacén Los Alerces">
     <p class="form-error" id="business-setup-error" role="alert" hidden></p>
     <button type="submit" class="primary-btn">Guardar y continuar</button>
+  </form>
+</dialog>
+
+<dialog class="account-dialog" id="preferences-dialog">
+  <form id="preferences-form">
+    <button type="button" class="account-dialog-close" id="preferences-dialog-close" aria-label="Cerrar">×</button>
+    <span class="eyebrow">Preferencias</span>
+    <h2>Nombre Público</h2>
+    <p>Elige cómo aparecerá tu nombre dentro de las comunidades y en las respuestas de formularios.</p>
+    <fieldset class="public-name-options">
+      <legend>Nombre visible</legend>
+      <label><input type="radio" name="publicNameMode" value="business" required><span><strong id="public-name-business">Nombre de la tienda</strong><small>Por defecto</small></span></label>
+      <label><input type="radio" name="publicNameMode" value="personal"><span><strong id="public-name-personal">Nombre personal</strong><small>Mostrar solo tu nombre personal</small></span></label>
+      <label><input type="radio" name="publicNameMode" value="business_personal"><span><strong id="public-name-combined">Nombre de la tienda (Nombre personal)</strong><small>Mostrar ambos nombres</small></span></label>
+    </fieldset>
+    <p class="form-error" id="preferences-form-error" role="alert" hidden></p>
+    <button type="submit" class="primary-btn">Guardar preferencias</button>
   </form>
 </dialog>
 

@@ -22,6 +22,14 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
   const activeEvents=events=>(events||[]).filter(item=>!item.expires_at||Date.parse(item.expires_at)>Date.now());
   const legacyEventPayload=data=>{const {event_mode,latitude,longitude,request_attendance,...legacy}=data;return legacy;};
   const purgeExpiredEvents=()=>requestJson(`/rest/v1/network_posts?kind=eq.event&expires_at=not.is.null&expires_at=lte.${encodeURIComponent(new Date().toISOString())}`,{method:'DELETE',headers:{...headers,Prefer:'return=minimal'}},'No se pudieron limpiar los eventos vencidos.').catch(()=>null);
+  const publicName=account=>{const business=String(account?.business_name||'').trim(),personal=String(account?.owner_name||'').trim(),mode=account?.public_name_mode||'business';if(mode==='personal'&&personal)return personal;if(mode==='business_personal'&&personal)return `${business||personal} (${personal})`;return business||personal||`Empresa ${account?.company_id||''}`.trim();};
+  const getPublicNames=async ids=>{
+    const unique=[...new Set((ids||[]).map(String).filter(Boolean))];if(!unique.length)return new Map();
+    const filter=encodeURIComponent(unique.join(','));let accounts;
+    try{accounts=await requestJson(`/rest/v1/user_accounts?company_id=in.(${filter})&select=company_id,business_name,owner_name,public_name_mode`,{headers},'No se pudieron identificar los usuarios.');}
+    catch(error){if(error.code!=='PGRST204'&&!/public_name_mode/i.test(error.message||''))throw error;accounts=await requestJson(`/rest/v1/user_accounts?company_id=in.(${filter})&select=company_id,business_name,owner_name`,{headers},'No se pudieron identificar los usuarios.');}
+    return new Map((Array.isArray(accounts)?accounts:[]).map(account=>[String(account.company_id),publicName(account)]));
+  };
   const enrichEvents=async events=>{
     if(!Array.isArray(events)||!events.length)return events||[];
     const ids=[...new Set(events.map(item=>item.id).filter(Boolean))];if(!ids.length)return events;
@@ -30,7 +38,12 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       return activeEvents(events.map(item=>({...item,event_mode:'online',request_attendance:false,...byId.get(item.id)})));
     }catch(error){if(!missingEventColumns(error))throw error;const rows=await requestJson(`/rest/v1/network_posts?id=in.(${encodeURIComponent(ids.join(','))})&select=id,location,expires_at`,{headers},'No se pudieron completar las fechas de los eventos.'),byId=new Map(rows.map(item=>[item.id,item]));return activeEvents(events.map(item=>({...item,event_mode:item.event_mode||'online',request_attendance:false,...byId.get(item.id)})));}
   };
-  const enrichCommunityDetail=async result=>result&&Array.isArray(result.events)?{...result,events:await enrichEvents(result.events)}:result;
+  const enrichCommunityDetail=async (result,enrichMembers=true)=>{
+    if(!result)return result;const enriched={...result};
+    if(Array.isArray(result.events))enriched.events=await enrichEvents(result.events);
+    if(enrichMembers&&Array.isArray(result.members)&&result.members.length){try{const names=await getPublicNames(result.members.map(item=>item.company_id));enriched.members=result.members.map(item=>({...item,name:names.get(String(item.company_id))||item.name}));}catch{}}
+    return enriched;
+  };
   const uploadStorageImage = async (bucket, path, body, mimeType='image/webp') => {
     let response;
     try {
@@ -171,6 +184,14 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         body: JSON.stringify({ auth_user: userId }),
       }, 'No se encontró un espacio de trabajo para esta cuenta.');
     },
+    async getPublicNamePreference(companyId){
+      try{const rows=await requestJson(`/rest/v1/user_accounts?company_id=eq.${encodeURIComponent(String(companyId))}&select=public_name_mode&limit=1`,{headers},'No se pudo consultar tu preferencia.');return rows[0]?.public_name_mode||'business';}
+      catch(error){if(error.code==='PGRST204'||/public_name_mode/i.test(error.message||''))return 'business';throw error;}
+    },
+    async updatePublicNamePreference(companyId,publicNameMode){
+      const rows=await requestJson(`/rest/v1/user_accounts?company_id=eq.${encodeURIComponent(String(companyId))}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({public_name_mode:publicNameMode})},'No se pudo guardar tu preferencia de nombre público.');
+      if(!Array.isArray(rows)||!rows.length)throw Object.assign(new Error('No encontramos tu cuenta.'),{status:404});return rows[0];
+    },
     async network(operation, companyId, data = {}) {
       const connectionOperation=operation.startsWith('connection.')||operation.startsWith('activity.');
       if(operation==='bootstrap'){
@@ -255,7 +276,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       }
       return enrichCommunityDetail(await requestJson('/rest/v1/rpc/pymio_community',{
         method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({operation,company:String(companyId),payload:data}),
-      },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.'));
+      },'No se pudo consultar la comunidad. Revisa las migraciones de Supabase.'),operation!=='form.export');
     },
     async leaveCommunity(communityId,companyId){
       const community=encodeURIComponent(communityId),company=encodeURIComponent(String(companyId));
@@ -298,11 +319,8 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       const isMember=Boolean(viewerMembership[0]),viewerResponse=responses.find(item=>String(item.company_id)===String(companyId))?.status||null,result={event:{...event,event_mode:event.event_mode||'online',request_attendance:Boolean(event.request_attendance)},community:communities[0]||{id:event.community_id,name:'Comunidad'},isMember,viewerResponse,interestedCount:responses.filter(item=>item.status==='interested').length};
       if(!isMember||!result.event.request_attendance)return result;
       const members=await requestJson(`/rest/v1/community_members?community_id=eq.${encodeURIComponent(event.community_id)}&select=company_id,role`,{headers},'No se pudieron consultar los miembros.'),ids=members.map(item=>item.company_id);
-      const [accounts,profiles]=ids.length?await Promise.all([
-        requestJson(`/rest/v1/user_accounts?company_id=in.(${encodeURIComponent(ids.join(','))})&select=company_id,business_name,owner_name`,{headers},'No se pudieron identificar los miembros.'),
-        requestJson(`/rest/v1/business_profiles?company_id=in.(${encodeURIComponent(ids.join(','))})&select=company_id,display_name`,{headers},'No se pudieron identificar los perfiles.'),
-      ]):[[],[]],accountById=new Map(accounts.map(item=>[String(item.company_id),item])),profileById=new Map(profiles.map(item=>[String(item.company_id),item])),statusById=new Map(responses.map(item=>[String(item.company_id),item.status]));
-      const namedMembers=members.map(member=>{const id=String(member.company_id),account=accountById.get(id),profile=profileById.get(id);return {companyId:member.company_id,name:profile?.display_name||account?.owner_name||account?.business_name||'Usuario'};});
+      const names=await getPublicNames(ids),statusById=new Map(responses.map(item=>[String(item.company_id),item.status]));
+      const namedMembers=members.map(member=>{const id=String(member.company_id);return {companyId:member.company_id,name:names.get(id)||'Usuario'};});
       result.attendance={attending:namedMembers.filter(item=>statusById.get(String(item.companyId))==='attending'),notAttending:namedMembers.filter(item=>statusById.get(String(item.companyId))==='not_attending'),pending:namedMembers.filter(item=>!['attending','not_attending'].includes(statusById.get(String(item.companyId))))};return result;
     },
     async setCommunityEventResponse(eventId,companyId,status){
@@ -355,12 +373,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       ]);
       const senderIds=[...new Set(messages.map(item=>String(item.sender_company_id)))],senders=new Map();
       if(senderIds.length){
-        const senderFilter=encodeURIComponent(senderIds.join(','));
-        const [accounts,profiles]=await Promise.all([
-          requestJson(`/rest/v1/user_accounts?company_id=in.(${senderFilter})&select=company_id,business_name`,{headers},'No se pudieron identificar los participantes.'),
-          requestJson(`/rest/v1/business_profiles?company_id=in.(${senderFilter})&select=company_id,display_name`,{headers},'No se pudieron identificar los perfiles.'),
-        ]),profileNames=new Map(profiles.map(item=>[String(item.company_id),item.display_name]));
-        for(const item of accounts)senders.set(String(item.company_id),profileNames.get(String(item.company_id))||item.business_name||`Empresa ${item.company_id}`);
+        const names=await getPublicNames(senderIds);for(const id of senderIds)senders.set(String(id),names.get(String(id))||`Empresa ${id}`);
       }
       const readAt=new Map(reads.map(item=>[String(item.community_id),Date.parse(item.read_at)||0]));
       return communities.map(community=>{
@@ -398,12 +411,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       const rows=await requestJson(`/rest/v1/community_event_participations?community_id=eq.${encodeURIComponent(communityId)}&select=event_id,company_id,participation_type,status,created_at,updated_at&order=created_at.asc`,{headers},'No se pudieron consultar las inscripciones del evento.');
       const names=new Map();
       if(canManage&&rows.length){
-        const ids=[...new Set(rows.map(row=>String(row.company_id)))],filter=encodeURIComponent(ids.join(','));
-        const [accounts,profiles]=await Promise.all([
-          requestJson(`/rest/v1/user_accounts?company_id=in.(${filter})&select=company_id,business_name`,{headers},'No se pudieron identificar los participantes.'),
-          requestJson(`/rest/v1/business_profiles?company_id=in.(${filter})&select=company_id,display_name`,{headers},'No se pudieron identificar los participantes.'),
-        ]),profileNames=new Map(profiles.map(row=>[String(row.company_id),row.display_name]));
-        for(const account of accounts)names.set(String(account.company_id),profileNames.get(String(account.company_id))||account.business_name||`Empresa ${account.company_id}`);
+        const ids=[...new Set(rows.map(row=>String(row.company_id)))],publicNames=await getPublicNames(ids);for(const id of ids)names.set(String(id),publicNames.get(String(id))||`Empresa ${id}`);
       }
       const grouped=new Map();
       for(const row of rows){
@@ -442,10 +450,8 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         if(!page.length)break;
         responses.push(...page);offset+=page.length;
       }
-      for(const response of responses){
-        const accounts=await requestJson(`/rest/v1/user_accounts?company_id=eq.${encodeURIComponent(response.company_id)}&select=owner_name,business_name&limit=1`,{headers},'No se pudo identificar al participante.');
-        response.name=accounts[0]?.owner_name||accounts[0]?.business_name||`Empresa ${response.company_id}`;
-      }
+      const names=await getPublicNames(responses.map(response=>response.company_id));
+      for(const response of responses)response.name=names.get(String(response.company_id))||`Empresa ${response.company_id}`;
       return {form:detail.forms?.find(form=>form.id===formId),responses};
     },
     async getCommunityFormMeta(formId){

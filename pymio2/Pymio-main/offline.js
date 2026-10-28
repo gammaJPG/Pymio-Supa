@@ -70,6 +70,8 @@ export async function offlineFetch(input, options = {}) {
   catch { reachable = false; }
   if (result?.ok) {
     staleReads.delete(url.href);
+    const contentType = result.headers.get('content-type')?.toLowerCase() ?? '';
+    if (!contentType.includes('application/json')) { changed(); return result; }
     const data = await result.clone().json();
     try { await storage('reads','put',{url:url.href,data,at:Date.now()}); }
     catch { window.dispatchEvent(new CustomEvent('swc-storage-error')); }
@@ -193,7 +195,7 @@ export function setupOfflineUI() {
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkConnection().then(()=>synchronize()).catch(()=>{});});
   setInterval(()=>{if(active)checkConnection().then(()=>synchronize()).catch(()=>{});},30000);
   render();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=202').then(()=>navigator.serviceWorker.ready).then(()=>{
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=220').then(()=>navigator.serviceWorker.ready).then(()=>{
     document.documentElement.dataset.offlineReady='true'; ready.textContent='Disponible para trabajar sin conexión.';
   }).catch(()=>{ready.textContent='No se pudo preparar la apertura sin conexión. Reintenta con conexión.';});
   else ready.textContent='Para abrir sin conexión e instalar, utiliza HTTPS o localhost.';

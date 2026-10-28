@@ -57,7 +57,7 @@
         </div>
         <div class="field movimiento-cliente" data-customer-field hidden>
           <label for="mov-customer">Seleccionar cliente (opcional)</label>
-          <select id="mov-customer" name="customer_id"><option value="__create__">+Crear Cliente</option><option value="" selected>Sin cliente</option></select>
+          <select id="mov-customer" name="customer_id"><option value="__create__">+Crear Cliente</option><option value="" selected>Sin Especificar</option></select>
         </div>
         <div class="field movimiento-cliente" data-supplier-field hidden>
           <label for="mov-supplier">Seleccionar proveedor</label>
@@ -119,10 +119,10 @@
   </dialog>
   <template id="movimiento-linea">
     <div class="movimiento-linea">
-      <label>Producto<input type="search" data-product required placeholder="Buscar producto o SKU" autocomplete="off"></label>
+      <label><span class="movement-column-title">Producto</span><input type="search" data-product required placeholder="Buscar producto o SKU" autocomplete="off"></label>
       <datalist></datalist>
-      <label>Unidades<input type="number" data-units min="1" max="2147483647" step="1" required></label>
-      <label data-cost-field hidden>Costos<input type="number" data-unit-cost min="0" max="2147483647" step="1" inputmode="numeric"></label>
+      <label><span class="movement-column-title">Unidades</span><input type="number" data-units min="1" max="2147483647" step="1" required></label>
+      <label data-cost-field hidden><select data-cost-mode aria-label="Tipo de costo"><option value="unit" selected>Costo Unitario</option><option value="total">Costo Total</option></select><input type="number" data-unit-cost min="0" max="2147483647" step="1" inputmode="numeric"></label>
       <div data-line-discount hidden>
         <label>Tipo de descuento<select data-line-discount-type disabled><option value="fixed">Monto fijo ($)</option><option value="percentage">Porcentaje (%)</option></select></label>
         <label>Valor del descuento<input data-line-discount-value type="number" min="0" max="2147483647" step="0.01" value="0" required disabled></label>

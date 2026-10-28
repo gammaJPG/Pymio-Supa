@@ -68,6 +68,19 @@ const requireJson = req => {
   }
 };
 
+export async function searchChileanAddresses(query,fetchImpl=fetch){
+  const normalized=text(query,120);
+  if(normalized.length<3)throw Object.assign(new Error('Escribe al menos 3 caracteres para buscar una dirección.'),{status:400});
+  const endpoint=new URL('https://nominatim.openstreetmap.org/search');
+  endpoint.search=new URLSearchParams({q:normalized,format:'jsonv2',addressdetails:'1',countrycodes:'cl',bounded:'1',viewbox:'-109.6,-17.3,-66.0,-56.3',limit:'6','accept-language':'es'}).toString();
+  let response;
+  try{response=await fetchImpl(endpoint,{headers:{Accept:'application/json','User-Agent':'Pymio/1.0 (buscador de eventos en Chile)'}});}
+  catch{throw Object.assign(new Error('El buscador de direcciones no está disponible temporalmente.'),{status:503});}
+  if(!response.ok)throw Object.assign(new Error('El buscador de direcciones no está disponible temporalmente.'),{status:502});
+  const rows=await response.json();
+  return (Array.isArray(rows)?rows:[]).filter(item=>item?.address?.country_code==='cl').map(item=>({label:text(item.display_name,160),latitude:Number(item.lat),longitude:Number(item.lon)})).filter(item=>item.label&&Number.isFinite(item.latitude)&&Number.isFinite(item.longitude)&&item.latitude>=-57&&item.latitude<=-17&&item.longitude>=-110&&item.longitude<=-66).slice(0,6);
+}
+
 function cleanProfile(data){
   const optionalUrl=(value,label)=>{
     const normalized=text(value,240);
@@ -144,6 +157,8 @@ function cleanPost(data){
   if(!eventMode)throw Object.assign(new Error('Selecciona si el evento es Online, Presencial o Ambos.'),{status:400});
   if(hasCoordinates&&(!Number.isFinite(rawLatitude)||!Number.isFinite(rawLongitude)||rawLatitude < -90||rawLatitude > 90||rawLongitude < -180||rawLongitude > 180))throw Object.assign(new Error('La ubicación seleccionada en el mapa no es válida.'),{status:400});
   const result={kind:'event',title:text(data.title,140),description:text(data.description,700),event_mode:eventMode,request_attendance:[true,'true','on','1'].includes(data.requestAttendance),location:eventMode==='online'?'':text(data.location,160),latitude:eventMode==='online'?null:rawLatitude,longitude:eventMode==='online'?null:rawLongitude,event_at:start,expires_at:end,community_id:data.communityId||null};
+  if(result.location&&(!Number.isFinite(result.latitude)||!Number.isFinite(result.longitude)))throw Object.assign(new Error('Selecciona una de las direcciones sugeridas para verificarla en el mapa.'),{status:400});
+  if(result.location&&(result.latitude < -57||result.latitude > -17||result.longitude < -110||result.longitude > -66))throw Object.assign(new Error('La dirección seleccionada debe estar dentro de Chile.'),{status:400});
   if(data.kind&&data.kind!=='event')throw Object.assign(new Error('Solo se pueden publicar eventos de comunidades.'),{status:400});
   if(!result.title || !result.description)throw Object.assign(new Error('Completa el título y la descripción del evento.'),{status:400});
   if(!result.event_at)throw Object.assign(new Error('Indica cuándo comienza el evento.'),{status:400});
@@ -180,6 +195,7 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const formZip=/^\/api\/network\/forms\/([0-9a-f-]{36})\/files\.zip$/i.exec(url.pathname);
     const communityEvent=/^\/api\/network\/events\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityEventResponse=/^\/api\/network\/events\/([0-9a-f-]{36})\/response$/i.exec(url.pathname);
+    if(url.pathname==='/api/network/addresses'&&req.method==='GET')return send(200,{items:await searchChileanAddresses(url.searchParams.get('query')||'')});
     if(url.pathname==='/api/network/notifications'&&req.method==='GET')return send(200,{notifications:await pool.getCommunityNotifications(companyId)});
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
       const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],eventParticipations=typeof pool.getEventParticipationSummary==='function'?await pool.getEventParticipationSummary(companyId):[];
