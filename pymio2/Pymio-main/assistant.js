@@ -53,7 +53,9 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
   const form = root.querySelector('.pymio-assistant-compose');
   const field = form.querySelector('textarea');
   const submit = form.querySelector('[type="submit"]');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let busy = false;
+  let thinkingStartedAt = 0;
 
   const save = () => {
     try { localStorage.setItem(storageKey, JSON.stringify(messages.slice(-40))); } catch {}
@@ -69,7 +71,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
     });
     return button;
   };
-  const messageNode = item => {
+  const messageNode = (item, { includeSupport = true } = {}) => {
     const article = document.createElement('article');
     article.className = `pymio-assistant-message ${item.role}`;
     const label = document.createElement('strong');
@@ -77,7 +79,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
     const copy = document.createElement('p');
     copy.textContent = item.content;
     article.append(label, copy);
-    if (item.supportRecommended) article.append(supportButton());
+    if (includeSupport && item.supportRecommended) article.append(supportButton());
     return article;
   };
   const render = () => {
@@ -91,22 +93,61 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
     list.append(messageNode(item));
     requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
   };
+  const setThinking = value => {
+    root.classList.toggle('is-thinking', value);
+    const existing = list.querySelector('.pymio-assistant-thinking');
+    if (value && !existing) {
+      thinkingStartedAt = performance.now();
+      const indicator = document.createElement('div');
+      indicator.className = 'pymio-assistant-thinking';
+      indicator.setAttribute('role', 'status');
+      indicator.setAttribute('aria-label', 'Miel está escribiendo');
+      indicator.innerHTML = '<span>Miel está escribiendo</span><span class="pymio-assistant-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+      list.append(indicator);
+      list.scrollTop = list.scrollHeight;
+    } else if (!value) existing?.remove();
+  };
   const setBusy = value => {
     busy = value;
     field.disabled = value;
     submit.disabled = value;
     form.toggleAttribute('aria-busy', value);
-    root.classList.toggle('is-thinking', value);
-    const existing = list.querySelector('.pymio-assistant-thinking');
-    if (value && !existing) {
-      const indicator = document.createElement('div');
-      indicator.className = 'pymio-assistant-thinking';
-      indicator.setAttribute('role', 'status');
-      indicator.setAttribute('aria-label', 'Miel está preparando una respuesta');
-      indicator.innerHTML = '<i></i><i></i><i></i>';
-      list.append(indicator);
-      list.scrollTop = list.scrollHeight;
-    } else if (!value) existing?.remove();
+    if (value) setThinking(true);
+    else setThinking(false);
+  };
+  const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+  const appendAnimatedAssistant = async item => {
+    messages.push(item);
+    messages = messages.slice(-40);
+    save();
+    const article = messageNode(item, { includeSupport: false });
+    const copy = article.querySelector('p');
+    const content = String(item.content || '');
+    copy.textContent = '';
+    copy.setAttribute('aria-hidden', 'true');
+    list.append(article);
+    list.scrollTop = list.scrollHeight;
+
+    if (reduceMotion.matches || content.length < 2) copy.textContent = content;
+    else {
+      const duration = Math.min(3200, Math.max(650, content.length * 14));
+      const startedAt = performance.now();
+      await new Promise(resolve => {
+        const typeNext = now => {
+          const progress = Math.min(1, (now - startedAt) / duration);
+          const visibleCharacters = Math.max(1, Math.floor(content.length * progress));
+          copy.textContent = content.slice(0, visibleCharacters);
+          list.scrollTop = list.scrollHeight;
+          if (progress < 1) requestAnimationFrame(typeNext);
+          else resolve();
+        };
+        requestAnimationFrame(typeNext);
+      });
+    }
+
+    copy.removeAttribute('aria-hidden');
+    if (item.supportRecommended) article.append(supportButton());
+    list.scrollTop = list.scrollHeight;
   };
   const open = () => {
     panel.hidden = false;
@@ -149,6 +190,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
     field.value = '';
     field.style.height = '';
     setBusy(true);
+    let reply;
     try {
       const history = messages.filter(item => ['user', 'assistant'].includes(item.role)).slice(-8).map(({ role, content }) => ({ role, content }));
       const response = await fetch(`${apiUrl}/api/assistant/chat`, {
@@ -160,13 +202,18 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
       if (!response.ok) throw new Error(response.status === 404
         ? 'Miel estará disponible cuando esta versión se publique en Cloudflare.'
         : result.error || 'No pudimos consultar al asistente.');
-      append({ role: 'assistant', content: result.answer, supportRecommended: result.supportRecommended === true });
+      reply = { role: 'assistant', content: result.answer, supportRecommended: result.supportRecommended === true };
     } catch (error) {
-      append({
+      reply = {
         role: 'assistant',
         content: error.message || 'Miel no está disponible en este momento.',
         supportRecommended: true
-      });
+      };
+    }
+    try {
+      await wait(Math.max(0, 700 - (performance.now() - thinkingStartedAt)));
+      setThinking(false);
+      await appendAnimatedAssistant(reply);
     } finally {
       setBusy(false);
       field.focus();

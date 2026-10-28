@@ -20,7 +20,9 @@
 .pymio-assistant-message p{margin:0;color:var(--assistant-ink);font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 .pymio-assistant-support{display:flex;width:100%;min-height:42px;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding:9px 11px;border:1px solid var(--assistant-honey);border-radius:10px;background:var(--assistant-honey-soft);color:var(--assistant-ink);font:650 12px/1.2 'IBM Plex Sans',sans-serif;cursor:pointer}
 .pymio-assistant-support:hover{background:var(--assistant-soft)}
-.pymio-assistant-thinking{width:fit-content;min-height:38px;padding:10px 12px;border:1px solid var(--assistant-line);border-radius:6px 14px 14px;background:var(--assistant-surface);color:var(--assistant-muted);font-size:12px}
+.pymio-assistant-thinking{display:flex;width:fit-content;min-height:38px;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--assistant-line);border-radius:6px 14px 14px;background:var(--assistant-surface);color:var(--assistant-muted);font-size:12px}
+.pymio-assistant-thinking-dots{display:inline-flex;align-items:center;gap:3px}.pymio-assistant-thinking-dots i{display:block;width:4px;height:4px;border-radius:50%;background:currentColor;animation:pymio-assistant-dot 900ms ease-in-out infinite}.pymio-assistant-thinking-dots i:nth-child(2){animation-delay:120ms}.pymio-assistant-thinking-dots i:nth-child(3){animation-delay:240ms}
+@keyframes pymio-assistant-dot{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
 .pymio-assistant-compose{display:grid;grid-template-columns:minmax(0,1fr) 46px;gap:8px;padding:10px 12px 8px;border-top:1px solid var(--assistant-line);background:var(--assistant-surface)}
 .pymio-assistant-compose label{display:block}.pymio-assistant-compose textarea{display:block;width:100%;min-height:46px;max-height:120px;resize:none;padding:11px 13px;border:1px solid var(--assistant-line);border-radius:10px;background:var(--assistant-paper);color:var(--assistant-ink);font:400 16px/1.4 'IBM Plex Sans',system-ui,sans-serif}
 .pymio-assistant-compose textarea::placeholder{color:var(--assistant-muted)}.pymio-assistant-compose textarea:disabled{opacity:.65}
@@ -38,4 +40,4 @@ html[data-theme=dark] .pymio-assistant{--assistant-ink:#f1f3e9;--assistant-muted
   .pymio-assistant-compose{padding:8px 10px}.pymio-assistant-note{padding-bottom:8px}
   body.mobile-keyboard-open .pymio-assistant{bottom:10px}body.mobile-keyboard-open .pymio-assistant-panel{bottom:8px}
 }
-@media(prefers-reduced-motion:reduce){.pymio-assistant-panel,.pymio-assistant-trigger{transition:none}}
+@media(prefers-reduced-motion:reduce){.pymio-assistant-panel,.pymio-assistant-trigger{transition:none}.pymio-assistant-thinking-dots i{animation:none;opacity:.7}}
