@@ -76,7 +76,7 @@ test('Instalación móvil: ofrece únicamente la instalación nativa cuando est�
   assert.match(worker,/splash-mobile-wordmark-v2\.png/);
   assert.match(cloudflareBuild,/copyPublicAssets\(sourcePath, destinationPath\)/);
   const app=await read('../app.js');
-  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=206'\)/);
+  assert.match(app,/serviceWorker\.register\('\.\/sw\.js\?v=207'\)/);
 });
 
 test('Splash: conserva la pieza móvil y ofrece un arranque animado de escritorio',async()=>{

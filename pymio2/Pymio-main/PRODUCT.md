@@ -38,7 +38,7 @@ Los usuarios registran ventas y compras, administran productos y clientes, revis
 
 ## Brand Commitments
 
-La marca Pymio utiliza una abeja, amarillo miel, verde muy oscuro, superficies cálidas y una voz clara y cercana. La experiencia debe sentirse profesional, optimista y práctica, evitando estética financiera fría o genérica.
+La marca Pymio utiliza una abeja, amarillo Pymio, verde muy oscuro, superficies cálidas y una voz clara y cercana. La experiencia debe sentirse profesional, optimista y práctica, evitando estética financiera fría o genérica.
 
 ## Evidence on Hand
 

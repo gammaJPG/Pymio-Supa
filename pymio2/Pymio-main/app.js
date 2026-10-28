@@ -10,7 +10,7 @@ import { iniciarMovimientos } from './movimientos.js?v=165';
 import { configureSupport } from './centro-ayuda.js?v=2';
 import { startLiveSync, stopLiveSync } from './live-sync.js';
 import { setupInstallPrompt } from './install-prompt.js?v=199';
-import { setupPymioAssistant } from './assistant.js?v=2';
+import { setupPymioAssistant } from './assistant.js?v=3';
 
 const bootStartedAt=performance.now();
 
@@ -32,7 +32,7 @@ async function finishBootScreen(){
 // solo ofrece el prompt cuando el service worker ya está preparado para este
 // origen, por lo que no puede depender de la sesión de la empresa.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js?v=206').catch(error => {
+  navigator.serviceWorker.register('./sw.js?v=207').catch(error => {
     console.warn('No se pudo preparar la instalación de Pymio:', error);
   });
 }

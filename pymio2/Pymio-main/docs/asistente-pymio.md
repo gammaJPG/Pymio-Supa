@@ -1,6 +1,6 @@
 # Asistente de Pymio
 
-El asistente integrado se llama **Miel** y utiliza Cloudflare Workers AI con el modelo `@cf/google/gemma-4-26b-a4b-it`.
+El asistente integrado se llama **PymBot** y utiliza Cloudflare Workers AI con el modelo `@cf/google/gemma-4-26b-a4b-it`.
 
 ## Alcance
 
@@ -29,7 +29,7 @@ La clave o credencial del proveedor no se expone en el navegador. Workers AI se 
 
 ## Actualizar el conocimiento
 
-Para cambiar lo que Miel sabe, edita `cloudflare/pymio-knowledge.mjs`. Cada afirmación debe corresponder a una función vigente de Pymio. Después, ejecuta las pruebas y vuelve a desplegar el Worker.
+Para cambiar lo que PymBot sabe, edita `cloudflare/pymio-knowledge.mjs`. Cada afirmación debe corresponder a una función vigente de Pymio. Después, ejecuta las pruebas y vuelve a desplegar el Worker.
 
 Si la documentación crece hasta superar un manual compacto, se recomienda migrar la recuperación documental a Cloudflare Vectorize y conservar estas reglas como instrucciones del sistema.
 

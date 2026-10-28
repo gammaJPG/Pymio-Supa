@@ -89,8 +89,8 @@ async function handleAssistant(request, env) {
     const quotaReached = error?.status === 429 || /quota|neuron|limit|capacity|3040|rate/i.test(detail);
     return jsonResponse({
       error: quotaReached
-        ? 'Miel alcanzó por hoy el límite gratuito de consultas. Puedes continuar desde el Centro de ayuda.'
-        : 'Miel no está disponible en este momento. Puedes continuar desde el Centro de ayuda.',
+        ? 'PymBot alcanzó por hoy el límite gratuito de consultas. Puedes continuar desde el Centro de ayuda.'
+        : 'PymBot no está disponible en este momento. Puedes continuar desde el Centro de ayuda.',
       supportRecommended: true,
       quotaReached
     }, quotaReached ? 429 : 503);

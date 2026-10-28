@@ -138,24 +138,24 @@ components:
 
 **Creative North Star: "Mesa de trabajo"**
 
-Pymio combina la confianza de una herramienta de trabajo con la calidez de un negocio atendido por personas. Papel claro, tinta verde y miel organizan tareas, registros y resultados. La densidad es práctica: cada grupo reúne información relacionada y mantiene su acción a mano.
+Pymio combina la confianza de una herramienta de trabajo con la calidez de un negocio atendido por personas. Papel claro, tinta verde y amarillo cálido organizan tareas, registros y resultados. La densidad es práctica: cada grupo reúne información relacionada y mantiene su acción a mano.
 
 La composición móvil tiene navegación propia, listas legibles y detalle progresivo. Este documento registra lo implementado en mobile.css, mobile.js y mobile-workspace.js; no sustituye la composición de escritorio. Los tokens sin prefijo desktop describen el sistema móvil; dark recoge sus sustituciones oscuras. Los valores desktop conservan el vocabulario de pymio.css y style.css, con las sustituciones oscuras de theme.css. La abeja y los recursos existentes siguen siendo la identidad; este cambio no añade ilustraciones generadas.
 
 **Key Characteristics:**
 - Jerarquía inmediata y lenguaje directo.
-- Papel claro, superficies agrupadas y amarillo miel contenido.
+- Papel claro, superficies agrupadas y amarillo Pymio contenido.
 - Navegación flotante de tinta con destinos etiquetados.
 - Controles táctiles amplios, SVG lineal y cifras tabulares.
 - Composición de escritorio conservada fuera del ámbito móvil.
 
 ## Colors
 
-La paleta móvil reúne miel, papel y verde tinta; el tema oscuro cambia superficies y texto manteniendo el amarillo de acción.
+La paleta móvil reúne amarillo Pymio, papel y verde tinta; el tema oscuro cambia superficies y texto manteniendo el amarillo de acción.
 
 ### Primary
-- **Miel Pymio:** acciones principales, Registrar, venta rápida y selección de RED; conserva texto tinta incluso en oscuro.
-- **Miel suave:** prioridades pendientes y contexto destacado.
+- **Amarillo Pymio:** acciones principales, Registrar, venta rápida y selección de RED; conserva texto tinta incluso en oscuro.
+- **Amarillo suave:** prioridades pendientes y contexto destacado.
 
 ### Neutral
 - **Verde tinta:** títulos, importes, texto operativo y filtros seleccionados.
@@ -210,9 +210,9 @@ Los controles usan control; iconos y accesos rápidos usan icon; grupos de traba
 ## Components
 
 ### Buttons
-- **Primary:** miel con texto tinta, altura mínima de 46px y padding del token; venta rápida mide al menos 54px y las acciones de formulario/acceso 48–50px.
+- **Primary:** amarillo Pymio con texto tinta, altura mínima de 46px y padding del token; venta rápida mide al menos 54px y las acciones de formulario/acceso 48–50px.
 - **Secondary:** superficie con borde divisor; acciones de texto con área táctil mínima de 44px.
-- **States:** brillo reducido al pulsar, opacidad .48 al deshabilitar; foco de 3px separado 3px, miel en oscuro.
+- **States:** brillo reducido al pulsar, opacidad .48 al deshabilitar; foco de 3px separado 3px, amarillo Pymio en oscuro.
 
 ### Cards / Containers
 - **Style:** superficie plana, radio surface y padding card. Los grupos de filas comparten fondo; la fila no lleva sombra propia.
@@ -228,10 +228,10 @@ Los controles usan control; iconos y accesos rápidos usan icon; grupos de traba
 ### Chips / Tags
 - Los filtros de Inventario, Actividad y Diagnóstico usan botones de al menos 44px, selección tinta/papel y aria-pressed. Cambian resultados reales del módulo.
 - Etiquetas de estado y rol conservan su significado. Los KPI de inventario son resúmenes planos, no botones de filtro.
-- La selección local de RED usa relleno miel con texto tinta y aria-current.
+- La selección local de RED usa relleno amarillo Pymio con texto tinta y aria-current.
 
 ### Navigation
-- Cinco destinos con SVG lineal de 22px y trazo 1.7; etiquetas visibles. El destino actual usa una superficie verde más clara y su icono miel. Registrar conserva fondo miel en el icono.
+- Cinco destinos con SVG lineal de 22px y trazo 1.7; etiquetas visibles. El destino actual usa una superficie verde más clara y su icono amarillo Pymio. Registrar conserva fondo amarillo Pymio en el icono.
 - RED muestra Mi RED, Explorar, Eventos, Mi Pymio y Guías en una fila desplazable con destinos de al menos 44px.
 - Cabecera blanca o su superficie oscura equivalente, marca existente, conexión, notificaciones y cuenta. El estado piloto permanece visible en la cabecera y se refuerza dentro de RED cuando corresponde.
 - Herramientas conserva acceso a Análisis, Por resolver, Pymium, actualización, apariencia, contraseña cuando corresponde y cierre de sesión.

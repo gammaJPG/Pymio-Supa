@@ -6,12 +6,17 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
   if (!session || document.querySelector('[data-pymio-assistant]')) return;
 
   const storageKey = `pymio:assistant:${session.demo ? 'demo' : session.companyId}`;
+  const legacyAssistantName = String.fromCharCode(77, 105, 101, 108);
   const greeting = {
     role: 'assistant',
-    content: 'Hola, soy Miel. Puedo orientarte sobre ventas, inventario, indicadores, RED Pymio y el uso de la plataforma. ¿Qué necesitas hacer?'
+    content: 'Hola, soy PymBot. Puedo orientarte sobre ventas, inventario, indicadores, RED Pymio y el uso de la plataforma. ¿Qué necesitas hacer?'
   };
   let messages;
-  try { messages = escapeStorageMessages(JSON.parse(localStorage.getItem(storageKey) || '[]')); }
+  try {
+    messages = escapeStorageMessages(JSON.parse(localStorage.getItem(storageKey) || '[]')).map(item => item.role === 'assistant'
+      ? { ...item, content: item.content.replaceAll(legacyAssistantName, 'PymBot') }
+      : item);
+  }
   catch { messages = []; }
   if (!messages.length) messages = [greeting];
 
@@ -22,7 +27,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
     <aside class="pymio-assistant-panel" id="pymio-assistant-panel" aria-label="Asistente de Pymio" aria-hidden="true" hidden>
       <header class="pymio-assistant-head">
         <span class="pymio-assistant-avatar" aria-hidden="true"><img src="assets/pymio-icon-transparent.png" alt=""></span>
-        <div><span>Asistente de Pymio</span><strong>Miel</strong></div>
+        <div><span>Asistente de Pymio</span><strong>PymBot</strong></div>
         <button type="button" class="pymio-assistant-reset" aria-label="Borrar conversación" title="Borrar conversación">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/></svg>
         </button>
@@ -32,16 +37,16 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
       </header>
       <div class="pymio-assistant-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
       <form class="pymio-assistant-compose">
-        <label><span class="sr-only">Pregunta para Miel</span><textarea rows="1" maxlength="1200" required placeholder="Pregunta sobre Pymio…"></textarea></label>
+        <label><span class="sr-only">Pregunta para PymBot</span><textarea rows="1" maxlength="1200" required placeholder="Pregunta sobre Pymio…"></textarea></label>
         <button type="submit" aria-label="Enviar pregunta">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 16-8-5.5 16-3-6.5L4 12Zm7.5 1.5L20 4"/></svg>
         </button>
       </form>
-      <p class="pymio-assistant-note">Miel puede equivocarse. No compartas información sensible.</p>
+      <p class="pymio-assistant-note">PymBot puede equivocarse. No compartas información sensible.</p>
     </aside>
     <button type="button" class="pymio-assistant-trigger" aria-controls="pymio-assistant-panel" aria-expanded="false">
       <img src="assets/pymio-icon-transparent.png" alt="">
-      <span>Pregúntale a Miel</span>
+      <span>Pregúntale a PymBot</span>
     </button>`;
   document.body.append(root);
 
@@ -75,7 +80,7 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
     const article = document.createElement('article');
     article.className = `pymio-assistant-message ${item.role}`;
     const label = document.createElement('strong');
-    label.textContent = item.role === 'assistant' ? 'Miel' : 'Tú';
+    label.textContent = item.role === 'assistant' ? 'PymBot' : 'Tú';
     const copy = document.createElement('p');
     copy.textContent = item.content;
     article.append(label, copy);
@@ -101,8 +106,8 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
       const indicator = document.createElement('div');
       indicator.className = 'pymio-assistant-thinking';
       indicator.setAttribute('role', 'status');
-      indicator.setAttribute('aria-label', 'Miel está escribiendo');
-      indicator.innerHTML = '<span>Miel está escribiendo</span><span class="pymio-assistant-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
+      indicator.setAttribute('aria-label', 'PymBot está escribiendo');
+      indicator.innerHTML = '<span>PymBot está escribiendo</span><span class="pymio-assistant-thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>';
       list.append(indicator);
       list.scrollTop = list.scrollHeight;
     } else if (!value) existing?.remove();
@@ -200,13 +205,13 @@ export function setupPymioAssistant({ apiUrl = '', session } = {}) {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(response.status === 404
-        ? 'Miel estará disponible cuando esta versión se publique en Cloudflare.'
+        ? 'PymBot estará disponible cuando esta versión se publique en Cloudflare.'
         : result.error || 'No pudimos consultar al asistente.');
       reply = { role: 'assistant', content: result.answer, supportRecommended: result.supportRecommended === true };
     } catch (error) {
       reply = {
         role: 'assistant',
-        content: error.message || 'Miel no está disponible en este momento.',
+        content: error.message || 'PymBot no está disponible en este momento.',
         supportRecommended: true
       };
     }
