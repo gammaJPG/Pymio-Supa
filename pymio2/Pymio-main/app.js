@@ -1,7 +1,8 @@
 import { revealView } from './motion.js';
 import { setupPymium } from './pymium.js';
 setupPymium();
-import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=189';
+import { iniciarEcosistema, mostrarVistaEcosistema } from './ecosistema.js?v=190';
+import {dailyNotificationId,notificationDaySortTime,orderNotifications} from './notification-model.js?v=1';
 import { apiBase, setupOfflineUI, startOffline, stopOffline, getSyncIssues, discardSyncIssue } from './offline.js';
 setupOfflineUI();
 import { configureDashboard, renderDashboard, renderInicio } from './dashboard.js?v=153';
@@ -441,11 +442,15 @@ async function cargarSecciones() {
   bellBtn.setAttribute('aria-controls', 'notif-panel');
 
   function currentNotifications(){
-    return [...supportNotifications,...networkNotifications,...activityNotifications,...(currentSession?.demo?notifData:[]),...diagnosticNotifications,...syncNotifications];
+    return orderNotifications(supportNotifications,networkNotifications,activityNotifications,currentSession?.demo?notifData:[],diagnosticNotifications,syncNotifications);
   }
-  function markCurrentNotificationsRead(){
+  async function markCurrentNotificationsRead(){
     for(const notification of currentNotifications())if(notification.id!=null)readNotificationIds.add(String(notification.id));
     saveReadNotifications();
+    if(!currentSession?.demo){
+      const ids=currentNotifications().map(notification=>String(notification.id||'')).filter(Boolean);
+      fetch(apiUrl+'/api/network/notifications/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})}).catch(()=>{});
+    }
   }
   function closeNotifications({markRead=true}={}){
     if(!notifPanel.classList.contains('open'))return;
@@ -493,7 +498,7 @@ async function cargarSecciones() {
     notifBadge.textContent = unread;
   }
   async function refreshSyncNotifications(){
-    try { syncNotifications=(await getSyncIssues()).map(issue=>({id:'sync-'+issue.id,issueId:issue.id,sev:issue.severity,title:issue.title,desc:issue.description,time:issue.time,requiresResolution:true})); }
+    try { syncNotifications=(await getSyncIssues()).map(issue=>({id:dailyNotificationId('sync-'+issue.id),issueId:issue.id,sev:issue.severity,title:issue.title,desc:issue.description,time:issue.time,sortAt:notificationDaySortTime(),requiresResolution:true})); }
     catch { syncNotifications=[]; }
     renderNotifications();
   }
@@ -504,6 +509,7 @@ async function cargarSecciones() {
       const response=await fetch(apiUrl+'/api/network/notifications',{cache:'no-store'}),result=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(result.error||'No se pudieron actualizar las notificaciones de RED Pymio.');
       const dateTime=new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short'});
+      for(const id of result.readIds||[])readNotificationIds.add(String(id));
       networkNotifications=(result.notifications||[]).map(item=>{
         let sev='info',title=`Nuevo formulario en ${item.community_name}`,desc=item.title;
         if(item.kind==='form_reopened'){sev='success';title=`Formulario reanudado en ${item.community_name}`;desc=item.title;}
@@ -512,7 +518,12 @@ async function cargarSecciones() {
         else if(item.kind==='event_deleted'){sev='warn';title=`Evento eliminado en ${item.community_name}`;desc=item.title;}
         else if(item.kind==='admin_granted'){sev='success';title=`Ahora eres administrador en ${item.community_name}`;desc='Ya puedes administrar los formularios de esta comunidad.';}
         else if(item.kind==='admin_revoked'){sev='warn';title=`Ya no eres administrador en ${item.community_name}`;desc='Tus permisos de administrador fueron retirados.';}
-        return {id:`network-${item.id}`,sev,title,desc,time:dateTime.format(new Date(item.created_at)),destination:'ecosistema',networkKind:item.kind,communityId:item.community_id,resourceId:item.resource_id};
+        else if(item.kind==='form_reminder'){sev='warn';title=`Formulario pendiente en ${item.community_name}`;desc=`${item.title} · ${item.days_remaining===0?'cierra hoy':item.days_remaining===1?'cierra mañana':`cierra en ${item.days_remaining} días`}`;}
+        else if(item.kind==='form_closed'){sev='info';title=`Formulario cerrado en ${item.community_name}`;desc=item.title;}
+        else if(item.kind==='event_reminder'){sev='warn';title=`Evento próximo en ${item.community_name}`;desc=`${item.title} · ${item.days_remaining===0?'es hoy':item.days_remaining===1?'es mañana':`es en ${item.days_remaining} días`}`;}
+        else if(item.kind==='event_today'){sev='success';title=`Evento de hoy en ${item.community_name}`;desc=item.title;}
+        const baseId=`network-${item.id}`,requiresResolution=Boolean(item.requires_resolution);
+        return {id:requiresResolution?dailyNotificationId(baseId,new Date(item.last_triggered_at||item.created_at)):baseId,sev,title,desc,time:dateTime.format(new Date(item.last_triggered_at||item.created_at)),sortAt:item.last_triggered_at||item.created_at,destination:'ecosistema',networkKind:item.kind,communityId:item.community_id,resourceId:item.resource_id,requiresResolution};
       });
     }catch{}
     finally{networkNotificationsLoading=false;renderNotifications();}
@@ -524,7 +535,7 @@ async function cargarSecciones() {
       const response=await fetch(apiUrl+'/api/support/notifications',{cache:'no-store'}),result=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(result.error||'No se pudieron actualizar las notificaciones de soporte.');
       const dateTime=new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short'});
-      supportNotifications=(result.notifications||[]).map(item=>({id:`support-${item.id}`,sev:item.kind==='ticket_expired'?'warn':item.kind==='status_resolved'||item.kind==='reply_received'?'success':item.kind==='new_ticket'?'warn':'info',title:item.title,desc:item.description,time:dateTime.format(new Date(item.created_at)),destination:'ayuda',ticketId:item.ticket_id}));
+      supportNotifications=(result.notifications||[]).map(item=>({id:`support-${item.id}`,sev:item.kind==='ticket_expired'?'warn':item.kind==='status_resolved'||item.kind==='reply_received'?'success':item.kind==='new_ticket'?'warn':'info',title:item.title,desc:item.description,time:dateTime.format(new Date(item.created_at)),sortAt:item.created_at,destination:'ayuda',ticketId:item.ticket_id}));
     }catch{}
     finally{supportNotificationsLoading=false;renderNotifications();}
   }
@@ -583,7 +594,7 @@ async function cargarSecciones() {
       activityNotifications=activityNotifications.slice(0,40);saveInventoryNotifications();renderNotifications();
     }
   });
-  document.addEventListener('diagnostico-actualizado',event=>{diagnosticNotifications=event.detail?.alerts||[];renderNotifications();});
+  document.addEventListener('diagnostico-actualizado',event=>{diagnosticNotifications=(event.detail?.alerts||[]).map(notification=>({...notification,id:notification.requiresResolution?dailyNotificationId(notification.id):notification.id,sortAt:notification.requiresResolution?notificationDaySortTime():notification.sortAt}));renderNotifications();});
   document.addEventListener('red-pymio-notifications',event=>{
     const detail=event.detail||{},kindLabels={message:'Mensaje privado',quote_request:'Solicitud de cotización',offer:'Oferta exclusiva',business_update:'Novedad de negocio'};
     const requests=(detail.requests||[]).map(request=>({id:`connection-request-${request.id}`,connectionRequestId:request.id,companyId:request.company_id,sev:'info',title:`${request.display_name} quiere conectar contigo`,desc:'Acepta para agregar esta empresa a Mi RED y habilitar las herramientas privadas.',time:new Date(request.created_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short'}),requiresResolution:true}));
@@ -633,7 +644,7 @@ async function cargarSecciones() {
     refreshSyncNotifications();
     refreshNetworkNotifications();
     refreshSupportNotifications();
-    clearInterval(networkNotificationsTimer);networkNotificationsTimer=setInterval(refreshNetworkNotifications,45000);
+    clearInterval(networkNotificationsTimer);networkNotificationsTimer=setInterval(refreshNetworkNotifications,300000);
     clearInterval(supportNotificationsTimer);supportNotificationsTimer=setInterval(refreshSupportNotifications,45000);
   }
 

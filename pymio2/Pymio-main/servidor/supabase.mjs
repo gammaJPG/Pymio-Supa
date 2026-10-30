@@ -41,6 +41,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
   const enrichCommunityDetail=async (result,enrichMembers=true)=>{
     if(!result)return result;const enriched={...result};
     if(Array.isArray(result.events))enriched.events=await enrichEvents(result.events);
+    if(Array.isArray(result.forms)&&result.forms.length){try{const ids=result.forms.map(item=>item.id).filter(Boolean),rows=await requestJson(`/rest/v1/community_forms?id=in.(${encodeURIComponent(ids.join(','))})&select=id,closes_at`,{headers},'No se pudieron completar las fechas de cierre.'),byId=new Map((Array.isArray(rows)?rows:[]).map(item=>[item.id,item]));enriched.forms=result.forms.map(item=>({...item,...byId.get(item.id)}));}catch(error){if(error.code!=='PGRST204'&&!/closes_at/i.test(error.message||''))throw error;}}
     if(enrichMembers&&Array.isArray(result.members)&&result.members.length){try{const names=await getPublicNames(result.members.map(item=>item.company_id));enriched.members=result.members.map(item=>({...item,name:names.get(String(item.company_id))||item.name}));}catch{}}
     return enriched;
   };
@@ -335,6 +336,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       return this.getCommunityEventDetail(eventId,companyId);
     },
     async getCommunityNotifications(companyId){
+      await requestJson('/rest/v1/rpc/pymio_generate_community_reminders',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:'{}'},'No se pudieron generar los recordatorios de la comunidad.').catch(error=>{if(error.code!=='PGRST202'&&!/pymio_generate_community_reminders/i.test(error.message||''))throw error;});
       const memberships=await requestJson(`/rest/v1/community_members?company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id,role,joined_at,role_since`,{headers},'No se pudieron consultar tus comunidades.');
       if(!memberships.length)return [];
       const ids=[...new Set(memberships.map(item=>item.community_id))],idFilter=encodeURIComponent(ids.join(','));
@@ -344,11 +346,13 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       try{
         const notifications=[];
         for(let offset=0;;offset+=500){
-          const page=await requestJson(`/rest/v1/community_notifications?company_id=eq.${encodeURIComponent(String(companyId))}&select=id,community_id,kind,resource_id,title,event_at,created_at&order=created_at.desc&limit=500&offset=${offset}`,{headers},'No se pudieron consultar las notificaciones de la comunidad.');
+          const page=await requestJson(`/rest/v1/community_notifications?company_id=eq.${encodeURIComponent(String(companyId))}&select=id,community_id,kind,resource_id,title,event_at,created_at,last_triggered_at,requires_resolution,days_remaining&order=last_triggered_at.desc&limit=500&offset=${offset}`,{headers},'No se pudieron consultar las notificaciones de la comunidad.');
           notifications.push(...page);if(page.length<500)break;
         }
-        return [...roleChanges,...notifications.map(item=>({...item,community_name:names.get(item.community_id)||'Comunidad'}))]
-          .filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at));
+        const latestReminders=new Map(),stable=[];
+        for(const item of notifications){const reminder=['form_reminder','event_reminder','event_today'].includes(item.kind);if(!reminder){stable.push(item);continue;}const key=`${item.company_id||companyId}:${item.resource_id}:${item.kind.startsWith('form')?'form':'event'}`;if(!latestReminders.has(key))latestReminders.set(key,item);}
+        return [...roleChanges,...stable,...latestReminders.values()].map(item=>({...item,community_name:names.get(item.community_id)||'Comunidad'}))
+          .filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.last_triggered_at||b.created_at)-Date.parse(a.last_triggered_at||a.created_at));
       }catch(error){
         if(error.code!=='PGRST205'&&!/community_notifications/i.test(error.message||''))throw error;
       }
@@ -361,6 +365,19 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
         ...forms.map(item=>({id:`form-${item.id}`,kind:'form_created',resource_id:item.id,title:item.title,created_at:item.created_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
         ...events.map(item=>({id:`event-${item.id}`,kind:'event_created',resource_id:item.id,title:item.title,created_at:item.created_at,event_at:item.event_at,community_id:item.community_id,community_name:names.get(item.community_id)||'Comunidad'})),
       ].filter(item=>(Date.parse(item.created_at)||0)>=Number(joinedAt.get(item.community_id)||0)).sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)).slice(0,100);
+    },
+    async getNotificationReadIds(companyId){
+      try{return (await requestJson(`/rest/v1/notification_reads?company_id=eq.${encodeURIComponent(String(companyId))}&select=notification_id&order=read_at.desc&limit=500`,{headers},'No se pudo consultar el estado de lectura.')).map(item=>item.notification_id);}
+      catch(error){if(error.code==='PGRST205'||/notification_reads/i.test(error.message||''))return [];throw error;}
+    },
+    async markNotificationReadIds(companyId,ids){
+      if(!ids.length)return;
+      try{await requestJson('/rest/v1/notification_reads?on_conflict=company_id,notification_id',{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(ids.map(notification_id=>({company_id:String(companyId),notification_id,read_at:new Date().toISOString()})))},'No se pudo guardar el estado de lectura.');}
+      catch(error){if(error.code!=='PGRST205'&&!/notification_reads/i.test(error.message||''))throw error;}
+    },
+    async createCommunityForm(companyId,payload){
+      try{return await enrichCommunityDetail(await requestJson('/rest/v1/rpc/pymio_create_community_form',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({company:companyId,payload})},'No se pudo crear el formulario.'));}
+      catch(error){if(error.code!=='PGRST202'&&!/pymio_create_community_form/i.test(error.message||''))throw error;return this.community('form.create',companyId,payload);}
     },
     async getCommunityChats(companyId){
       const memberships=await requestJson(`/rest/v1/community_members?company_id=eq.${encodeURIComponent(String(companyId))}&select=community_id`,{headers},'No se pudieron consultar tus chats de comunidad.');
@@ -471,7 +488,7 @@ export function createSupabase({ url = process.env.SUPABASE_URL, key = process.e
       if(!['open','closed'].includes(status))throw Object.assign(new Error('El estado del formulario no es válido.'),{status:400});
       const detail=await this.community('form.export',companyId,{form_id:formId}),communityId=detail.community?.id;
       if(!communityId||!detail.forms?.some(form=>form.id===formId))throw Object.assign(new Error('El formulario ya no está disponible.'),{status:404});
-      await requestJson(`/rest/v1/community_forms?id=eq.${encodeURIComponent(formId)}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({status,closed_at:status==='closed'?new Date().toISOString():null})},status==='closed'?'No se pudo cerrar el formulario.':'No se pudo abrir el formulario.');
+      await requestJson(`/rest/v1/community_forms?id=eq.${encodeURIComponent(formId)}`,{method:'PATCH',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({status,closed_at:status==='closed'?new Date().toISOString():null,...(status==='open'?{closes_at:null}:{})})},status==='closed'?'No se pudo cerrar el formulario.':'No se pudo abrir el formulario.');
       return this.community('detail',companyId,{community_id:communityId});
     },
     async getCommunityFormResponse(formId,companyId){

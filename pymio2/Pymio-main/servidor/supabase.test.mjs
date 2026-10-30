@@ -162,8 +162,8 @@ test('Supabase RED Pymio: notifica formularios y eventos creados después de uni
   const notifications=await client.getCommunityNotifications(7);
   assert.deepEqual(notifications.map(item=>item.id),['event-e1','form-f1']);assert.deepEqual(notifications.map(item=>item.kind),['event_created','form_created']);
   assert.equal(notifications[0].community_name,'Comercio Local');
-  assert.equal(calls.length,5);assert.equal(calls[0].searchParams.get('company_id'),'eq.7');
-  assert.equal(calls[0].searchParams.get('select'),'community_id,role,joined_at,role_since');
+  assert.equal(calls.length,6);assert.match(calls[0].pathname,/pymio_generate_community_reminders/);assert.equal(calls[1].searchParams.get('company_id'),'eq.7');
+  assert.equal(calls[1].searchParams.get('select'),'community_id,role,joined_at,role_since');
 });
 
 test('Supabase RED Pymio: conserva el historial de eventos modificados y eliminados',async()=>{
@@ -207,7 +207,7 @@ test('Supabase RED Pymio: elimina el formulario y sus archivos con autorización
     return Response.json({});
   }});
   assert.deepEqual(await client.deleteCommunityForm(formId,7),{communityId});
-  const deletion=calls.find(call=>call.url.pathname.endsWith('/community_forms'));assert.equal(deletion.options.method,'DELETE');assert.equal(deletion.url.searchParams.get('id'),`eq.${formId}`);
+  const deletion=calls.find(call=>call.url.pathname.endsWith('/community_forms')&&call.options.method==='DELETE');assert.equal(deletion.options.method,'DELETE');assert.equal(deletion.url.searchParams.get('id'),`eq.${formId}`);
   const storage=calls.find(call=>call.url.pathname.includes('/storage/v1/object/community-form-files/'));assert.equal(storage.options.method,'DELETE');
 });
 
@@ -279,7 +279,7 @@ test('Supabase RED Pymio: cerrar y abrir conserva las respuestas del formulario'
     return Response.json({});
   }});
   await client.setCommunityFormStatus(formId,7,'closed');await client.setCommunityFormStatus(formId,7,'open');
-  const patches=calls.filter(call=>call.url.pathname.endsWith('/community_forms'));
+  const patches=calls.filter(call=>call.url.pathname.endsWith('/community_forms')&&call.options.method==='PATCH');
   assert.deepEqual(patches.map(call=>JSON.parse(call.options.body).status),['closed','open']);
   assert.ok(JSON.parse(patches[0].options.body).closed_at);assert.equal(JSON.parse(patches[1].options.body).closed_at,null);
   assert.ok(patches.every(call=>call.options.method==='PATCH'));

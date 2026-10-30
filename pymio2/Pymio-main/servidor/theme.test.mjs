@@ -43,8 +43,11 @@ test('Inicio: elimina la leyenda Espacio de demostración de la tarjeta inferior
 });
 
 test('Notificaciones: abrir la campana limpia inmediatamente el contador de no leídas',async()=>{
-  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8'),pilot=await readFile(new URL('../piloto.html',import.meta.url),'utf8');
   assert.match(app,/for\(const notification of currentNotifications\(\)\)if\(notification\.id!=null\)readNotificationIds\.add\(String\(notification\.id\)\)/);
   assert.match(app,/const unread=visible\.filter\(notification=>!readNotificationIds\.has\(String\(notification\.id\)\)\)\.length/);
   assert.match(app,/notifPanel\.classList\.add\('open'\);\s*bellBtn\.setAttribute\('aria-expanded','true'\);\s*markCurrentNotificationsRead\(\);\s*renderNotifications\(\)/);
+  assert.match(app,/return orderNotifications\(/);
+  assert.match(app,/dailyNotificationId\(notification\.id\)/);
+  assert.doesNotMatch(pilot,/Se marcan como leídas al (abrir|cerrar)/);
 });

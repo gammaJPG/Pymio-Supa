@@ -196,7 +196,12 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     const communityEvent=/^\/api\/network\/events\/([0-9a-f-]{36})$/i.exec(url.pathname);
     const communityEventResponse=/^\/api\/network\/events\/([0-9a-f-]{36})\/response$/i.exec(url.pathname);
     if(url.pathname==='/api/network/addresses'&&req.method==='GET')return send(200,{items:await searchChileanAddresses(url.searchParams.get('query')||'')});
-    if(url.pathname==='/api/network/notifications'&&req.method==='GET')return send(200,{notifications:await pool.getCommunityNotifications(companyId)});
+    if(url.pathname==='/api/network/notifications'&&req.method==='GET')return send(200,{notifications:await pool.getCommunityNotifications(companyId),readIds:typeof pool.getNotificationReadIds==='function'?await pool.getNotificationReadIds(companyId):[]});
+    if(url.pathname==='/api/network/notifications/read'&&req.method==='POST'){
+      requireJson(req);const data=await bodyJson(req,64*1024),ids=[...new Set((Array.isArray(data.ids)?data.ids:[]).map(id=>text(id,180)).filter(Boolean))].slice(0,200);
+      if(typeof pool.markNotificationReadIds==='function')await pool.markNotificationReadIds(companyId,ids);
+      return send(200,{readIds:ids});
+    }
     if(url.pathname==='/api/network/bootstrap' && req.method==='GET'){
       const snapshot=applyMessageRetention(await pool.network('bootstrap',companyId,{})),groupChats=typeof pool.getCommunityChats==='function'?await pool.getCommunityChats(companyId):[],eventParticipations=typeof pool.getEventParticipationSummary==='function'?await pool.getEventParticipationSummary(companyId):[];
       return send(200,{...snapshot,group_chats:groupChats,event_participations:eventParticipations});
@@ -260,7 +265,10 @@ export async function atenderRedPymio(req,pool,companyId,send,url,res){
     if(communityMembership&&req.method==='DELETE')return send(200,await pool.leaveCommunity(communityMembership[1],companyId));
     if(url.pathname==='/api/network/forms' && req.method==='POST'){
       requireJson(req);const data=await bodyJson(req,64*1024),questions=Array.isArray(data.questions)?data.questions:[];
-      return send(201,await pool.community('form.create',companyId,{community_id:data.communityId,title:text(data.title,140),questions:cleanFormQuestions(questions)}));
+      const closesAt=data.closesAt?new Date(data.closesAt):null;
+      if(closesAt&&(!Number.isFinite(closesAt.getTime())||closesAt.getTime()<=Date.now()))return send(400,{error:'La fecha de cierre debe estar en el futuro.'});
+      const payload={community_id:data.communityId,title:text(data.title,140),closes_at:closesAt?.toISOString()||null,questions:cleanFormQuestions(questions)};
+      return send(201,typeof pool.createCommunityForm==='function'?await pool.createCommunityForm(companyId,payload):await pool.community('form.create',companyId,payload));
     }
     if(formStatus && req.method==='POST')return send(200,await pool.setCommunityFormStatus(formStatus[1],companyId,formStatus[2]==='open'?'open':'closed'));
     if(formDelete && req.method==='DELETE'){

@@ -36,6 +36,22 @@ test('RED Pymio: entrega notificaciones de las comunidades del usuario',async()=
   assert.equal(response.status,200);assert.deepEqual(response.data.notifications,expected);assert.equal(company,'7');
 });
 
+test('RED Pymio: persiste lectura sin duplicados y limita el lote',async()=>{
+  const ids=[...Array(205)].map((_,index)=>`alerta-${index}`),input=request('/api/network/notifications/read','POST',{ids:[ids[0],...ids,ids[0]]});let response,saved;
+  await atenderRedPymio(input.req,{markNotificationReadIds:async(company,values)=>{saved={company,values};}},'7',(status,data)=>response={status,data},input.url);
+  assert.equal(response.status,200);assert.equal(saved.company,'7');assert.equal(saved.values.length,200);assert.equal(new Set(saved.values).size,200);
+});
+
+test('RED Pymio: valida la fecha de cierre del formulario',async()=>{
+  const communityId='10000000-0000-4000-8000-000000000001',questions=[{title:'¿Confirmas?',type:'text'}];
+  const past=await call('/api/network/forms','POST',{communityId,title:'Pasado',closesAt:'2000-01-01T00:00:00Z',questions});
+  assert.equal(past.response.status,400);assert.match(past.response.data.error,/futuro/);
+  let captured;
+  const futureInput=request('/api/network/forms','POST',{communityId,title:'Vigente',closesAt:'2099-01-01T12:00:00Z',questions}),pool={createCommunityForm:async(company,payload)=>{captured={company,payload};return {forms:[]};}};let response;
+  await atenderRedPymio(futureInput.req,pool,'7',(status,data)=>response={status,data},futureInput.url);
+  assert.equal(response.status,201);assert.equal(captured.company,'7');assert.equal(captured.payload.closes_at,'2099-01-01T12:00:00.000Z');
+});
+
 test('RED Pymio: valida y normaliza perfil, comunidades y publicaciones',async()=>{
   const profile=await call('/api/network/profile','PUT',{displayName:'  Café Sur  ',industry:'Alimentos',productTags:[' Café ','Mayorista','Café'],website:'',instagram:'https://instagram.com/cafesur',whatsappPhone:'+56 9 1234-5678',contactEmail:'VENTAS@CAFE.CL',accentColor:'#e4b930',avatarPath:'7/avatar/10000000-0000-4000-8000-000000000001.webp',bannerPath:'7/banner/10000000-0000-4000-8000-000000000002.webp'});
   assert.equal(profile.response.status,200);assert.deepEqual(profile.calls[0].payload.product_tags,['Café','Mayorista']);
@@ -352,11 +368,24 @@ test('RED Pymio: el estado de carga conserva el marcado del botón de formulario
 
 test('RED Pymio: la campana actualiza y abre formularios o eventos comunitarios',async()=>{
   const app=await readFile(new URL('../app.js',import.meta.url),'utf8'),ecosistema=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
-  assert.match(app,/\/api\/network\/notifications/);assert.match(app,/setInterval\(refreshNetworkNotifications,45000\)/);
+  assert.match(app,/\/api\/network\/notifications/);assert.match(app,/setInterval\(refreshNetworkNotifications,300000\)/);
   assert.match(app,/Nuevo formulario en/);assert.match(app,/Nuevo evento en/);assert.match(app,/Evento modificado en/);assert.match(app,/Evento eliminado en/);
   assert.match(app,/resourceId:item\.resource_id/);assert.match(app,/red-pymio-notification-open/);assert.match(ecosistema,/openCommunityForm/);assert.match(ecosistema,/data-community-event-id/);
   assert.match(ecosistema,/Este evento fue eliminado\. Estás viendo la agenda actual/);
   assert.match(ecosistema,/red-pymio-actualizado/);
+});
+
+test('RED Pymio: recordatorios diarios conservan orden, lectura y resolución',async()=>{
+  const migration=await readFile(new URL('../supabase/migrations/049_notification_reminders_and_read_state.sql',import.meta.url),'utf8');
+  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+  const ecosystem=await readFile(new URL('../ecosistema.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../ecosistema.html',import.meta.url),'utf8');
+  assert.match(migration,/pymio_generate_community_reminders/);assert.match(migration,/interval '7 days'/);
+  assert.match(migration,/form_reminder/);assert.match(migration,/event_reminder/);assert.match(migration,/event_today/);
+  assert.match(migration,/notification_reads/);assert.match(migration,/community_form_responses/);assert.match(migration,/community_event_responses/);
+  assert.match(html,/name="closesAt" type="datetime-local"/);assert.match(ecosystem,/closesAt:closesAt\?\.toISOString\(\)\|\|''/);
+  assert.match(app,/dailyNotificationId/);assert.match(app,/orderNotifications/);assert.match(app,/last_triggered_at/);
+  assert.match(app,/\/api\/network\/notifications\/read/);assert.match(app,/Formulario pendiente en/);assert.match(app,/Evento próximo en/);
 });
 
 test('RED Pymio: persiste notificaciones comunitarias para todos los miembros',async()=>{
